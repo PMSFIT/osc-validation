@@ -1,0 +1,5 @@
+lxml==5.2.2
+matplotlib==3.8.2
+open-simulation-interface @ git+https://github.com/OpenSimulationInterface/open-simulation-interface.git@v3.7.0
+pandas==2.2.3
+similaritymeasures==1.1.0
