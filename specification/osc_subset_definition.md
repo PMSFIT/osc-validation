@@ -13,7 +13,7 @@ With increasing functionality of the validation suite, increased subsets of Open
 
 ### Exclusive OpenSCENARIO content
 
-(see complete structure in [xosc example file](./example/20240603T143803.535904Z_osc_pmsf_dronetracker_119_cutout_shortened.xosc))
+(see complete structure in [xosc example file](./../example/20240603T143803.535904Z_osc_pmsf_dronetracker_119_cutout_shortened.xosc))
 
 - FileHeader, License
 - Entities/ScenarioObject/Vehicle
