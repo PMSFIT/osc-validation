@@ -11,7 +11,7 @@ from osi3trace.osi_trace import OSITrace
 import osi3
 from osi3 import osi_object_pb2
 
-import utils
+from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointXYZ
 
 XOSC_VERSION_MAJOR = 1
 XOSC_VERSION_MINOR = 3
@@ -175,10 +175,10 @@ class OSI2OSCMovingObject:
             h = point["h"]
             p = point["p"]
             r = point["r"]
-            rx, ry, rz = utils.rotatePointXYZ(self.bbcenter_to_rear_x,
-                                              self.bbcenter_to_rear_y,
-                                              self.bbcenter_to_rear_z,
-                                              h,p,r)
+            rx, ry, rz = rotatePointXYZ(self.bbcenter_to_rear_x,
+                                        self.bbcenter_to_rear_y,
+                                        self.bbcenter_to_rear_z,
+                                        h,p,r)
             x = x-rx
             y = y-ry
             z = z-rz
@@ -284,7 +284,7 @@ def parse_moving_objects(osi_sensorview_trace: OSITrace) -> list[OSI2OSCMovingOb
     my_moving_objects = []
     for osi_sensorview in osi_sensorview_trace:
         assert isinstance(osi_sensorview, osi3.osi_sensorview_pb2.SensorView)
-        current_timestamp = utils.timestamp_osi_to_float(osi_sensorview.timestamp)
+        current_timestamp = timestamp_osi_to_float(osi_sensorview.timestamp)
         for osi_moving_object in osi_sensorview.global_ground_truth.moving_object:
             current_moving_object_id = osi_moving_object.id.value
             if not any(obj.id == current_moving_object_id for obj in my_moving_objects):
@@ -327,21 +327,7 @@ def parse_moving_objects(osi_sensorview_trace: OSITrace) -> list[OSI2OSCMovingOb
     return my_moving_objects
 
 
-def create_argparser():
-    parser = argparse.ArgumentParser(
-        description="Convert OSI SensorView trace file to OpenScenario XML file."
-    )
-    parser.add_argument("ositrace", help="Path to the input OSI SensorView trace file.")
-    parser.add_argument("xosc", help="Path to the output OpenScenario XML file.")
-    return parser
-
-
-def main():
-    parser = create_argparser()
-    args = parser.parse_args()
-    path_sensorview = Path(args.ositrace)
-    path_xosc = Path(args.xosc)
-
+def osi2osc(path_sensorview: Path, path_xosc: Path):
     osi_sensorview_trace = OSITrace(path=str(path_sensorview), type_name="SensorView")
 
     if not os.path.exists(path_sensorview):
@@ -409,6 +395,23 @@ def main():
 
     xml_tree = etree.ElementTree(xml_root)
     xml_tree.write(path_xosc, encoding="utf-8", xml_declaration=True, pretty_print=True)
+
+
+def create_argparser():
+    parser = argparse.ArgumentParser(
+        description="Convert OSI SensorView trace file to OpenScenario XML file."
+    )
+    parser.add_argument("ositrace", help="Path to the input OSI SensorView trace file.")
+    parser.add_argument("xosc", help="Path to the output OpenScenario XML file.")
+    return parser
+
+
+def main():
+    parser = create_argparser()
+    args = parser.parse_args()
+    path_sensorview = Path(args.ositrace)
+    path_xosc = Path(args.xosc)
+    osi2osc(path_sensorview, path_xosc)
 
 
 if __name__ == "__main__":
