@@ -65,6 +65,13 @@ For the successful interpretation of a scenario with specific OpenSCENARIO imple
 Esmini requires 'InitActions' to ensure successful spawning of scenario objects.
 In that case, the definition of one 'TeleportAction' with position type 'WorldPosition' per contained scenario object in 'InitActions' is allowed.
 
+#### gt-gen-simulator
+- Requires empty <Properties/> in vehicle definition even though not required by OpenSCENARIO.
+- Requires one vehicle to be named 'Ego' or 'Host'.
+- Requires a specification of a road network (e.g. OpenDRIVE map) in the scenario definition.
+- Does not support StoryboardElementStateCondition to end the storyboard when the story ends.
+- Stops the simulation when the last polyline point is reached with unhandled exception.
+
 ### OSC Generation
 
 To generate a scenario from an OSI SensorView trace file, the following OSI attributes are required or the corresponding information has to be added in other ways to the scenario file:

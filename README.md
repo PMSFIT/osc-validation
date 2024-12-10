@@ -31,13 +31,26 @@ poetry install
      esmini --window 60 60 1024 576 --osc 20240603T143803.535904Z_osc_pmsf_dronetracker_119_cutout.xosc --osi_file --ground_plane --fixed_timestep 0.05
      ```
 
+   - Run gt-gen-simulator-specific OpenSCENARIO file in gt-gen-simulator and export OSI SensorView trace file
+
+      ```bash
+      gtgen_cli -s 20240603T143803.535904Z_osc_pmsf_dronetracker_119_cutout_GTGENSIM.xosc -t 50 -u GTGEN_DATA/UserSettings/UserSettings_gt-gen-simulator.ini
+      ```
+
    - The OpenSCENARIO file could also be run with any other OpenSCENARIO engine, like PMSF OSI3Test, to export an OSI trace.
 
-3. Convert Esmini OSI GroundTruth trace into OSI SensorView
+3. Modify exported OSI trace if needed, e.g.
+   - Convert Esmini OSI GroundTruth trace into OSI SensorView
 
-   ```bash
-   esminigt2sv ground_truth.osi 20240603T143803.535904Z_sv_370_3200_370_pmsf_dronetracker_119_cutout_ESMINIEXPORT.osi
-   ```
+      ```bash
+      esminigt2sv ground_truth.osi 20240603T143803.535904Z_sv_370_3200_370_pmsf_dronetracker_119_cutout_ESMINIEXPORT.osi
+      ```
+
+   - Remove content from gt-gen-simulator export that is not required for the validation activity to keep file size down (e.g. remove road network information)
+
+      ```bash
+      strip_sensorview .\example\20240603T143803.535904Z_sv_370_3200_370_pmsf_dronetracker_119_cutout_GTGENSIMEXPORT.osi .\example\20240603T143803.535904Z_sv_370_3200_370_pmsf_dronetracker_119_cutout_GTGENSIMEXPORT_stripped.osi --lane_boundary --logical_lane --logical_lane_boundary --reference_line --lane --environmental_conditions
+      ```
 
 4. Extract trajectories from both OSI traces and analyze
 
