@@ -66,7 +66,7 @@ Esmini requires 'InitActions' to ensure successful spawning of scenario objects.
 In that case, the definition of one 'TeleportAction' with position type 'WorldPosition' per contained scenario object in 'InitActions' is allowed.
 
 #### gt-gen-simulator
-- Requires empty <Properties/> in vehicle definition even though not required by OpenSCENARIO.
+- Requires empty \<Properties/\> in vehicle definition even though not required by OpenSCENARIO.
 - Requires one vehicle to be named 'Ego' or 'Host'.
 - Requires a specification of a road network (e.g. OpenDRIVE map) in the scenario definition.
 - Does not support StoryboardElementStateCondition to end the storyboard when the story ends.
