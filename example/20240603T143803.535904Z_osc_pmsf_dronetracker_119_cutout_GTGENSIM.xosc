@@ -3,7 +3,7 @@
   <FileHeader revMajor="1" revMinor="3" date="2024-10-02T14:49:04" author="PMSF OSI2OSC Converter" description=""/>
   <CatalogLocations/>
   <RoadNetwork>
-      <LogicFile filepath="../../Maps/provisional_map_for_osc_validation.xodr"/>
+      <LogicFile filepath="20240603T143803.535904Z_odr_pmsf_dronetracker_119_cutout_GTGENSIM.xodr"/>
   </RoadNetwork>
   <Entities>
     <ScenarioObject name="Ego">
@@ -37,28 +37,6 @@
   </Entities>
   <Storyboard>
   <Init><Actions></Actions></Init>
-    <!-- <Init>
-      <Actions>
-        <Private entityRef="Ego">
-          <PrivateAction>
-            <TeleportAction>
-              <Position>
-                <WorldPosition x="104" y="118" z="0" h="0" p="0" r="0"/>
-              </Position>
-            </TeleportAction>
-          </PrivateAction>
-        </Private>
-        <Private entityRef="osi_moving_object_2">
-          <PrivateAction>
-            <TeleportAction>
-              <Position>
-                <WorldPosition x="104" y="118" z="0" h="0" p="0" r="0"/>
-              </Position>
-            </TeleportAction>
-          </PrivateAction>
-        </Private>
-      </Actions>
-    </Init> -->
     <Story name="Story1">
       <Act name="osi_moving_object_vehicle_1_act">
         <ManeuverGroup name="osi_moving_object_vehicle_1_maneuvergroup" maximumExecutionCount="1">
@@ -3767,19 +3745,10 @@
         <ConditionGroup>
           <Condition name="End" delay="0" conditionEdge="rising">
             <ByValueCondition>
-              <SimulationTimeCondition value="30" rule="greaterThan"/>
+              <SimulationTimeCondition value="18.45" rule="greaterThan"/>
             </ByValueCondition>
           </Condition>
         </ConditionGroup>
       </StopTrigger>
-    <!-- <StopTrigger>
-      <ConditionGroup>
-        <Condition name="QuitCondition" delay="0" conditionEdge="rising">
-          <ByValueCondition>
-            <StoryboardElementStateCondition storyboardElementType="story" storyboardElementRef="Story1" state="completeState"/>
-          </ByValueCondition>
-        </Condition>
-      </ConditionGroup>
-    </StopTrigger> -->
   </Storyboard>
 </OpenSCENARIO>

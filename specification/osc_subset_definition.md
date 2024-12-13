@@ -66,11 +66,16 @@ Esmini requires 'InitActions' to ensure successful spawning of scenario objects.
 In that case, the definition of one 'TeleportAction' with position type 'WorldPosition' per contained scenario object in 'InitActions' is allowed.
 
 #### gt-gen-simulator
-- Requires empty \<Properties/\> in vehicle definition even though not required by OpenSCENARIO.
+- Requires an empty \<Properties/\> in vehicle definition even though not required by OpenSCENARIO.
 - Requires one vehicle to be named 'Ego' or 'Host'.
 - Requires a specification of a road network (e.g. OpenDRIVE map) in the scenario definition.
+- The scenario objects must not be placed outside the defined road (network). The simulator stops with an unhandled exception when a vehicle leaves the road.
+    ```
+    [2024-12-13 11:05:25.915] [gtgen::core] [error] [18.500s] Terminating due to an unhandled exception:
+        gtgen::core::environment::EnvironmentException
+        what(): Cannot keep lane offset for entity "osi_moving_object_2" (id: 1001): Position -65.365737171, 16.113888127, 0.709500000 not on a lane
+    ```
 - Does not support StoryboardElementStateCondition to end the storyboard when the story ends.
-- Stops the simulation when the last polyline point is reached with unhandled exception.
 
 ### OSC Generation
 
