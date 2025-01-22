@@ -17,7 +17,6 @@
           <FrontAxle maxSteering="0.5" positionX="2.7" positionZ="0.4" trackWidth="1.63" wheelDiameter="0.8"/>
           <RearAxle maxSteering="0.5" positionX="0" positionZ="0.4" trackWidth="1.63" wheelDiameter="0.8"/>
         </Axles>
-        <Properties/>
       </Vehicle>
     </ScenarioObject>
     <ScenarioObject name="osi_moving_object_2">
@@ -31,7 +30,6 @@
           <FrontAxle maxSteering="0.5" positionX="2.7" positionZ="0.4" trackWidth="1.63" wheelDiameter="0.8"/>
           <RearAxle maxSteering="0.5" positionX="0" positionZ="0.4" trackWidth="1.63" wheelDiameter="0.8"/>
         </Axles>
-        <Properties/>
       </Vehicle>
     </ScenarioObject>
   </Entities>

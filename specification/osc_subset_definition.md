@@ -66,7 +66,7 @@ Esmini requires 'InitActions' to ensure successful spawning of scenario objects.
 In that case, the definition of one 'TeleportAction' with position type 'WorldPosition' per contained scenario object in 'InitActions' is allowed.
 
 #### gt-gen-simulator
-- Requires an empty \<Properties/\> in vehicle definition even though not required by OpenSCENARIO.
+- Requires an empty \<Properties/\> in vehicle definition even though not required by OpenSCENARIO. -> Fixed in gt-gen-simulator 9.0.0
 - Requires one vehicle to be named 'Ego' or 'Host'.
 - Requires a specification of a road network (e.g. OpenDRIVE map) in the scenario definition.
 - The scenario objects must not be placed outside the defined road (network). The simulator stops with an unhandled exception when a vehicle leaves the road.
