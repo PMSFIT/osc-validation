@@ -22,6 +22,7 @@ black = "^24.4.2"
 [tool.poetry.scripts]
 osi2osc = 'osc_validation.generation.osi2osc:main'
 esminigt2sv = 'osc_validation.utils.esminigt2sv:main'
+strip_sensorview = 'osc_validation.utils.strip_sensorview:main'
 trajectory_similarity = 'osc_validation.metrics.trajectory_similarity:main'
 
 [build-system]
