@@ -2,7 +2,7 @@
 name = "osc-validation"
 version = "0.1.0"
 description = "This project implements a validation suite for ASAM OpenSCENARIO XML implementations for a restricted subset of ASAM OpenSCENARIO XML."
-authors = ["Pierre R. Mai <pmai@pmsf.de>"]
+authors = ["PMSF <osi@pmsf.de>"]
 license = "MPL-2.0"
 readme = "README.md"
 repository = "https://github.com/PMSFIT/osc-validation"
@@ -13,7 +13,8 @@ lxml = "^5.2.2"
 matplotlib = "^3.8.2"
 open-simulation-interface = { git = "https://github.com/OpenSimulationInterface/open-simulation-interface.git", tag = "v3.7.0" }
 pandas = "2.2.3"
-similaritymeasures = "1.1.0"
+similaritymeasures = "1.2.0"
+requests = "^2.32.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"

@@ -60,6 +60,7 @@ OSI3TEST EXPORT
 363 -155.512163 -15.647916
 
 """
+
 import argparse
 from pathlib import Path
 
@@ -68,9 +69,13 @@ import matplotlib.pyplot as plt
 import similaritymeasures
 from osi3trace.osi_trace import OSITrace
 
-from osc_validation.utils.utils import get_all_moving_object_ids, get_trajectory_by_moving_object_id
+from osc_validation.utils.utils import (
+    get_all_moving_object_ids,
+    get_trajectory_by_moving_object_id,
+)
 
-def calculate_similarity(reference: Path, tool: Path):
+
+def calculate_similarity(reference: Path, tool: Path, plot=False):
     reference_trace = OSITrace(str(reference))
     tool_trace = OSITrace(str(tool))
 
@@ -80,7 +85,9 @@ def calculate_similarity(reference: Path, tool: Path):
     reference_trajectories = []
     tool_trajectories = []
     for i, id in enumerate(reference_moving_object_ids):
-        reference_trajectories.append(get_trajectory_by_moving_object_id(reference_trace, id))
+        reference_trajectories.append(
+            get_trajectory_by_moving_object_id(reference_trace, id)
+        )
     for i, id in enumerate(tool_moving_object_ids):
         traj = get_trajectory_by_moving_object_id(tool_trace, id)
         tool_trajectories.append(traj)
@@ -96,23 +103,45 @@ def calculate_similarity(reference: Path, tool: Path):
     print(tool_trajectories[0].iloc[:, 1:3])
     print("\n###################################################################\n")
 
-    area = similaritymeasures.area_between_two_curves(reference_trajectories[0].iloc[:, 1:3].values, tool_trajectories[0].iloc[:, 1:3].values)
-    cl = similaritymeasures.curve_length_measure(reference_trajectories[0].iloc[:, 1:3].values, tool_trajectories[0].iloc[:, 1:3].values)
-    mae = similaritymeasures.mae(reference_trajectories[0].iloc[:, 1:3].values, tool_trajectories[0].iloc[:, 1:3].values)
+    area = similaritymeasures.area_between_two_curves(
+        reference_trajectories[0].iloc[:, 1:3].values,
+        tool_trajectories[0].iloc[:, 1:3].values,
+    )
+    cl = similaritymeasures.curve_length_measure(
+        reference_trajectories[0].iloc[:, 1:3].values,
+        tool_trajectories[0].iloc[:, 1:3].values,
+    )
+    mae = similaritymeasures.mae(
+        reference_trajectories[0].iloc[:, 1:3].values,
+        tool_trajectories[0].iloc[:, 1:3].values,
+    )
     print(area, cl, mae)
 
-    plt.figure()
-    plt.plot(reference_trajectories[0]["x"], reference_trajectories[0]["y"], 'o-')
-    plt.plot(tool_trajectories[0]["x"], tool_trajectories[0]["y"], 'o-')
-    plt.show()
+    if plot:
+        plt.figure()
+        plt.plot(reference_trajectories[0]["x"], reference_trajectories[0]["y"], "o-")
+        plt.plot(tool_trajectories[0]["x"], tool_trajectories[0]["y"], "o-")
+        plt.show()
+
+    return area, cl, mae
 
 
 def create_argparser():
     parser = argparse.ArgumentParser(
         description="Compare OSI SensorView trace files using trajectory similarity metrics."
     )
-    parser.add_argument("reference_sv", help="Path to the reference OSI SensorView trace file.")
-    parser.add_argument("tool_sv", help="Path to the tool output OSI SensorView trace file.")
+    parser.add_argument(
+        "reference_sv", help="Path to the reference OSI SensorView trace file."
+    )
+    parser.add_argument(
+        "tool_sv", help="Path to the tool output OSI SensorView trace file."
+    )
+    parser.add_argument(
+        "-p",
+        "--plot",
+        action="store_true",
+        help="Plot the reference and tool trajectories for visual comparison.",
+    )
     return parser
 
 
@@ -121,7 +150,7 @@ def main():
     args = parser.parse_args()
     path_reference = Path(args.reference_sv)
     path_tool = Path(args.tool_sv)
-    calculate_similarity(path_reference, path_tool)
+    calculate_similarity(path_reference, path_tool, args.plot)
 
 
 if __name__ == "__main__":
