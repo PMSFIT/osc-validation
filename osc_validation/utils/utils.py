@@ -1,4 +1,6 @@
+from pathlib import Path
 import math
+import struct
 
 import pandas as pd
 
@@ -176,3 +178,28 @@ def rotatePointXYZ(x,y,z,yaw,pitch,roll):
     rz = (-cos_roll*sin_pitch*cos_yaw + sin_roll*sin_yaw) * x + (cos_roll*sin_pitch*sin_yaw + sin_roll*cos_yaw)  * y + (cos_roll*cos_pitch)  * z
 
     return (rx,ry,rz)
+
+
+def crop_trace(input: Path, output: Path, start_time: float = None, end_time: float = None) -> Path:
+    """
+    Crops the content of an input OSI trace based on the given inclusive interval and stores it
+    at the given output path.
+
+    Args:
+        input (Path): Path to the input OSI trace
+        output (Path): Path to the output OSI trace
+        start_time (float, optional): Start time of the inclusive interval
+        end_time (float, optional): End time of the inclusive interval
+    Returns:
+        Path to the output OSI trace
+    """
+    ositrace = OSITrace(str(input))
+    ositrace.restart()
+    ositrace_cropped = open(output, "ab")
+    for message in ositrace:
+        message_time = timestamp_osi_to_float(message.timestamp)
+        if (start_time is None or message_time >= start_time) and (end_time is None or message_time <= end_time):
+            bytes_buffer = message.SerializeToString()
+            ositrace_cropped.write(struct.pack("<L", len(bytes_buffer)))
+            ositrace_cropped.write(bytes_buffer)
+    return output
