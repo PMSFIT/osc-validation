@@ -15,6 +15,7 @@ open-simulation-interface = { git = "https://github.com/OpenSimulationInterface/
 pandas = "2.2.3"
 similaritymeasures = "1.2.0"
 requests = "^2.32.3"
+playwright = "^1.51.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
