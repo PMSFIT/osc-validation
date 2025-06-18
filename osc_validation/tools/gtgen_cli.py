@@ -20,11 +20,10 @@ class GTGen_Simulator(OSCTool):
         Args:
             osc_path (str): Path to the OpenSCENARIO (.xosc) file.
             odr_path (str): Path to the OpenDRIVE (.xodr) file.
-            osi_path (str): Base path for the output OSI SensorView file.
-            user_settings (str): Path to the user settings .ini file for gtgen_cli.
+            osi_path (str): Path for the output OSI SensorView file.
             rate (float, optional): Step size in seconds.
         Returns:
-            str: The base path for the generated OSI file.
+            str: Path for the output OSI SensorView file.
         """
 
         cmd = [
