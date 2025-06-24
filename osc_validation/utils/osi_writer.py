@@ -1,10 +1,4 @@
-""" OSI3 Trace Tools
-
-(C) 2018-2025 PMSF IT Consulting Pierre R. Mai
-
-This file provides classes or functions to write OSI trace files.
-"""
-
+from pathlib import Path
 import osc_validation
 
 from mcap.writer import Writer
@@ -15,7 +9,7 @@ from google.protobuf.descriptor_pb2 import FileDescriptorSet
 
 
 class OSITraceWriter:
-    def __init__(self, path, net_asam_osi_metadata):
+    def __init__(self, path: Path, net_asam_osi_metadata: dict):
         """
         Args:
             path (str): The file path where the MCAP file will be written. 
@@ -26,18 +20,18 @@ class OSITraceWriter:
         Raises:
             ValueError: If the provided file path does not have a '.mcap' extension.
         """
-        
-        super().__init__(path)
+
+        self.path = path
         self.net_asam_osi_metadata = net_asam_osi_metadata
         self.active_channels = {}
         self.channel_metadata = {}
 
-        if not self.path.endswith(".mcap"):
+        if not str(self.path).endswith(".mcap"):
             raise ValueError(f"Invalid file path: '{self.path}'. File extension must be '.mcap' for MCAP files.")
 
-        self.mcap_writer = Writer(output=path,)
+        self.mcap_writer = Writer(output=str(self.path),)
 
-        self.mcap_writer.start(profile="osi3", library=f"osc_validation {osc_validation.__version__}")
+        self.mcap_writer.start(library=f"osc_validation {osc_validation.__version__}")
 
         self.validate_file_metadata(net_asam_osi_metadata)
         self.mcap_writer.add_metadata(
@@ -130,7 +124,7 @@ class OSITraceWriter:
         """
         Writes a message to the specified topic channel in the MCAP writer.
         Args:
-            message: The message object to be written. It must have a `timestamp` attribute
+            message: The OSI protobuf message object to be written. It must have a `timestamp` attribute
                      with `seconds` and `nanos` properties, and a `SerializeToString` method.
             topic (str): The topic name to which the message should be written.
         Raises:
@@ -164,3 +158,10 @@ class OSITraceWriter:
         active_channels_list = ", ".join(self.active_channels.keys())
         print(f"{self.__class__.__name__}: Wrote {self.written_message_count} messages to the channel(s) [{active_channels_list}] to '{self.path}'.")
         self.mcap_writer.finish()
+
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return False

@@ -1,3 +1,4 @@
 # __init__.py
 
-from .trajectory_similarity import calculate_similarity
+from .osimetric import OSIMetric
+from .trajectory_similarity import TrajectorySimilarityMetric
