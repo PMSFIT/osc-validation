@@ -7,10 +7,10 @@ from typing import Union
 import pandas as pd
 from lxml import etree
 
-from osi3trace.osi_trace import OSITrace
 import osi3
 from osi3 import osi_object_pb2
 
+from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointXYZ
 
 XOSC_VERSION_MAJOR = 1
@@ -277,7 +277,7 @@ class OSI2OSCMovingObject:
         return xml_private
 
 
-def parse_moving_objects(osi_sensorview_trace: OSITrace) -> list[OSI2OSCMovingObject]:
+def parse_moving_objects(osi_sensorview_trace: OSIChannelReader) -> list[OSI2OSCMovingObject]:
     """
     Extracts all moving objects from a OSI SensorView trace.
     """
@@ -327,14 +327,8 @@ def parse_moving_objects(osi_sensorview_trace: OSITrace) -> list[OSI2OSCMovingOb
     return my_moving_objects
 
 
-def osi2osc(path_sensorview: Path, path_xosc: Path):
-    osi_sensorview_trace = OSITrace(path=str(path_sensorview), type_name="SensorView")
-
-    if not os.path.exists(path_sensorview):
-        print(f"Error: The input file {path_sensorview} does not exist.")
-        return
-
-    my_moving_objects = parse_moving_objects(osi_sensorview_trace)
+def osi2osc(osi_sensorview: OSIChannelReader, path_xosc: Path):
+    my_moving_objects = parse_moving_objects(osi_sensorview)
 
     xml_scenario_objects = []
     xml_acts = []
@@ -410,8 +404,11 @@ def main():
     parser = create_argparser()
     args = parser.parse_args()
     path_sensorview = Path(args.ositrace)
+    if not path_sensorview.exists():
+        raise FileNotFoundError(f"Input OSI SensorView trace file '{path_sensorview}' does not exist.")
+    osi_sensorview = OSIChannelReader(path_sensorview, osi3.osi_sensorview_pb2.SensorView)
     path_xosc = Path(args.xosc)
-    osi2osc(path_sensorview, path_xosc)
+    osi2osc(osi_sensorview, path_xosc)
 
 
 if __name__ == "__main__":

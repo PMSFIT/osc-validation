@@ -4,8 +4,11 @@ import struct
 
 import pandas as pd
 
-from osi3 import osi_common_pb2, osi_sensordata_pb2
+from osi3 import osi_common_pb2, osi_sensordata_pb2, osi_sensorview_pb2
 from osi3trace.osi_trace import OSITrace
+
+from osc_validation.utils.osi_reader import OSIChannelReader
+from osc_validation.utils.osi_writer import OSITraceWriter
 
 
 def timestamp_osi_to_float(osi_timestamp: osi_common_pb2.Timestamp) -> float:
@@ -70,11 +73,10 @@ def trajectory_df_info(trajectory_df):
     print("-------------------------------------------------------")
 
 
-def get_all_moving_object_ids(osi_trace: OSITrace) -> list[int]:
+def get_all_moving_object_ids(osi_trace: OSIChannelReader) -> list[int]:
     """
     Extracts all moving object ids in the osi trace.
     """
-    osi_trace.restart()
     moving_object_ids = []
     for message in osi_trace:
         for mo in message.global_ground_truth.moving_object:
@@ -84,7 +86,7 @@ def get_all_moving_object_ids(osi_trace: OSITrace) -> list[int]:
 
 
 def get_trajectory_by_moving_object_id(
-    osi_trace: OSITrace, moving_object_id: str
+    osi_trace: OSIChannelReader, moving_object_id: str
 ) -> pd.DataFrame:
     """
     Extracts trajectory of OSI MovingObject from OSI SensorView.
@@ -98,7 +100,6 @@ def get_trajectory_by_moving_object_id(
 
     Returns pandas data frame containing timestamp, x, y, z, h, p, r.
     """
-    osi_trace.restart()
     trajectory = {"timestamp": [], "x": [], "y": [], "z": [], "h": [], "p": [], "r": []}
     for message in osi_trace:
         for mo in message.global_ground_truth.moving_object:
@@ -180,26 +181,23 @@ def rotatePointXYZ(x,y,z,yaw,pitch,roll):
     return (rx,ry,rz)
 
 
-def crop_trace(input: Path, output: Path, start_time: float = None, end_time: float = None) -> Path:
+def crop_trace(input_trace: OSIChannelReader, output_trace_path: Path, start_time: float = None, end_time: float = None) -> Path:
     """
     Crops the content of an input OSI trace based on the given inclusive interval and stores it
     at the given output path.
 
     Args:
-        input (Path): Path to the input OSI trace
+        input (OSIChannelReader): OSI channel reader for the input OSI trace
         output (Path): Path to the output OSI trace
         start_time (float, optional): Start time of the inclusive interval
         end_time (float, optional): End time of the inclusive interval
     Returns:
         Path to the output OSI trace
     """
-    ositrace = OSITrace(str(input))
-    ositrace.restart()
-    ositrace_cropped = open(output, "ab")
-    for message in ositrace:
-        message_time = timestamp_osi_to_float(message.timestamp)
-        if (start_time is None or message_time >= start_time) and (end_time is None or message_time <= end_time):
-            bytes_buffer = message.SerializeToString()
-            ositrace_cropped.write(struct.pack("<L", len(bytes_buffer)))
-            ositrace_cropped.write(bytes_buffer)
-    return output
+    with input_trace as reader, OSITraceWriter(output_trace_path, input_trace.get_file_metadata()) as writer:
+        writer.add_osi_channel(osi_sensorview_pb2.SensorView, input_trace.get_topic_name(), input_trace.get_channel_metadata())
+        for message in reader:
+            message_time = timestamp_osi_to_float(message.timestamp)
+            if (start_time is None or message_time >= start_time) and (end_time is None or message_time <= end_time):
+                writer.write(message, reader.get_topic_name())
+    return output_trace_path

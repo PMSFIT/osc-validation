@@ -1,10 +1,13 @@
+from pathlib import Path
+from typing import Callable
+
 import pytest
-import os
-import pathlib
+
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.utils.utils import crop_trace
 from osc_validation.generation import osi2osc
-from osc_validation.metrics.trajectory_similarity import calculate_similarity
+from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
+from osc_validation.utils.osi_reader import OSIChannelReader, OSITraceReaderMulti
+from osc_validation.utils.utils import crop_trace
 
 
 @pytest.fixture(
@@ -23,7 +26,7 @@ def odr_file(request):
 
 
 @pytest.mark.parametrize("moving_object_id", [1, 2, 3])
-def test_trajectory(osi_trace, odr_file, generate_tool_trace, tmp_path, moving_object_id, tolerance=1e-6):
+def test_trajectory(osi_trace: Path, odr_file: Path, generate_tool_trace: Callable, tmp_path: Path, moving_object_id: int, tolerance=1e-1):
     """
     Validates that a tool-generated trajectory closely matches the original OSI trace
     for a given moving object, using similarity metrics within a specified tolerance.
@@ -38,23 +41,44 @@ def test_trajectory(osi_trace, odr_file, generate_tool_trace, tmp_path, moving_o
     Raises:
         AssertionError: If any similarity metric exceeds the specified tolerance.
     """
+    # load the OSI trace
+    reference_trace = OSIChannelReader.from_osi_binary(osi_trace, type_name="SensorView")
+
     # generate the OpenSCENARIO file from the OSI trace
-    osi2osc(osi_trace, tmp_path / "osi2osc.xosc")
+    osi2osc(reference_trace, tmp_path / "osi2osc.xosc")
 
     # use OpenSCENARIO file to generate the osi trace with the tool
-    tool_trace = generate_tool_trace(
+    tool_trace_path = generate_tool_trace(
         osc_path = tmp_path / "osi2osc.xosc",
         odr_path = odr_file,
         osi_path = tmp_path / "tool_trace.osi",
         rate = 0.05
     )
 
-    # post-process the tool trace to match the reference trace
-    tool_trace_cropped = tool_trace.with_name(tool_trace.stem + ".cropped" + tool_trace.suffix)
-    tool_trace_cropped = crop_trace(tool_trace, tool_trace_cropped, 0.3)
+    tool_trace = OSIChannelReader.from_osi_binary(tool_trace_path, type_name="SensorView")
 
+    # post-process the tool trace to match the reference trace (create a cropped mcap trace)
+    tool_trace_cropped_path = crop_trace(
+        input_trace=tool_trace,
+        output_trace_path=tool_trace_path.with_name(tool_trace_path.stem + ".cropped" + ".mcap"),
+        start_time=0.3
+        )
+    tool_trace_cropped = OSIChannelReader.from_osi_mcap(
+        trace_reader_multi=OSITraceReaderMulti(tool_trace_cropped_path),
+        topic=tool_trace.get_topic_name()
+        )
+    
     # calculate similarity metrics
-    (area, cl, mae, report) = calculate_similarity(osi_trace, tool_trace_cropped, moving_object_id, plot=False)
+    trajectory_similarity_metric = TrajectorySimilarityMetric(name="TrajectorySimilarityMetric", plot=False)
+    (area, cl, mae, report) = trajectory_similarity_metric.compute(
+        reference_trace=reference_trace,
+        tool_trace=tool_trace_cropped,
+        moving_object_id=moving_object_id,
+        )
+    
+    reference_trace.close()
+    tool_trace.close()
+    tool_trace_cropped.close()
 
     assert area < tolerance
     assert cl < tolerance

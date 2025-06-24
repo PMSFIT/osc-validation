@@ -1,10 +1,4 @@
-""" OSI3 Trace Tools
-
-(C) 2018-2025 PMSF IT Consulting Pierre R. Mai
-
-This file provides classes or functions to read OSI trace files.
-"""
-
+from pathlib import Path
 from osi3trace.osi_trace import OSITrace
 
 from mcap_protobuf.decoder import DecoderFactory
@@ -139,24 +133,22 @@ class OSITraceReaderMulti(OSITraceReaderBase):
 class OSITraceAdapter(OSITraceReaderBase):
     """Adapter that wraps an OSITrace and mimics a multi-channel interface."""
 
-    def __init__(self, path=None, type_name="SensorView", cache_messages=False):
+    def __init__(self, path: Path, type_name: str, cache_messages=False):
         super().__init__(path)
+        if isinstance(path, Path):
+            path = str(path)
         self.trace = OSITrace(path=path, type_name=type_name, cache_messages=cache_messages)
         self.topic_placeholder = "single-channel"
         self._message_type_name = "osi3."+type_name
-
-    def get_topic_placeholder(self):
-        """ Returns a placeholder topic name for single-channel traces. """
-        return self.topic_placeholder
     
-    def get_file_metadata(self, topic):
-        raise NotImplementedError(f"{self.__class__.__name__} does not support file metadata.")
+    def get_file_metadata(self):
+        return {}
 
     def get_available_topics(self):
-        raise NotImplementedError(f"{self.__class__.__name__} does not support channels.")
+        return [self.topic_placeholder]
     
     def get_channel_metadata(self, topic):
-        raise NotImplementedError(f"{self.__class__.__name__} does not support channel metadata.")
+        return {}
     
     def get_channel_info(self, topic):
         """ Traverse the trace to get trace information (start timestamp, stop
@@ -166,6 +158,7 @@ class OSITraceAdapter(OSITraceReaderBase):
         return channel_info
 
     def get_messages(self, topic: str):
+        self.trace.restart()
         return self.trace.get_messages()
     
     def close(self):
@@ -185,15 +178,18 @@ class OSIChannelReader:
         self.topic = topic
 
     @classmethod
-    def from_osi_binary(cls, path=None, type_name="SensorView", cache_messages=False):
+    def from_osi_binary(cls, path, type_name, cache_messages=False):
         fake_multi = OSITraceAdapter(path=path, type_name=type_name, cache_messages=cache_messages)
-        return cls(source=fake_multi, topic=fake_multi.get_topic_placeholder())
+        return cls(source=fake_multi, topic=fake_multi.get_available_topics()[0])
     
     @classmethod
     def from_osi_mcap(cls, trace_reader_multi, topic):
         if topic not in trace_reader_multi.get_available_topics():
             raise ValueError("Topic '"+topic+"' not found in MCAP file.")
         return cls(source=trace_reader_multi, topic=topic)
+    
+    def get_topic_name(self):
+        return self.topic
     
     def get_file_metadata(self):
         return self.source.get_file_metadata()
@@ -212,3 +208,12 @@ class OSIChannelReader:
     
     def close(self):
         return self.source.close()
+
+    def __iter__(self):
+        return self.get_messages()
+    
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
