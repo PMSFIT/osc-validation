@@ -10,6 +10,7 @@ from lxml import etree
 import osi3
 from osi3 import osi_object_pb2
 
+from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointXYZ
 
@@ -327,8 +328,9 @@ def parse_moving_objects(osi_sensorview_trace: OSIChannelReader) -> list[OSI2OSC
     return my_moving_objects
 
 
-def osi2osc(osi_sensorview: OSIChannelReader, path_xosc: Path):
-    my_moving_objects = parse_moving_objects(osi_sensorview)
+def osi2osc(osi_sensorview: OSIChannelSpecification, path_xosc: Path) -> Path:
+    osi_sensorview_channel_reader = OSIChannelReader.from_osi_channel_specification(osi_sensorview)
+    my_moving_objects = parse_moving_objects(osi_sensorview_channel_reader)
 
     xml_scenario_objects = []
     xml_acts = []
@@ -389,6 +391,7 @@ def osi2osc(osi_sensorview: OSIChannelReader, path_xosc: Path):
 
     xml_tree = etree.ElementTree(xml_root)
     xml_tree.write(path_xosc, encoding="utf-8", xml_declaration=True, pretty_print=True)
+    return path_xosc
 
 
 def create_argparser():

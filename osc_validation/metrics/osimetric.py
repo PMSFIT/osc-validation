@@ -1,4 +1,4 @@
-from osc_validation.utils.osi_reader import OSIChannelReader
+from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
 
 
 class OSIMetric:
@@ -9,7 +9,7 @@ class OSIMetric:
     def __init__(self, name: str):
         self.name = name
 
-    def compute(self, reference_trace: OSIChannelReader, tool_trace: OSIChannelReader, **kwargs):
+    def compute(self, reference_channel_spec: OSIChannelSpecification, tool_channel_spec: OSIChannelSpecification):
         raise NotImplementedError("Subclasses should implement this method.")
 
     def __str__(self):
