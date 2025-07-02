@@ -1,0 +1,54 @@
+GroundTruth:
+  version:
+      - is_set:
+  timestamp:
+      - is_set:
+  host_vehicle_id:
+      - is_set:
+  country_code:
+    - is_set:
+    - is_iso_country_code:
+  proj_string:
+    - is_set:
+  map_reference:
+    - is_set:
+MovingObject:
+  id:
+  base:
+    - is_set:
+  type:
+    - is_set:
+  vehicle_classification:
+    - is_set:
+  VehicleClassification:
+    type:
+      - is_set:
+    role:
+      - is_set:
+TrafficLight:
+  classification:
+      - is_set:
+  source_reference:
+      - is_set:
+  Classification:
+    color:
+      - is_set:
+    icon:
+      - is_set:
+    mode:
+      - is_set:
+    counter:
+      - is_set:
+    is_out_of_service:
+      - is_set:
+BaseMoving:
+  dimension:
+    - is_set:
+  position:
+    - is_set:
+  orientation:
+    - is_set:
+  velocity:
+    - is_set:
+  acceleration:
+    - is_set:
