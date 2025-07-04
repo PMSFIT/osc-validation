@@ -50,6 +50,9 @@ class OSITraceWriterBase:
     
     def close(self):
         raise NotImplementedError()
+    
+    def get_channel_metadata(self, topic: str) -> dict:
+        raise NotImplementedError()
 
 
 class OSITraceWriterMulti(OSITraceWriterBase):
@@ -232,6 +235,18 @@ class OSITraceWriterMulti(OSITraceWriterBase):
         logging.info(f"{self.__class__.__name__}: Wrote {self.written_message_count} messages to the channel(s) [{active_channels_list}] to '{self.path}'.")
         self.mcap_writer.finish()
 
+    def get_channel_metadata(self, topic: str) -> dict:
+        """
+        Returns the metadata of the specified channel.
+        
+        Args:
+            topic (str): The topic name of the channel.
+        
+        Returns:
+            dict: The metadata of the channel.
+        """
+        return self.channel_metadata.get(topic, {})
+
     def __enter__(self):
         return self
     
@@ -267,7 +282,7 @@ class OSITraceWriterSingle(OSITraceWriterBase):
         self.size_uncompressed = 0
         self.written_message_count = 0
 
-    def write(self, message, topic):
+    def write(self, message: google.protobuf.message.Message, topic: str):
         buf = message.SerializeToString()
         len_uncompressed = len(buf)
         if self.compress:
@@ -287,6 +302,9 @@ class OSITraceWriterSingle(OSITraceWriterBase):
             compression_ratio_str = "; no compression"
         logging.info(f"{self.__class__.__name__}: Wrote {self.written_message_count} {self.message_type} messages to OSI single-channel file '{self.path}' ({round(self.size/1024/1024, 2)}MB{compression_ratio_str}).")
         self.file.close()
+
+    def get_channel_metadata(self, topic: str):
+        return {}
 
 
 class OSIChannelWriter:
@@ -359,7 +377,7 @@ class OSIChannelWriter:
             path=self.source.path,
             message_type=self.message_type,
             topic=self.topic,
-            metadata=self.source.channel_metadata.get(self.topic, {})
+            metadata=self.source.get_channel_metadata(self.topic)
         )
 
     def __enter__(self):
