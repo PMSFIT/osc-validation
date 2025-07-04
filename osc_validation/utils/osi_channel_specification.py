@@ -156,6 +156,14 @@ class OSIChannelSpecification:
         if self.topic is None:
             self.topic = self.path.stem
 
+    def exists(self) -> bool:
+        """
+        Checks if the file specified by the path exists.
+        Returns:
+            bool: True if the file exists, False otherwise.
+        """
+        return self.path.exists() and self.path.is_file()
+
     def with_name_suffix(self, suffix: str) -> 'OSIChannelSpecification':
         new_name = self.path.stem + suffix + self.path.suffix
         new_path = self.path.with_name(new_name)
@@ -192,3 +200,26 @@ class OSIChannelSpecification:
 
     def __str__(self):
         return f"OSIChannelSpecification(path={self.path}, message_type={self.message_type}, topic={self.topic}, metadata={self.metadata})"
+
+
+class InvalidSpecificationError(Exception):
+    pass
+
+
+class OSIChannelSpecValidator:
+    def __init__(self, allowed_message_types=None, require_message_type=False, require_topic=False, require_metadata_keys=None):
+        self.allowed_message_types = allowed_message_types
+        self.require_message_type = require_message_type
+        self.require_topic = require_topic
+        self.require_metadata_keys = require_metadata_keys or []
+
+    def __call__(self, spec: OSIChannelSpecification):
+        if self.allowed_message_types and spec.message_type not in self.allowed_message_types and spec.message_type is not None:
+            raise InvalidSpecificationError(f"OSI message type is not allowed: {spec.message_type}")
+        if self.require_message_type and not spec.message_type:
+            raise InvalidSpecificationError("OSI message type is required.")
+        if self.require_topic and not spec.topic:
+            raise InvalidSpecificationError("Topic is required.")
+        for key in self.require_metadata_keys:
+            if key not in spec.metadata:
+                raise InvalidSpecificationError(f"Missing required metadata key: {key}")

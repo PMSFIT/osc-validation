@@ -1,3 +1,4 @@
+import logging
 import os
 import argparse
 from datetime import datetime
@@ -23,6 +24,7 @@ XOSC_LICENSE_RESOURCE = ""
 
 # config parameters for osc structure
 STOPTRIGGER = True
+STOPTRIGGER_CONDITION = "SimulationTimeCondition"  # StoryboardElementStateCondition / SimulationTimeCondition
 INITACTIONS = True
 
 class OSI2OSCMovingObject:
@@ -51,9 +53,10 @@ class OSI2OSCMovingObject:
         bbcenter_to_rear_x: Union[float, None] = None,
         bbcenter_to_rear_y: Union[float, None] = None,
         bbcenter_to_rear_z: Union[float, None] = None,
+        host_vehicle: bool = False,
     ):
         self.id = id
-        self.entity_ref = f"osi_moving_object_{self.id}"  # name of ScenarioObject
+        self.entity_ref = f"osi_moving_object_{self.id}" if not host_vehicle else "Ego"  # name of ScenarioObject
         self.length_static = length_static
         self.width_static = width_static
         self.height_static = height_static
@@ -278,12 +281,13 @@ class OSI2OSCMovingObject:
         return xml_private
 
 
-def parse_moving_objects(osi_sensorview_trace: OSIChannelReader) -> list[OSI2OSCMovingObject]:
+def parse_moving_objects(osi_sensorview_trace: OSIChannelSpecification, host_vehicle_id: str) -> list[OSI2OSCMovingObject]:
     """
     Extracts all moving objects from a OSI SensorView trace.
     """
+    reader = OSIChannelReader.from_osi_channel_specification(osi_sensorview_trace)
     my_moving_objects = []
-    for osi_sensorview in osi_sensorview_trace:
+    for osi_sensorview in reader:
         assert isinstance(osi_sensorview, osi3.osi_sensorview_pb2.SensorView)
         current_timestamp = timestamp_osi_to_float(osi_sensorview.timestamp)
         for osi_moving_object in osi_sensorview.global_ground_truth.moving_object:
@@ -296,6 +300,7 @@ def parse_moving_objects(osi_sensorview_trace: OSIChannelReader) -> list[OSI2OSC
                     height_static=osi_moving_object.base.dimension.height,  # use first occurrence
                     type=osi_moving_object.type,
                     vehicle_type=osi_moving_object.vehicle_classification.type,
+                    host_vehicle= (osi_moving_object.id.value == host_vehicle_id),
                 )
                 object_to_add.append_trajectory_row(
                     current_timestamp,
@@ -328,9 +333,14 @@ def parse_moving_objects(osi_sensorview_trace: OSIChannelReader) -> list[OSI2OSC
     return my_moving_objects
 
 
-def osi2osc(osi_sensorview: OSIChannelSpecification, path_xosc: Path) -> Path:
+def osi2osc(osi_sensorview: OSIChannelSpecification, path_xosc: Path, path_xodr: Path=None) -> Path:
     osi_sensorview_channel_reader = OSIChannelReader.from_osi_channel_specification(osi_sensorview)
-    my_moving_objects = parse_moving_objects(osi_sensorview_channel_reader)
+    stop_timestamp = osi_sensorview_channel_reader.get_channel_info().get("stop")
+    logging.info(f"Stop timestamp: {stop_timestamp}")
+    msg = next(osi_sensorview_channel_reader.get_messages())
+    host_vehicle_id = msg.global_ground_truth.host_vehicle_id.value if msg else None
+
+    my_moving_objects = parse_moving_objects(osi_sensorview, host_vehicle_id)
 
     xml_scenario_objects = []
     xml_acts = []
@@ -353,6 +363,10 @@ def osi2osc(osi_sensorview: OSIChannelSpecification, path_xosc: Path) -> Path:
     )
     xml_catalog_locations = etree.SubElement(xml_root, "CatalogLocations")
     xml_road_network = etree.SubElement(xml_root, "RoadNetwork")
+    if path_xodr is not None:
+        xml_road_network.append(
+            etree.Element("LogicFile", filepath=str(path_xodr))
+        )
     xml_entities = etree.SubElement(xml_root, "Entities")
     for xml_scenario_object in xml_scenario_objects:
         xml_entities.append(xml_scenario_object)
@@ -367,27 +381,49 @@ def osi2osc(osi_sensorview: OSIChannelSpecification, path_xosc: Path) -> Path:
     for xml_act in xml_acts:
         xml_story.append(xml_act)
     if STOPTRIGGER:
-        xml_storyboard_stop_trigger = etree.SubElement(xml_storyboard, "StopTrigger")
-        xml_stop_trigger_condition_group = etree.SubElement(
-            xml_storyboard_stop_trigger, "ConditionGroup"
-        )
-        xml_stop_trigger_condition = etree.SubElement(
-            xml_stop_trigger_condition_group,
-            "Condition",
-            name="QuitCondition",
-            delay="0",
-            conditionEdge="rising",
-        )
-        xml_stop_trigger_byvalue_condition = etree.SubElement(
-            xml_stop_trigger_condition, "ByValueCondition"
-        )
-        xml_stop_trigger_state_condition = etree.SubElement(
-            xml_stop_trigger_byvalue_condition,
-            "StoryboardElementStateCondition",
-            storyboardElementType="story",
-            storyboardElementRef=story_name,
-            state="completeState"
-        )
+        if STOPTRIGGER_CONDITION == "StoryboardElementStateCondition":
+            xml_storyboard_stop_trigger = etree.SubElement(xml_storyboard, "StopTrigger")
+            xml_stop_trigger_condition_group = etree.SubElement(
+                xml_storyboard_stop_trigger, "ConditionGroup"
+            )
+            xml_stop_trigger_condition = etree.SubElement(
+                xml_stop_trigger_condition_group,
+                "Condition",
+                name="QuitCondition",
+                delay="0",
+                conditionEdge="rising",
+            )
+            xml_stop_trigger_byvalue_condition = etree.SubElement(
+                xml_stop_trigger_condition, "ByValueCondition"
+            )
+            xml_stop_trigger_state_condition = etree.SubElement(
+                xml_stop_trigger_byvalue_condition,
+                "StoryboardElementStateCondition",
+                storyboardElementType="story",
+                storyboardElementRef=story_name,
+                state="completeState"
+            )
+        elif STOPTRIGGER_CONDITION == "SimulationTimeCondition":
+            xml_storyboard_stop_trigger = etree.SubElement(xml_storyboard, "StopTrigger")
+            xml_stop_trigger_condition_group = etree.SubElement(
+                xml_storyboard_stop_trigger, "ConditionGroup"
+            )
+            xml_stop_trigger_condition = etree.SubElement(
+                xml_stop_trigger_condition_group,
+                "Condition",
+                name="End",
+                delay="0",
+                conditionEdge="rising",
+            )
+            xml_stop_trigger_byvalue_condition = etree.SubElement(
+                xml_stop_trigger_condition, "ByValueCondition"
+            )
+            xml_stop_trigger_simulation_time_condition = etree.SubElement(
+                xml_stop_trigger_byvalue_condition,
+                "SimulationTimeCondition",
+                value=str(stop_timestamp),
+                rule="greaterThan"
+            )
 
     xml_tree = etree.ElementTree(xml_root)
     xml_tree.write(path_xosc, encoding="utf-8", xml_declaration=True, pretty_print=True)

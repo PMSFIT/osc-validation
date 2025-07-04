@@ -13,8 +13,9 @@ from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
 
 def gt2sv(gt_channel_spec: OSIChannelSpecification, sv_channel_spec: OSIChannelSpecification) -> OSIChannelSpecification:
+    writer = OSIChannelWriter.from_osi_channel_specification(sv_channel_spec)
     with OSIChannelReader.from_osi_channel_specification(gt_channel_spec) as gt_reader:
-        with OSIChannelWriter.from_osi_channel_specification(sv_channel_spec) as sv_writer:
+        with writer as sv_writer:
             for gt_msg in gt_reader:
                 # fix gt stuff
                 gt_msg.version.CopyFrom(
@@ -39,7 +40,7 @@ def gt2sv(gt_channel_spec: OSIChannelSpecification, sv_channel_spec: OSIChannelS
                 sv_msg.global_ground_truth.CopyFrom(gt_msg)
                 sv_writer.write(sv_msg)
 
-    return sv_channel_spec
+    return writer.get_channel_specification()
 
 
 def create_argparser():
