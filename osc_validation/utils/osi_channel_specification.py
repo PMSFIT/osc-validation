@@ -142,7 +142,7 @@ class OSIChannelSpecification:
             with OSIChannelReader.from_osi_channel_specification(self) as channel_reader:
                 detected_type = channel_reader.get_message_type()
         elif format == TraceFileFormat.SINGLE_CHANNEL:
-            detected_type = parse_osi_trace_filename(self.path.name).get("type", None)
+            detected_type = parse_osi_trace_filename(self.path.name).get("message_type", None)
 
         if detected_type is not None:
             self.message_type = detected_type
@@ -163,6 +163,39 @@ class OSIChannelSpecification:
             bool: True if the file exists, False otherwise.
         """
         return self.path.exists() and self.path.is_file()
+    
+    def rename_to(self, new_path: Path) -> 'OSIChannelSpecification':
+        """
+        Renames the OSI channel's source file to a new path.
+        Args:
+            new_path (Path): The new path to rename the file to.
+        Returns:
+            OSIChannelSpecification: A new instance with the updated path.
+        Raises:
+            FileNotFoundError: If the file does not exist at the current path.
+            OSError: If the rename operation fails.
+        """
+        if not self.exists():
+            raise FileNotFoundError(f"Cannot rename: file does not exist at {self.path}")
+        try:
+            self.path.rename(new_path)
+        except OSError as e:
+            raise OSError(f"Failed to rename '{self.path}' to '{new_path}': {e}") from e
+        return OSIChannelSpecification(
+            path=new_path,
+            message_type=self.message_type,
+            topic=self.topic,
+            metadata=self.metadata
+        )
+    
+    def with_name(self, new_name: str) -> 'OSIChannelSpecification':
+        new_path = self.path.with_name(new_name)
+        return OSIChannelSpecification(
+            path=new_path,
+            message_type=self.message_type,
+            topic=self.topic,
+            metadata=self.metadata
+        )
 
     def with_name_suffix(self, suffix: str) -> 'OSIChannelSpecification':
         new_name = self.path.stem + suffix + self.path.suffix
@@ -172,7 +205,7 @@ class OSIChannelSpecification:
             message_type=self.message_type,
             topic=self.topic,
             metadata=self.metadata
-            )
+        )
     
     def with_trace_file_format(self, trace_file_format: TraceFileFormat) -> 'OSIChannelSpecification':
         return OSIChannelSpecification(
@@ -188,7 +221,7 @@ class OSIChannelSpecification:
             message_type=message_type,
             topic=self.topic,
             metadata=self.metadata
-            )
+        )
     
     def with_topic(self, topic: str) -> 'OSIChannelSpecification':
         return OSIChannelSpecification(

@@ -87,7 +87,7 @@ def get_all_moving_object_ids(osi_trace: OSIChannelReader) -> list[int]:
 
 
 def get_trajectory_by_moving_object_id(
-    osi_trace: OSIChannelReader, moving_object_id: str
+    osi_trace: OSIChannelReader, moving_object_id: str, start_time: float = None, end_time: float = None
 ) -> pd.DataFrame:
     """
     Extracts trajectory of OSI MovingObject from OSI SensorView.
@@ -104,9 +104,14 @@ def get_trajectory_by_moving_object_id(
     trajectory = {"timestamp": [], "x": [], "y": [], "z": [], "h": [], "p": [], "r": []}
     for i, message in enumerate(osi_trace):
         for mo in message.global_ground_truth.moving_object:
+            current_timestamp = timestamp_osi_to_float(message.timestamp)
+            if start_time is not None and current_timestamp < start_time:
+                continue
+            if end_time is not None and current_timestamp > end_time:
+                continue
             if mo.id.value == moving_object_id:
                 trajectory["timestamp"].append(
-                    timestamp_osi_to_float(message.timestamp)
+                    current_timestamp
                 )
                 trajectory["x"].append(mo.base.position.x)
                 trajectory["y"].append(mo.base.position.y)

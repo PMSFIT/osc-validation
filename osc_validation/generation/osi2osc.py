@@ -1,5 +1,3 @@
-import logging
-import os
 import argparse
 from datetime import datetime
 from pathlib import Path
@@ -336,7 +334,6 @@ def parse_moving_objects(osi_sensorview_trace: OSIChannelSpecification, host_veh
 def osi2osc(osi_sensorview: OSIChannelSpecification, path_xosc: Path, path_xodr: Path=None) -> Path:
     osi_sensorview_channel_reader = OSIChannelReader.from_osi_channel_specification(osi_sensorview)
     stop_timestamp = osi_sensorview_channel_reader.get_channel_info().get("stop")
-    logging.info(f"Stop timestamp: {stop_timestamp}")
     msg = next(osi_sensorview_channel_reader.get_messages())
     host_vehicle_id = msg.global_ground_truth.host_vehicle_id.value if msg else None
 

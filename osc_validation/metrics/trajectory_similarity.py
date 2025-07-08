@@ -1,5 +1,8 @@
 import argparse
+import logging
 from pathlib import Path
+
+import numpy
 
 import matplotlib.pyplot as plt
 
@@ -27,7 +30,15 @@ class TrajectorySimilarityMetric(OSIMetric):
         super().__init__(name)
         self.plot = plot
 
-    def compute(self, reference_channel_spec: OSIChannelSpecification, tool_channel_spec: OSIChannelSpecification, moving_object_id: int):
+    def compute(
+            self,
+            reference_channel_spec: OSIChannelSpecification,
+            tool_channel_spec: OSIChannelSpecification,
+            moving_object_id: int,
+            start_time: float = None,
+            end_time: float = None,
+            result_file: Path = None,
+        ):
         """
         Compares the 2d-trajectories of a specified moving object in two OSI SensorView traces and computes similarity measures.
 
@@ -42,6 +53,9 @@ class TrajectorySimilarityMetric(OSIMetric):
             reference_channel_spec (OSIChannelSpecification): Specification of the reference OSI SensorView trace channel.
             tool_channel_spec (OSIChannelSpecification): Specification of the tool-generated OSI SensorView trace channel.
             moving_object_id (int): The ID of the moving object whose trajectory will be compared.
+            start_time (float, optional): Start time in seconds for the trajectory comparison. Defaults to None, in which case the complete trajectory is considered.
+            end_time (float, optional): End time in seconds for the trajectory comparison. Defaults to None, in which case the complete trajectory is considered.
+            result_file (Path, optional): Path to save the similarity report. If None, the report is logged to info level.
         Returns:
             area (float): Area between the two trajectories' curves.
             cl (float): Curve length measure between the two trajectories.
@@ -50,6 +64,10 @@ class TrajectorySimilarityMetric(OSIMetric):
         Raises:
             KeyError: If the specified moving_object_id is not found in either trace.
         """
+        pd.set_option("display.precision", 15)
+
+        report = f"Report for Trajectory Similarity Metric '{self.name}':\n"
+
         reference_channel_spec = OSIChannelReader.from_osi_channel_specification(reference_channel_spec)
         tool_channel_spec = OSIChannelReader.from_osi_channel_specification(tool_channel_spec)
 
@@ -61,27 +79,21 @@ class TrajectorySimilarityMetric(OSIMetric):
         if moving_object_id not in tool_moving_object_ids:
             raise KeyError(f"Moving object ID {moving_object_id} not found in tool trace.")
 
-        reference_trajectories: dict[int, pd.DataFrame] = {}
-        tool_trajectories: dict[int, pd.DataFrame] = {}
-        for id in reference_moving_object_ids:
-            reference_trajectories[id] = get_trajectory_by_moving_object_id(reference_channel_spec, id)
-        for id in tool_moving_object_ids:
-            tool_trajectories[id] = get_trajectory_by_moving_object_id(tool_channel_spec, id)
+        ref_trajectory = get_trajectory_by_moving_object_id(reference_channel_spec, moving_object_id, start_time, end_time)
+        tool_trajectory = get_trajectory_by_moving_object_id(tool_channel_spec, moving_object_id, start_time, end_time)
 
-        print("Reference Trajectories: ")
-        print(reference_trajectories)
-        print("\n###################################################################\n")
-        print("Tool Trajectories: ")
-        print(tool_trajectories)
-        print("\n###################################################################\n")
+        if len(ref_trajectory) < 2 or len(tool_trajectory) < 2:
+            raise ValueError("Trajectories must contain at least 2 points for comparison.")
+        
+        if len(ref_trajectory) != len(tool_trajectory):
+            raise ValueError("Reference and tool trajectories must have the same number of points.")
 
-        ref_trajectory = reference_trajectories[moving_object_id]
-        tool_trajectory = tool_trajectories[moving_object_id]
-
-        print(ref_trajectory.loc[:, ["x", "y"]])
-        print("\n###################################################################\n")
-        print(tool_trajectory.loc[:, ["x", "y"]])
-        print("\n###################################################################\n")
+        report += f"Reference trajectory for moving object ID {moving_object_id}:\n"
+        report += ref_trajectory.loc[:, ["timestamp", "x", "y"]].to_string(index=False)
+        report += "\n###################################################################\n"
+        report += f"Tool trajectory for moving object ID {moving_object_id}:\n"
+        report += tool_trajectory.loc[:, ["timestamp", "x", "y"]].to_string(index=False)
+        report += "\n###################################################################\n"
 
         area = similaritymeasures.area_between_two_curves(
             ref_trajectory.loc[:, ["x", "y"]].values,
@@ -96,12 +108,19 @@ class TrajectorySimilarityMetric(OSIMetric):
             tool_trajectory.loc[:, ["x", "y"]].values,
         )
 
-        report = (
+        report += (
             f"Similarity Measures:\n"
             f"Area between two curves:      {area}\n"
             f"Curve length measure:         {cl}\n"
             f"Mean absolute error (MAE):    {mae}\n"
         )
+
+        if result_file:
+            logging.info(f"Writing results to {result_file}")
+            with open(result_file, "w") as f:
+                f.write(report)
+        else:
+            logging.info(report)
 
         if self.plot:
             plt.figure()
@@ -110,7 +129,7 @@ class TrajectorySimilarityMetric(OSIMetric):
             plt.legend()
             plt.show()
 
-        return area, cl, mae, report
+        return area, cl, mae
 
 
 def create_argparser():
@@ -132,6 +151,8 @@ def create_argparser():
         action="store_true",
         help="Plot the reference and tool trajectories for visual comparison.",
     )
+    parser.add_argument("--start-time", type=float, help="Start time for trajectory comparison in seconds (float)")
+    parser.add_argument("--end-time", type=float, help="End time for trajectory comparison in seconds (float)")
     return parser
 
 
@@ -143,7 +164,14 @@ def main():
     path_tool = Path(args.tool_sv)
     tool_reader = OSIChannelReader.from_osi_single_trace(path_tool, message_type="SensorView")
     metric = TrajectorySimilarityMetric("TrajectorySimilarityMetric")
-    metric.compute(reference_reader, tool_reader, args.moving_object_id, args.plot)
+    _, _, _ = metric.compute(
+        reference_channel_spec=reference_reader,
+        tool_channel_spec=tool_reader,
+        moving_object_id=args.moving_object_id,
+        plot=args.plot,
+        start_time=args.start_time,
+        end_time=args.end_time
+    )
 
 
 if __name__ == "__main__":

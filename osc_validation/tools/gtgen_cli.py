@@ -10,7 +10,6 @@ from osc_validation.utils.osi_channel_specification import (
 )
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
-from osc_validation.utils.utils import crop_trace
 
 
 class GTGen_Simulator(OSCTool):
@@ -67,32 +66,23 @@ class GTGen_Simulator(OSCTool):
         logging.info(f"GTGen temp output: {osi_gtgen_sv_spec}")
 
         # Adapt output trace file format according to the requested specification
-        output_spec_mod = None
-        if osi_output_spec.trace_file_format != osi_gtgen_sv_spec.trace_file_format:
-            writer = OSIChannelWriter.from_osi_channel_specification(osi_output_spec.with_name_suffix("_conv"))
-            reader = OSIChannelReader.from_osi_channel_specification(osi_gtgen_sv_spec)
-            with writer as writer, reader as reader:
-                for message in reader:
-                    i=1
-                    for mo in message.global_ground_truth.moving_object:
-                        mo.id.value = i # manually modify moving object ids to fit reference trace (temporary solution)
-                        i += 1
-                    writer.write(message)
-            output_spec_mod = writer.get_channel_specification()
-        else:
-            output_spec_mod = osi_gtgen_sv_spec
+        output_spec = None
+        writer = OSIChannelWriter.from_osi_channel_specification(osi_output_spec)
+        reader = OSIChannelReader.from_osi_channel_specification(osi_gtgen_sv_spec)
+        with writer as writer, reader as reader:
+            for message in reader:
+                message.host_vehicle_id.value = 1
+                message.global_ground_truth.host_vehicle_id.value = 1
+                i=1
+                for mo in message.global_ground_truth.moving_object:
+                    mo.id.value = i # manually modify moving object ids to fit reference trace (temporary solution)
+                    i += 1
+                writer.write(message)
+        output_spec = writer.get_channel_specification()
         
-        logging.info(f"Modified output trace specification: {output_spec_mod}")
+        logging.info(f"Output trace specification: {output_spec}")
 
-        # Crop the trace to remove the first 0.3 seconds
-        tool_trace_cropped_channel = crop_trace(
-            input_channel_spec=output_spec_mod,
-            output_channel_spec=osi_output_spec,
-            start_time=0.3
-        )
-        logging.info(f"Cropped trace output: {tool_trace_cropped_channel}")
-
-        if not tool_trace_cropped_channel.exists():
+        if not output_spec.exists():
             raise RuntimeError("GTGen trace could not be generated.")
 
-        return tool_trace_cropped_channel
+        return output_spec
