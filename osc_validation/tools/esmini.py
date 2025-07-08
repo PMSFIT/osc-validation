@@ -9,7 +9,8 @@ from osc_validation.utils.osi_channel_specification import (
     OSIChannelSpecification,
     TraceFileFormat,
 )
-from osc_validation.utils.utils import crop_trace
+from osc_validation.utils.osi_reader import OSIChannelReader
+from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
 class ESMini(OSCTool):
@@ -55,7 +56,8 @@ class ESMini(OSCTool):
             "--osc", str(osc_path),
             "--osi_file", str(osi_esmini_gt_spec.path),
             "--ground_plane",
-            "--fixed_timestep", str(rate)
+            "--fixed_timestep", str(rate),
+            "--osi_static_reporting 2" # report static data at every step
         ]
 
         if log_path is not None:
@@ -66,28 +68,24 @@ class ESMini(OSCTool):
         logging.info(f"Esmini temp output: {osi_esmini_gt_spec}")
 
         # Convert the ground truth trace to SensorView if requested
-        output_spec_mod = None
+        output_spec = None
         if osi_output_spec.message_type == "SensorView" or osi_output_spec.message_type is None:
-            osi_output_spec = osi_output_spec.with_message_type("SensorView")
-            osi_sv_spec = osi_output_spec.with_name_suffix("_converted_to_sv").with_trace_file_format(TraceFileFormat.SINGLE_CHANNEL).with_message_type("SensorView")
-            output_spec_mod = gt2sv(gt_channel_spec=osi_esmini_gt_spec, sv_channel_spec=osi_sv_spec)
-            logging.info(f"gt2sv temp output: {output_spec_mod}")
+            output_spec = gt2sv(gt_channel_spec=osi_esmini_gt_spec, sv_channel_spec=osi_output_spec)
+            logging.info(f"gt2sv output: {output_spec}")
         elif osi_output_spec.message_type == "GroundTruth":
-            output_spec_mod = osi_esmini_gt_spec
+            if osi_output_spec.trace_file_format != osi_esmini_gt_spec.trace_file_format:
+                reader = OSIChannelReader.from_osi_channel_specification(osi_esmini_gt_spec)
+                writer = OSIChannelWriter.from_osi_channel_specification(osi_output_spec)
+                with reader as channel_reader, writer as channel_writer:
+                    for msg in channel_reader:
+                        channel_writer.write(msg)
+                output_spec = writer.get_channel_specification()
+            else:
+                output_spec = osi_esmini_gt_spec.rename_to(osi_output_spec.path) # rename source file to output original esmini ground truth trace without modification
 
-        logging.info(f"Modified output trace specification: {output_spec_mod}")
+        logging.info(f"Output trace specification: {output_spec}")
 
-        # Crop the trace to remove the first 0.3 seconds # TODO: make crop_trace auto crop based on input trace
-        tool_trace_cropped_channel = crop_trace(
-            input_channel_spec=output_spec_mod,
-            output_channel_spec=osi_output_spec,
-            start_time=0.3,
-            end_time=18.45 # needs to be cropped in the end because esmini does stop condition evaluation so that the output contains another frame after stop condition timestamp
-        )
-
-        logging.info(f"Cropped trace output: {tool_trace_cropped_channel}")
-
-        if not tool_trace_cropped_channel.exists():
+        if not output_spec.exists():
             raise RuntimeError("ESMini trace could not be generated.")
-
-        return tool_trace_cropped_channel
+        
+        return output_spec

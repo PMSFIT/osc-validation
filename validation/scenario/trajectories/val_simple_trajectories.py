@@ -86,10 +86,13 @@ def test_trajectory(osi_trace: Path, odr_file: Path, yaml_ruleset: Path, generat
     
     # calculate similarity metrics
     trajectory_similarity_metric = TrajectorySimilarityMetric(name="TrajectorySimilarityMetric", plot=False)
-    (area, cl, mae, report) = trajectory_similarity_metric.compute(
+    (area, cl, mae) = trajectory_similarity_metric.compute(
         reference_channel_spec=reference_trace_channel,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
+        start_time=0.3,
+        end_time=18.45,
+        result_file=tmp_path / f"trajectory_similarity_report.txt",
         )
 
     assert area < tolerance
