@@ -68,9 +68,6 @@ class TrajectorySimilarityMetric(OSIMetric):
 
         report = f"Report for Trajectory Similarity Metric '{self.name}':\n"
 
-        reference_channel_spec = OSIChannelReader.from_osi_channel_specification(reference_channel_spec)
-        tool_channel_spec = OSIChannelReader.from_osi_channel_specification(tool_channel_spec)
-
         reference_moving_object_ids = get_all_moving_object_ids(reference_channel_spec)
         if moving_object_id not in reference_moving_object_ids:
             raise KeyError(f"Moving object ID {moving_object_id} not found in reference trace.")

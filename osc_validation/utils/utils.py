@@ -74,12 +74,12 @@ def trajectory_df_info(trajectory_df):
     print("-------------------------------------------------------")
 
 
-def get_all_moving_object_ids(osi_trace: OSIChannelReader) -> list[int]:
+def get_all_moving_object_ids(osi_trace: OSIChannelSpecification) -> list[int]:
     """
     Extracts all moving object ids in the osi trace.
     """
     moving_object_ids = []
-    for message in osi_trace:
+    for message in OSIChannelReader.from_osi_channel_specification(osi_trace):
         for mo in message.global_ground_truth.moving_object:
             if not mo.id.value in moving_object_ids:
                 moving_object_ids.append(mo.id.value)
@@ -87,7 +87,7 @@ def get_all_moving_object_ids(osi_trace: OSIChannelReader) -> list[int]:
 
 
 def get_trajectory_by_moving_object_id(
-    osi_trace: OSIChannelReader, moving_object_id: str, start_time: float = None, end_time: float = None
+    osi_trace: OSIChannelSpecification, moving_object_id: str, start_time: float = None, end_time: float = None
 ) -> pd.DataFrame:
     """
     Extracts trajectory of OSI MovingObject from OSI SensorView.
@@ -102,7 +102,7 @@ def get_trajectory_by_moving_object_id(
     Returns pandas data frame containing timestamp, x, y, z, h, p, r.
     """
     trajectory = {"timestamp": [], "x": [], "y": [], "z": [], "h": [], "p": [], "r": []}
-    for i, message in enumerate(osi_trace):
+    for i, message in enumerate(OSIChannelReader.from_osi_channel_specification(osi_trace)):
         for mo in message.global_ground_truth.moving_object:
             current_timestamp = timestamp_osi_to_float(message.timestamp)
             if start_time is not None and current_timestamp < start_time:
