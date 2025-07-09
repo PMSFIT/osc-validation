@@ -91,7 +91,7 @@ def get_trajectory_by_moving_object_id(
 ) -> pd.DataFrame:
     """
     Extracts trajectory of OSI MovingObject from OSI SensorView.
-    Additionally preserves following information on the moving object in the data frame metadata:
+    Additionally preserves following information on the moving object in the data frame attrs metadata:
     * id
     * length
     * width
@@ -120,12 +120,12 @@ def get_trajectory_by_moving_object_id(
                 trajectory["p"].append(mo.base.orientation.pitch)
                 trajectory["r"].append(mo.base.orientation.roll)
     trajectory_df = pd.DataFrame(trajectory)
-    trajectory_df.id = moving_object_id
-    trajectory_df.length = mo.base.dimension.length
-    trajectory_df.width = mo.base.dimension.width
-    trajectory_df.height = mo.base.dimension.height
-    trajectory_df.type = mo.type
-    trajectory_df.vehicle_type = mo.vehicle_classification.type
+    trajectory_df.attrs["id"] = moving_object_id
+    trajectory_df.attrs["length"] = mo.base.dimension.length
+    trajectory_df.attrs["width"] = mo.base.dimension.width
+    trajectory_df.attrs["height"] = mo.base.dimension.height
+    trajectory_df.attrs["type"] = mo.type
+    trajectory_df.attrs["vehicle_type"] = mo.vehicle_classification.type
     return trajectory_df
 
 
