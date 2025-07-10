@@ -57,43 +57,46 @@ def test_trajectory(osi_trace: Path, odr_file: Path, yaml_ruleset: Path, generat
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    # load the OSI trace
-    reference_trace_channel = OSIChannelSpecification(osi_trace, message_type="SensorView")
+    # Generate the OpenSCENARIO file from the reference OSI trace
+    reference_trace_channel_spec = OSIChannelSpecification(osi_trace, message_type="SensorView")
+    osc_path = osi2osc(
+        osi_sensorview=reference_trace_channel_spec,
+        path_xosc=tmp_path / "osi2osc.xosc",
+        path_xodr=odr_file
+    )
 
-    # generate the OpenSCENARIO file from the OSI trace
-    osc_path = osi2osc(osi_sensorview=reference_trace_channel, path_xosc=tmp_path / "osi2osc.xosc", path_xodr=odr_file)
-
-    # use OpenSCENARIO file to generate the osi trace with the tool
+    # Use the OpenSCENARIO and OpenDRIVE file fixtures to generate the tool trace with the specified format and rate
     tool_trace_channel_spec = generate_tool_trace(
-        osc_path = osc_path,
-        odr_path = odr_file,
-        osi_output_spec = OSIChannelSpecification(
+        osc_path=osc_path,
+        odr_path=odr_file,
+        osi_output_spec=OSIChannelSpecification(
             path=tmp_path / "tool_trace.mcap",
             message_type="SensorView",
             metadata={"net.asam.osi.trace.channel.description": "Tool-generated trace for validation"},
         ),
         log_path=tmp_path,
-        rate = 0.05
+        rate=0.05
     )
 
-    # check compliance of tool trace to omega prime ruleset and OSI 3.7.0 ruleset
+    # Check compliance of tool trace to omega prime ruleset and OSI 3.7.0 ruleset
     qc_check = QCOSITraceChecker(osi_version="3.7.0", ruleset=yaml_ruleset)
-    result = qc_check.check(channel_spec=tool_trace_channel_spec,
-                              result_file=tmp_path / "qc_result.xqar",
-                              output_config=tmp_path / "qc_config.xml"
-                              )
+    result = qc_check.check(
+        channel_spec=tool_trace_channel_spec,
+        result_file=tmp_path / "qc_result.xqar",
+        output_config=tmp_path / "qc_config.xml"
+    )
     #assert result == True, "QC check failed for the tool-generated OSI trace."
     
-    # calculate similarity metrics
+    # Calculate trajectory similarity metrics
     trajectory_similarity_metric = TrajectorySimilarityMetric(name="TrajectorySimilarityMetric", plot=False)
     (area, cl, mae) = trajectory_similarity_metric.compute(
-        reference_channel_spec=reference_trace_channel,
+        reference_channel_spec=reference_trace_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
         start_time=0.3,
         end_time=18.45,
         result_file=tmp_path / f"trajectory_similarity_report.txt",
-        )
+    )
 
     assert area < tolerance
     assert cl < tolerance
