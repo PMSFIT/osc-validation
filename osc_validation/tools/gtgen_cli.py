@@ -63,6 +63,8 @@ class GTGen_Simulator(OSCTool):
 
         logging.info(f"Running gtgen_cli with command: \'{" ".join(map(str, cmd))}\'")
         os.system(" ".join(map(str, cmd)))
+        if not osi_gtgen_sv_spec.exists():
+            raise RuntimeError(f"GTGen trace could not be generated. Check the tool's logs for more details.")
         logging.info(f"GTGen temp output: {osi_gtgen_sv_spec}")
 
         # Adapt output trace file format according to the requested specification
@@ -81,8 +83,5 @@ class GTGen_Simulator(OSCTool):
         output_spec = writer.get_channel_specification()
         
         logging.info(f"Output trace specification: {output_spec}")
-
-        if not output_spec.exists():
-            raise RuntimeError("GTGen trace could not be generated.")
 
         return output_spec
