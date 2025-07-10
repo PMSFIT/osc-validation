@@ -65,6 +65,8 @@ class ESMini(OSCTool):
         
         logging.info(f"Running esmini with command: \'{" ".join(map(str, cmd))}\'")
         os.system(" ".join(map(str, cmd)))
+        if not osi_esmini_gt_spec.exists():
+            raise RuntimeError(f"ESMini trace could not be generated. Check the tool's logs for more details.")
         logging.info(f"Esmini temp output: {osi_esmini_gt_spec}")
 
         # Convert the ground truth trace to SensorView if requested
@@ -84,8 +86,5 @@ class ESMini(OSCTool):
                 output_spec = osi_esmini_gt_spec.rename_to(osi_output_spec.path) # rename source file to output original esmini ground truth trace without modification
 
         logging.info(f"Output trace specification: {output_spec}")
-
-        if not output_spec.exists():
-            raise RuntimeError("ESMini trace could not be generated.")
         
         return output_spec
