@@ -129,6 +129,45 @@ def get_trajectory_by_moving_object_id(
     return trajectory_df
 
 
+def get_closest_trajectory(
+        ref_trajectory: pd.DataFrame,
+        tool_channel_spec: OSIChannelSpecification,
+        start_time: float = None,
+        end_time: float = None
+    ) -> pd.DataFrame:
+    """
+    Finds the tool trajectory that is closest to the reference trajectory based on the starting position.
+    Args:
+        ref_trajectory (pd.DataFrame): Reference trajectory DataFrame containing columns ['timestamp', 'x', 'y', 'z', 'h', 'p', 'r'].
+        tool_channel_spec (OSIChannelSpecification): OSI channel specification for the tool trace.
+        start_time (float, optional): Start time of the inclusive interval. Defaults to None.
+        end_time (float, optional): End time of the inclusive interval. Defaults to None.
+    Returns:
+        pd.DataFrame: The trajectory DataFrame of the tool trace that is closest to the reference trajectory.
+    """
+
+    tool_moving_object_ids = get_all_moving_object_ids(tool_channel_spec)
+    tool_trajectories = {
+        obj_id: get_trajectory_by_moving_object_id(tool_channel_spec, obj_id, start_time, end_time)
+        for obj_id in tool_moving_object_ids
+    }
+
+    tool_trajectory = None
+    min_distance = None
+    for obj_id, tool_trajectory in tool_trajectories.items():
+        ref_start = ref_trajectory.iloc[0][["x", "y"]].values
+        tool_start = tool_trajectory.iloc[0][["x", "y"]].values
+        dx = ref_start[0] - tool_start[0]
+        dy = ref_start[1] - tool_start[1]
+        distance = math.hypot(dx, dy)
+        if min_distance is None or distance < min_distance:
+            min_distance = distance
+            nearest_tool_trajectory = tool_trajectory
+        tool_trajectory = nearest_tool_trajectory
+
+    return tool_trajectory
+
+
 def rotatePointZYX(x,y,z,yaw,pitch,roll):
     """Performs a rotation of the given coordinate based on given euler rotation angles.
     Rotation order:

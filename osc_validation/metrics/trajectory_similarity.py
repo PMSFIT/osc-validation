@@ -1,5 +1,6 @@
 import argparse
 import logging
+import math
 from pathlib import Path
 
 import numpy
@@ -14,21 +15,23 @@ from osc_validation.utils.osi_channel_specification import OSIChannelSpecificati
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.utils import (
     get_all_moving_object_ids,
+    get_closest_trajectory,
     get_trajectory_by_moving_object_id,
 )
 
 
 class TrajectorySimilarityMetric(OSIMetric):
-    def __init__(self, name: str = "TrajectorySimilarity", plot=False):
+    def __init__(self, name: str = "TrajectorySimilarity", plot_path: Path = None):
         """
         Initializes the TrajectorySimilarityMetric with a name.
 
         Args:
             name (str): Name of the metric.
-            plot (bool): Indicates whether plotting is enabled for this metric.
+            plot_path (Path, optional): Path to save the plot for this metric.
+                If None, the plot will not be saved.
         """
         super().__init__(name)
-        self.plot = plot
+        self.plot_path = plot_path
 
     def compute(
             self,
@@ -72,12 +75,9 @@ class TrajectorySimilarityMetric(OSIMetric):
         if moving_object_id not in reference_moving_object_ids:
             raise KeyError(f"Moving object ID {moving_object_id} not found in reference trace.")
         
-        tool_moving_object_ids = get_all_moving_object_ids(tool_channel_spec)
-        if moving_object_id not in tool_moving_object_ids:
-            raise KeyError(f"Moving object ID {moving_object_id} not found in tool trace.")
-
         ref_trajectory = get_trajectory_by_moving_object_id(reference_channel_spec, moving_object_id, start_time, end_time)
-        tool_trajectory = get_trajectory_by_moving_object_id(tool_channel_spec, moving_object_id, start_time, end_time)
+        tool_trajectory = get_closest_trajectory(ref_trajectory, tool_channel_spec, start_time, end_time) # matching trajectories based on starting position proximity
+        logging.info(f"Comparing tool trace trajectory of moving object ID '{tool_trajectory.attrs["id"]}' to reference trace trajectory of moving object ID '{moving_object_id}'.")
 
         if len(ref_trajectory) < 2 or len(tool_trajectory) < 2:
             raise ValueError("Trajectories must contain at least 2 points for comparison.")
@@ -119,12 +119,15 @@ class TrajectorySimilarityMetric(OSIMetric):
         else:
             logging.info(report)
 
-        if self.plot:
-            plt.figure()
-            plt.plot(ref_trajectory["x"], ref_trajectory["y"], "o-", label="Reference")
-            plt.plot(tool_trajectory["x"], tool_trajectory["y"], "o-", label="Tool")
+        if self.plot_path:
+            plot_path = self.plot_path / f"trajectory_similarity_{moving_object_id}.png"
+            plt.figure(figsize=(25.6, 14.4))
+            plt.plot(ref_trajectory["x"], ref_trajectory["y"], "o-", label="Reference", markersize=3)
+            plt.plot(tool_trajectory["x"], tool_trajectory["y"], "o-", label="Tool", markersize=3)
             plt.legend()
-            plt.show()
+            plt.savefig(plot_path, dpi=100)
+            plt.close()
+            logging.info(f"Plot saved to {plot_path}")
 
         return area, cl, mae
 
