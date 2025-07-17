@@ -37,6 +37,13 @@ class OSI2OSCMovingObject:
         3: "car",
         4: "car",
         5: "car",  # MovingObject.VehicleClassification.Type.TYPE_LUXURY_CAR
+        6: "car",
+        7: "car",
+        8: "car",
+        9: "car",
+        10: "car",
+        11: "car",
+        12: "car",
         # TODO: add other types
     }
 
@@ -286,7 +293,6 @@ def parse_moving_objects(osi_sensorview_trace: OSIChannelSpecification, host_veh
     reader = OSIChannelReader.from_osi_channel_specification(osi_sensorview_trace)
     my_moving_objects = []
     for osi_sensorview in reader:
-        assert isinstance(osi_sensorview, osi3.osi_sensorview_pb2.SensorView)
         current_timestamp = timestamp_osi_to_float(osi_sensorview.timestamp)
         for osi_moving_object in osi_sensorview.global_ground_truth.moving_object:
             current_moving_object_id = osi_moving_object.id.value
@@ -338,6 +344,10 @@ def osi2osc(osi_sensorview: OSIChannelSpecification, path_xosc: Path, path_xodr:
     host_vehicle_id = msg.global_ground_truth.host_vehicle_id.value if msg else None
 
     my_moving_objects = parse_moving_objects(osi_sensorview, host_vehicle_id)
+    # Order objects so that Ego is always added first (in entities and init actions)
+    ego_objs = [obj for obj in my_moving_objects if obj.entity_ref == "Ego"]
+    other_objs = [obj for obj in my_moving_objects if obj.entity_ref != "Ego"]
+    my_moving_objects = ego_objs + other_objs
 
     xml_scenario_objects = []
     xml_acts = []

@@ -13,7 +13,7 @@ from osc_validation.utils.osi_channel_specification import OSIChannelSpecificati
 
 @pytest.fixture(
     scope="module",
-    params=["simple_trajectories/sv_trace1.osi", "simple_trajectories/sv_trace2.osi"],
+    params=["simple_trajectories/nurbs_trajectory_2d.mcap"],
 )
 def osi_trace(request):
     provider = BuiltinDataProvider()
@@ -36,7 +36,7 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-@pytest.mark.parametrize("moving_object_id", [1, 2])
+@pytest.mark.parametrize("moving_object_id", [13])
 def test_trajectory(osi_trace: Path, odr_file: Path, yaml_ruleset: Path, generate_tool_trace: Callable, tmp_path: Path, moving_object_id: int, tolerance=1e-1):
     """
     Validates that a tool-generated trajectory closely matches the original OSI trace
@@ -88,13 +88,13 @@ def test_trajectory(osi_trace: Path, odr_file: Path, yaml_ruleset: Path, generat
     #assert result == True, "QC check failed for the tool-generated OSI trace."
     
     # Calculate trajectory similarity metrics
-    trajectory_similarity_metric = TrajectorySimilarityMetric(name="TrajectorySimilarityMetric", plot=False)
+    trajectory_similarity_metric = TrajectorySimilarityMetric(name="TrajectorySimilarityMetric", plot_path=tmp_path)
     (area, cl, mae) = trajectory_similarity_metric.compute(
         reference_channel_spec=reference_trace_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
-        start_time=0.3,
-        end_time=18.45,
+        start_time=0.0,
+        end_time=19.95,
         result_file=tmp_path / f"trajectory_similarity_report.txt",
     )
 

@@ -73,12 +73,6 @@ class GTGen_Simulator(OSCTool):
         reader = OSIChannelReader.from_osi_channel_specification(osi_gtgen_sv_spec)
         with writer as writer, reader as reader:
             for message in reader:
-                message.host_vehicle_id.value = 1
-                message.global_ground_truth.host_vehicle_id.value = 1
-                i=1
-                for mo in message.global_ground_truth.moving_object:
-                    mo.id.value = i # manually modify moving object ids to fit reference trace (temporary solution)
-                    i += 1
                 writer.write(message)
         output_spec = writer.get_channel_specification()
         

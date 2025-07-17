@@ -17,18 +17,17 @@ def gt2sv(gt_channel_spec: OSIChannelSpecification, sv_channel_spec: OSIChannelS
     with OSIChannelReader.from_osi_channel_specification(gt_channel_spec) as gt_reader:
         with writer as sv_writer:
             for gt_msg in gt_reader:
-                # fix gt stuff
                 gt_msg.version.CopyFrom(
                     osi_version_pb2.DESCRIPTOR.GetOptions().Extensions[
                         osi_version_pb2.current_interface_version
                     ]
                 )
-                gt_msg.host_vehicle_id.value = 1
-                id = 1
-                for mo in gt_msg.moving_object:
-                    mo.id.value = id
-                    id = id+1
-                # create sv wrapper
+                # Workaround for Esmini: Esmini OSI export does not contain a
+                # host vehicle id, so we set it to 0. The reference
+                # implementation (osi2osc) intentionally writes the ego vehicle
+                # as first scenario object which results in id 0 for the esmini
+                # export based on rising enumeration starting from 0.
+                gt_msg.host_vehicle_id.value = 0
                 sv_msg = osi_sensorview_pb2.SensorView()
                 sv_msg.timestamp.CopyFrom(gt_msg.timestamp)
                 sv_msg.version.CopyFrom(
