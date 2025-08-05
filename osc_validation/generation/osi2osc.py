@@ -11,7 +11,7 @@ from osi3 import osi_object_pb2
 
 from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointXYZ
+from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointZYX
 
 XOSC_VERSION_MAJOR = 1
 XOSC_VERSION_MINOR = 3
@@ -71,9 +71,9 @@ class OSI2OSCMovingObject:
             columns=["timestamp", "x", "y", "z", "h", "p", "r"]
         )
         if bbcenter_to_rear_x == None and bbcenter_to_rear_y == None and bbcenter_to_rear_z == None:
-            self.bbcenter_to_rear_x = self.length_static * 0.3 # default
+            self.bbcenter_to_rear_x = -self.length_static * 0.3 # default
             self.bbcenter_to_rear_y = 0 # default
-            self.bbcenter_to_rear_z = self.height_static * 0.5 # default
+            self.bbcenter_to_rear_z = -self.height_static * 0.5 # default
         elif bbcenter_to_rear_x != None and bbcenter_to_rear_y != None and bbcenter_to_rear_z != None:
             self.bbcenter_to_rear_x = bbcenter_to_rear_x
             self.bbcenter_to_rear_y = bbcenter_to_rear_y
@@ -123,9 +123,9 @@ class OSI2OSCMovingObject:
         xml_center = etree.SubElement(
             xml_bounding_box,
             "Center",
-            x=str(self.bbcenter_to_rear_x),
-            y=str(self.bbcenter_to_rear_y),
-            z=str(self.bbcenter_to_rear_z),
+            x=str(-self.bbcenter_to_rear_x),
+            y=str(-self.bbcenter_to_rear_y),
+            z=str(self.height_static/2),
         )
         xml_dimensions = etree.SubElement(
             xml_bounding_box,
@@ -177,20 +177,19 @@ class OSI2OSCMovingObject:
                 xml_polyline, "Vertex", time=str(point["timestamp"])
             )
             xml_position = etree.SubElement(xml_vertex, "Position")
-            # TODO: shift position from OSI bbcenter to ground-projected center rear axle
             x = point["x"]
             y = point["y"]
             z = point["z"]
             h = point["h"]
             p = point["p"]
             r = point["r"]
-            rx, ry, rz = rotatePointXYZ(self.bbcenter_to_rear_x,
+            rx, ry, rz = rotatePointZYX(self.bbcenter_to_rear_x,
                                         self.bbcenter_to_rear_y,
-                                        self.bbcenter_to_rear_z,
+                                        -self.height_static/2, # projection onto ground plane of bounding box
                                         h,p,r)
-            x = x-rx
-            y = y-ry
-            z = z-rz
+            x = x+rx
+            y = y+ry
+            z = z+rz
             xml_world_position = etree.SubElement(
                 xml_position,
                 "WorldPosition",
@@ -304,7 +303,10 @@ def parse_moving_objects(osi_sensorview_trace: OSIChannelSpecification, host_veh
                     height_static=osi_moving_object.base.dimension.height,  # use first occurrence
                     type=osi_moving_object.type,
                     vehicle_type=osi_moving_object.vehicle_classification.type,
-                    host_vehicle= (osi_moving_object.id.value == host_vehicle_id),
+                    bbcenter_to_rear_x=osi_moving_object.vehicle_attributes.bbcenter_to_rear.x,
+                    bbcenter_to_rear_y=osi_moving_object.vehicle_attributes.bbcenter_to_rear.y,
+                    bbcenter_to_rear_z=osi_moving_object.vehicle_attributes.bbcenter_to_rear.z,
+                    host_vehicle=(osi_moving_object.id.value == host_vehicle_id),
                 )
                 object_to_add.append_trajectory_row(
                     current_timestamp,
