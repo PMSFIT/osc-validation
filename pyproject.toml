@@ -17,7 +17,7 @@ similaritymeasures = "1.2.0"
 requests = "^2.32.3"
 mcap = "^1.2.2"
 mcap-protobuf-support = "^0.5.3"
-qc-osi-trace = { git = "https://github.com/PMSFIT/qc-osi-trace.git", rev = "315202c6aa9a831d1557fb49bb242d6f76bb52cf" }
+qc-osi-trace = { git = "https://github.com/PMSFIT/qc-osi-trace.git", branch = "main" }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
