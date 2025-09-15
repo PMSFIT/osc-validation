@@ -13,7 +13,7 @@ from osc_validation.utils.osi_channel_specification import OSIChannelSpecificati
 
 @pytest.fixture(
     scope="module",
-    params=["simple_trajectories/nurbs_trajectory_2d.mcap"],
+    params=["simple_trajectories/20240603T152322.095000Z_sv_370_3200_618_dronetracker_135_swerve.mcap"],
 )
 def osi_trace(request):
     provider = BuiltinDataProvider()
@@ -36,7 +36,7 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-@pytest.mark.parametrize("moving_object_id", [13])
+@pytest.mark.parametrize("moving_object_id", [1,2])
 def test_trajectory(osi_trace: Path, odr_file: Path, yaml_ruleset: Path, generate_tool_trace: Callable, tmp_path: Path, moving_object_id: int, tolerance=1e-1):
     """
     Validates that a tool-generated trajectory closely matches the original OSI trace
@@ -48,7 +48,7 @@ def test_trajectory(osi_trace: Path, odr_file: Path, yaml_ruleset: Path, generat
         yaml_ruleset (Path): Path to the YAML ruleset for OSITrace quality checks (pytest module fixture).
         generate_tool_trace (Callable): Function to generate an OSI trace from an OpenSCENARIO file (pytest session fixture).
         tmp_path (Path): Temporary directory for intermediate files (built-in pytest fixture).
-        moving_object_id (int): ID of the moving object to compare in the traces (pytest parameter).
+        moving_object_id (int): ID of the moving object (in the reference trace) selected for trajectory comparison (pytest parameter).
         tolerance (float, optional): Maximum allowed value for similarity metrics. Defaults to 1e-6.
     Raises:
         AssertionError: If any similarity metric exceeds the specified tolerance.

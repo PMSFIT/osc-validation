@@ -55,7 +55,7 @@ class TrajectorySimilarityMetric(OSIMetric):
         Args:
             reference_channel_spec (OSIChannelSpecification): Specification of the reference OSI SensorView trace channel.
             tool_channel_spec (OSIChannelSpecification): Specification of the tool-generated OSI SensorView trace channel.
-            moving_object_id (int): The ID of the moving object whose trajectory will be compared.
+            moving_object_id (int): The ID of the moving object in the reference trace whose trajectory will be compared with the corresponding moving object's trajectory in the tool trace.
             start_time (float, optional): Start time in seconds for the trajectory comparison. Defaults to None, in which case the complete trajectory is considered.
             end_time (float, optional): End time in seconds for the trajectory comparison. Defaults to None, in which case the complete trajectory is considered.
             result_file (Path, optional): Path to save the similarity report. If None, the report is logged to info level.
