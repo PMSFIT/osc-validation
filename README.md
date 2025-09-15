@@ -16,6 +16,11 @@ poetry install
 
 ## Usage
 
+### Poetry environment
+
+When using Poetry as your dependency manager, you can either activate the virtual environment once, or prefix each command with `poetry run` to execute it inside the environment.
+For brevity, the `poetry run` prefix is omitted in the rest of this documentation.
+
 ### Run tests using pytest
 
 Run the following command to execute the test suite using the specified test directory with the chosen tool to be validated.
