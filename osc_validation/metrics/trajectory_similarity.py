@@ -41,6 +41,7 @@ class TrajectorySimilarityMetric(OSIMetric):
             start_time: float = None,
             end_time: float = None,
             result_file: Path = None,
+            time_tolerance: float = 0.0,
         ):
         """
         Compares the 2d-trajectories of a specified moving object in two OSI SensorView traces and computes similarity measures.
@@ -56,9 +57,10 @@ class TrajectorySimilarityMetric(OSIMetric):
             reference_channel_spec (OSIChannelSpecification): Specification of the reference OSI SensorView trace channel.
             tool_channel_spec (OSIChannelSpecification): Specification of the tool-generated OSI SensorView trace channel.
             moving_object_id (int): The ID of the moving object in the reference trace whose trajectory will be compared with the corresponding moving object's trajectory in the tool trace.
-            start_time (float, optional): Start time in seconds for the trajectory comparison. Defaults to None, in which case the complete trajectory is considered.
-            end_time (float, optional): End time in seconds for the trajectory comparison. Defaults to None, in which case the complete trajectory is considered.
+            start_time (float, optional): Inclusive start time in seconds for the trajectory comparison. Defaults to None, in which case the trajectory is considered from the first frame.
+            end_time (float, optional): Inclusive end time in seconds for the trajectory comparison. Defaults to None, in which case the trajectory is considered to the last frame.
             result_file (Path, optional): Path to save the similarity report. If None, the report is logged to info level.
+            time_tolerance (float, optional): Tolerance of the given start and end times used for inclusion of the start and end frames in the interval. Defaults to 0.0.
         Returns:
             area (float): Area between the two trajectories' curves.
             cl (float): Curve length measure between the two trajectories.
@@ -75,15 +77,15 @@ class TrajectorySimilarityMetric(OSIMetric):
         if moving_object_id not in reference_moving_object_ids:
             raise KeyError(f"Moving object ID {moving_object_id} not found in reference trace.")
         
-        ref_trajectory = get_trajectory_by_moving_object_id(reference_channel_spec, moving_object_id, start_time, end_time)
-        tool_trajectory = get_closest_trajectory(ref_trajectory, tool_channel_spec, start_time, end_time) # matching trajectories based on starting position proximity
-        logging.info(f"Comparing tool trace trajectory of moving object ID '{tool_trajectory.attrs["id"]}' to reference trace trajectory of moving object ID '{moving_object_id}'.")
+        ref_trajectory = get_trajectory_by_moving_object_id(reference_channel_spec, moving_object_id, start_time-time_tolerance, end_time+time_tolerance)
+        tool_trajectory = get_closest_trajectory(ref_trajectory, tool_channel_spec, start_time-time_tolerance, end_time+time_tolerance) # matching trajectories based on starting position proximity
+        logging.info(f"Comparing tool trace trajectory of moving object ID '{tool_trajectory.attrs["id"]}' to reference trace trajectory of moving object ID '{moving_object_id}' in time range [{start_time-time_tolerance}, {end_time+time_tolerance}].")
 
         if len(ref_trajectory) < 2 or len(tool_trajectory) < 2:
             raise ValueError("Trajectories must contain at least 2 points for comparison.")
         
         if len(ref_trajectory) != len(tool_trajectory):
-            raise ValueError("Reference and tool trajectories must have the same number of points.")
+            raise ValueError("Reference and tool trajectories must have the same number of points. Check if the frame rate differs or if the given interval timestamps deviate (e.g. one trace shows timestamp rounding errors).")
 
         report += f"Reference trajectory for moving object ID {moving_object_id}:\n"
         report += ref_trajectory.loc[:, ["timestamp", "x", "y"]].to_string(index=False)

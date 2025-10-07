@@ -96,6 +96,7 @@ def test_trajectory(osi_trace: Path, odr_file: Path, yaml_ruleset: Path, generat
         start_time=0.0,
         end_time=19.95,
         result_file=tmp_path / f"trajectory_similarity_report.txt",
+        time_tolerance=0.01
     )
 
     assert area < tolerance
