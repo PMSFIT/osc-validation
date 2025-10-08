@@ -1,10 +1,11 @@
 import logging
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlparse
 
 import pytest
 
-from osc_validation.dataproviders import BuiltinDataProvider
+from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
 from osc_validation.generation import osi2osc
 from osc_validation.metrics.qccheck import QCOSITraceChecker
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
@@ -23,11 +24,18 @@ def osi_trace(request):
 
 @pytest.fixture(
     scope="module",
-    params=["osirules/omega-prime-rules.yml"],
+    #params=["https://raw.githubusercontent.com/OpenSimulationInterface/qc-osi-trace/refs/heads/main/qc_ositrace/checks/osirules/rulesyml/osi_3_7_0.yml"], # OSI 3.7.0 rules
+    params=["https://raw.githubusercontent.com/thomassedlmayer/omega-prime/refs/heads/omega-prime-osi-rule-yml/docs/osirules/omega-prime-osi_3-7-0.yml"], # Omega-Prime OSI 3.7.0 rules
 )
 def yaml_ruleset(request):
-    provider = BuiltinDataProvider()
-    yield provider.ensure_data_path(request.param)
+    uri = request.param
+    filename = Path(urlparse(uri).path).name
+    base_path = Path("download/osirules")
+    provider = DownloadDataProvider(
+        uri=uri,
+        base_path=base_path
+    )
+    yield provider.ensure_data_path(filename)
     provider.cleanup()
 
 
@@ -85,7 +93,7 @@ def test_trajectory(osi_trace: Path, odr_file: Path, yaml_ruleset: Path, generat
         result_file=tmp_path / "qc_result.xqar",
         output_config=tmp_path / "qc_config.xml"
     )
-    #assert result == True, "QC check failed for the tool-generated OSI trace."
+    assert result == True, "QC check failed for the tool-generated OSI trace."
     
     # Calculate trajectory similarity metrics
     trajectory_similarity_metric = TrajectorySimilarityMetric(name="TrajectorySimilarityMetric", plot_path=tmp_path)
