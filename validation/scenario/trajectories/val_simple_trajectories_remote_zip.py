@@ -25,7 +25,7 @@ ZIP_CONTENTS_TO_IDS = {
 @pytest.fixture(scope="module")
 def zip_provider():
     """
-    Downloads and extracts the ZIP once per module, then yields the base directory.
+    Downloads and extracts the ZIP once per module, then yields the zip data provider.
     """
     base_path = Path("download-zip")
     provider = DownloadZIPDataProvider(uri=ZIP_URI, base_path=base_path)
@@ -35,24 +35,19 @@ def zip_provider():
     provider.cleanup()
 
 
-@pytest.fixture(scope="module", params=ZIP_CONTENTS_TO_IDS.keys())
-def osi_trace(request, zip_provider):
-    """
-    Yields each .mcap file from the extracted ZIP as a parameter.
-    """
-    yield zip_provider.ensure_data_path(request.param)
-
-
 @pytest.fixture(scope="module", params=[
     (filename, obj_id)
     for filename, ids in ZIP_CONTENTS_TO_IDS.items()
     for obj_id in ids
 ])
 def osi_trace_with_ids(request, zip_provider):
+    """
+    Yields a tuple of an OSI trace file path (from the extracted ZIP) and a list
+    of corresponding object IDs to be tested.
+    """
     filename, obj_id = request.param
     mcap_path = zip_provider.ensure_data_path(filename)
     yield mcap_path, obj_id
-
 
 
 @pytest.fixture(
