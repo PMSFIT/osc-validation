@@ -36,10 +36,12 @@ def zip_provider():
 
 
 @pytest.fixture(scope="module", params=[
-    (filename, obj_id)
-    for filename, ids in ZIP_CONTENTS_TO_IDS.items()
-    for obj_id in ids
-])
+        (filename, obj_id)
+        for filename, ids in ZIP_CONTENTS_TO_IDS.items()
+        for obj_id in ids
+    ],
+    ids=lambda p: f"{Path(p[0]).stem}-moving_object_id{p[1]}",
+)
 def osi_trace_with_ids(request, zip_provider):
     """
     Yields a tuple of an OSI trace file path (from the extracted ZIP) and a list
