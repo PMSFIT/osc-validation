@@ -88,7 +88,8 @@ def test_trajectory_remote(osi_trace: Path, odr_file: Path, generate_tool_trace:
         moving_object_id=moving_object_id,
         start_time=3,
         end_time=10.0,
-        result_file=tmp_path / f"trajectory_similarity_report.txt"
+        result_file=tmp_path / f"trajectory_similarity_report.txt",
+        time_tolerance=0.01
     )
 
     assert area < tolerance
