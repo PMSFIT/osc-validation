@@ -15,7 +15,7 @@ from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointZYX
 
 XOSC_VERSION_MAJOR = 1
 XOSC_VERSION_MINOR = 3
-XOSC_AUTHOR = "PMSF OSI2OSC Converter"
+XOSC_AUTHOR = "OSC Validation OSI2OSC Converter"
 XOSC_DESCRIPTION = ""
 XOSC_LICENSE = ""
 XOSC_LICENSE_RESOURCE = ""

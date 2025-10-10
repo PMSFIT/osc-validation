@@ -137,7 +137,7 @@ As such, any test cases based on this reference implementation must conform to t
 ASAM Quality Checker Bundles can be used to check the adherence of OSI trace files to certain OSI versions and/or rulesets.
 
 Checker Bundles already integrated:
-- [qc-osi-trace - OSI Trace Checker](https://github.com/PMSFIT/qc-osi-trace.git)
+- [qc-osi-trace - OSI Trace Checker](https://github.com/OpenSimulationInterface/qc-osi-trace)
 
 ### 4. Validation metrics
 
