@@ -128,7 +128,7 @@ A reference implementation is responsible for generating a baseline for correctn
 - Must provide the functionality covered by the test cases using it.
 - Not required to provide full feature coverage beyond the test scope.
 
-The provided [OSI to OpenSCENARIO XML Converter](./osc_validation/generation/osi2osc.py) uses an OSI reference trace as input and generates a corresponding OpenSCENARIO XML file to be consumed by the tool under test.
+The provided [OSI to OpenSCENARIO XML Converter](./osc_validation/generation/osi2osc.py) uses an OSI reference trace (SensorView or GroundTruth) as input and generates a corresponding OpenSCENARIO XML file to be consumed by the tool under test.
 It covers the OpenSCENARIO XML functionality specified by the [OpenSCENARIO subset definition](./specification/osc_subset_definition.md).
 As such, any test cases based on this reference implementation must conform to the specified subset.
 

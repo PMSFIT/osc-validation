@@ -62,7 +62,7 @@ def test_trajectory_remote(osi_trace: Path, odr_file: Path, generate_tool_trace:
     # Generate the OpenSCENARIO file from the reference OSI trace
     reference_trace_channel_spec = OSIChannelSpecification(osi_trace, message_type="SensorView")
     osc_path = osi2osc(
-        osi_sensorview=reference_trace_channel_spec,
+        osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc.xosc",
         path_xodr=odr_file
     )

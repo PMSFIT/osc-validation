@@ -76,11 +76,13 @@ def trajectory_df_info(trajectory_df):
 
 def get_all_moving_object_ids(osi_trace: OSIChannelSpecification) -> list[int]:
     """
-    Extracts all moving object ids in the osi trace.
+    Extracts all moving object ids from the input OSI SensorView or GroundTruth trace.
     """
+    assert osi_trace.message_type in ("SensorView", "GroundTruth")
     moving_object_ids = []
     for message in OSIChannelReader.from_osi_channel_specification(osi_trace):
-        for mo in message.global_ground_truth.moving_object:
+        osi_moving_objects = message.global_ground_truth.moving_object if osi_trace.message_type == "SensorView" else message.moving_object
+        for mo in osi_moving_objects:
             if not mo.id.value in moving_object_ids:
                 moving_object_ids.append(mo.id.value)
     return moving_object_ids
@@ -90,7 +92,9 @@ def get_trajectory_by_moving_object_id(
     osi_trace: OSIChannelSpecification, moving_object_id: str, start_time: float = None, end_time: float = None
 ) -> pd.DataFrame:
     """
-    Extracts trajectory of OSI MovingObject from OSI SensorView.
+    Extracts trajectory of OSI MovingObject from the input OSI SensorView or GroundTruth trace in the optionally
+    specified interval.
+
     Additionally preserves following information on the moving object in the data frame attrs metadata:
     * id
     * length
@@ -101,31 +105,38 @@ def get_trajectory_by_moving_object_id(
 
     Returns pandas data frame containing timestamp, x, y, z, h, p, r.
     """
+    assert osi_trace.message_type in ("SensorView", "GroundTruth")
     trajectory = {"timestamp": [], "x": [], "y": [], "z": [], "h": [], "p": [], "r": []}
-    for i, message in enumerate(OSIChannelReader.from_osi_channel_specification(osi_trace)):
-        for mo in message.global_ground_truth.moving_object:
-            current_timestamp = timestamp_osi_to_float(message.timestamp)
-            if start_time is not None and current_timestamp < start_time:
+    object_metadata = {}
+    for message in OSIChannelReader.from_osi_channel_specification(osi_trace):
+        osi_moving_objects = message.global_ground_truth.moving_object if osi_trace.message_type == "SensorView" else message.moving_object
+        current_timestamp = timestamp_osi_to_float(message.timestamp)
+        if start_time is not None and current_timestamp < start_time:
+            continue
+        if end_time is not None and current_timestamp > end_time:
+            continue
+        for mo in osi_moving_objects:
+            if mo.id.value != moving_object_id:
                 continue
-            if end_time is not None and current_timestamp > end_time:
-                continue
-            if mo.id.value == moving_object_id:
-                trajectory["timestamp"].append(
-                    current_timestamp
-                )
-                trajectory["x"].append(mo.base.position.x)
-                trajectory["y"].append(mo.base.position.y)
-                trajectory["z"].append(mo.base.position.z)
-                trajectory["h"].append(mo.base.orientation.yaw)
-                trajectory["p"].append(mo.base.orientation.pitch)
-                trajectory["r"].append(mo.base.orientation.roll)
+            trajectory["timestamp"].append(current_timestamp)
+            trajectory["x"].append(mo.base.position.x)
+            trajectory["y"].append(mo.base.position.y)
+            trajectory["z"].append(mo.base.position.z)
+            trajectory["h"].append(mo.base.orientation.yaw)
+            trajectory["p"].append(mo.base.orientation.pitch)
+            trajectory["r"].append(mo.base.orientation.roll)
+            if not object_metadata:
+                object_metadata = {
+                    "id": moving_object_id,
+                    "length": mo.base.dimension.length,
+                    "width": mo.base.dimension.width,
+                    "height": mo.base.dimension.height,
+                    "type": mo.type,
+                    "vehicle_type": mo.vehicle_classification.type,
+                }
     trajectory_df = pd.DataFrame(trajectory)
-    trajectory_df.attrs["id"] = moving_object_id
-    trajectory_df.attrs["length"] = mo.base.dimension.length
-    trajectory_df.attrs["width"] = mo.base.dimension.width
-    trajectory_df.attrs["height"] = mo.base.dimension.height
-    trajectory_df.attrs["type"] = mo.type
-    trajectory_df.attrs["vehicle_type"] = mo.vehicle_classification.type
+    if object_metadata:
+        trajectory_df.attrs.update(object_metadata)
     return trajectory_df
 
 

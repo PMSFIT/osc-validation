@@ -93,7 +93,7 @@ def test_trajectory_remote_zip(osi_trace_with_ids: Path, odr_file: Path, generat
         pytest.skip(f"Object ID {moving_object_id} not found in {osi_trace.name}. Available ids: {str(object_ids)}")
 
     osc_path = osi2osc(
-        osi_sensorview=reference_trace_channel_spec,
+        osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc.xosc",
         path_xodr=odr_file
     )
