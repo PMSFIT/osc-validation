@@ -63,8 +63,9 @@ class ESMini(OSCTool):
         if log_path is not None:
             cmd.extend(["--disable_stdout", "--logfile_path", str(log_path / "esmini.log")])
         
-        logging.info(f"Running esmini with command: \'{" ".join(map(str, cmd))}\'")
-        os.system(" ".join(map(str, cmd)))
+        cmd_str = " ".join(map(str, cmd))
+        logging.info(f"Running esmini with command: \'{cmd_str}\'")
+        os.system(cmd_str)
         if not osi_esmini_gt_spec.exists():
             raise RuntimeError(f"ESMini trace could not be generated. Check the tool's logs for more details.")
         logging.info(f"Esmini temp output: {osi_esmini_gt_spec}")

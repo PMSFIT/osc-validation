@@ -61,8 +61,9 @@ class GTGen_Simulator(OSCTool):
         if log_path is not None:
             cmd.extend(["--log-file-dir", str(log_path)])
 
-        logging.info(f"Running gtgen_cli with command: \'{" ".join(map(str, cmd))}\'")
-        os.system(" ".join(map(str, cmd)))
+        cmd_str = " ".join(map(str, cmd))
+        logging.info(f"Running gtgen_cli with command: \'{cmd_str}\'")
+        os.system(cmd_str)
         if not osi_gtgen_sv_spec.exists():
             raise RuntimeError(f"GTGen trace could not be generated. Check the tool's logs for more details.")
         logging.info(f"GTGen temp output: {osi_gtgen_sv_spec}")

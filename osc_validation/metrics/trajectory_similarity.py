@@ -81,7 +81,7 @@ class TrajectorySimilarityMetric(OSIMetric):
         assert ref_trajectory is not None, f"Could not extract trajectory for moving_object_id={moving_object_id} from reference trace file {reference_channel_spec}."
         tool_trajectory = get_closest_trajectory(ref_trajectory, tool_channel_spec, start_time-time_tolerance, end_time+time_tolerance) # matching trajectories based on starting position proximity
         assert tool_trajectory is not None, f"Could not extract trajectory for moving_object_id={moving_object_id} from tool trace file {reference_channel_spec}."
-        logging.info(f"Comparing tool trace trajectory of moving object ID '{tool_trajectory.attrs["id"]}' to reference trace trajectory of moving object ID '{moving_object_id}' in time range [{start_time-time_tolerance}, {end_time+time_tolerance}].")
+        logging.info(f"Comparing tool trace trajectory of moving object ID '{tool_trajectory.attrs['id']}' to reference trace trajectory of moving object ID '{moving_object_id}' in time range [{start_time-time_tolerance}, {end_time+time_tolerance}].")
 
         if len(ref_trajectory) < 2 or len(tool_trajectory) < 2:
             raise ValueError("Trajectories must contain at least 2 points for comparison.")
