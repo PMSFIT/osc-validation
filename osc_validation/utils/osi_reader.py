@@ -80,12 +80,12 @@ class OSITraceReaderBase:
         
         summary_lines = [
             ("File path", self.path),
-            ("OSI version", f"{channel_info["osi_version"]}"),
-            ("OSI trace type", channel_info["message_type"]),
-            ("Start timestamp", f"{channel_info["start"]}s"),
-            ("Stop timestamp", f"{channel_info["stop"]}s"),
-            ("Average Step Size", f"{round(channel_info["step_size_avg"], 9)}s"),
-            ("Total Steps", channel_info["total_steps"]),
+            ("OSI version", channel_info['osi_version']),
+            ("OSI trace type", channel_info['message_type']),
+            ("Start timestamp", f"{channel_info['start']}s"),
+            ("Stop timestamp", f"{channel_info['stop']}s"),
+            ("Average Step Size", f"{round(channel_info['step_size_avg'], 9)}s"),
+            ("Total Steps", channel_info['total_steps']),
         ]
 
         max_label_len = max(len(label) for label, _ in summary_lines)
