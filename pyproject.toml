@@ -1,11 +1,27 @@
-[tool.poetry]
+[project]
 name = "osc-validation"
 version = "0.1.0"
 description = "This project implements a validation suite for ASAM OpenSCENARIO XML implementations for a restricted subset of ASAM OpenSCENARIO XML."
-authors = ["PMSF <osi@pmsf.de>"]
-license = "MPL-2.0"
 readme = "README.md"
+requires-python = ">=3.10"
+license = "MPL-2.0"
+keywords = [ "openscenario", "osi", "validation" ]
+authors = [
+  {email = "osi@pmsf.de"},
+  {name = "PMSF"}
+]
+
+[project.urls]
 repository = "https://github.com/PMSFIT/osc-validation"
+
+[project.scripts]
+osi2osc = 'osc_validation.generation.osi2osc:main'
+esminigt2sv = 'osc_validation.utils.esminigt2sv:main'
+strip_sensorview = 'osc_validation.utils.strip_sensorview:main'
+trajectory_similarity = 'osc_validation.metrics.trajectory_similarity:main'
+
+[tool.poetry]
+include = [ "data", "validation", "specification" ]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -18,16 +34,10 @@ requests = "^2.32.3"
 mcap = "^1.2.2"
 mcap-protobuf-support = "^0.5.3"
 qc-osi-trace = { git = "https://github.com/OpenSimulationInterface/qc-osi-trace.git", branch = "main" }
+pytest = "^8.2.2"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.2.2"
 black = "^24.4.2"
-
-[tool.poetry.scripts]
-osi2osc = 'osc_validation.generation.osi2osc:main'
-esminigt2sv = 'osc_validation.utils.esminigt2sv:main'
-strip_sensorview = 'osc_validation.utils.strip_sensorview:main'
-trajectory_similarity = 'osc_validation.metrics.trajectory_similarity:main'
 
 [build-system]
 requires = ["poetry-core"]
