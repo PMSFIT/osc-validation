@@ -61,7 +61,7 @@ class ESMini(OSCTool):
         ]
 
         if log_path is not None:
-            cmd.extend(["--disable_stdout", "--logfile_path", str(log_path / "esmini.log")])
+            cmd.extend(["--logfile_path", str(log_path / "esmini.log")])
         
         cmd_str = " ".join(map(str, cmd))
         logging.info(f"Running esmini with command: \'{cmd_str}\'")
