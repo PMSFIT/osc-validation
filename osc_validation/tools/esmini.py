@@ -53,6 +53,7 @@ class ESMini(OSCTool):
 
         cmd = [
             self.tool_path,
+            "--headless",
             "--osc", str(osc_path),
             "--osi_file", str(osi_esmini_gt_spec.path),
             "--ground_plane",
