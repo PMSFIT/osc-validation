@@ -43,6 +43,7 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
+@pytest.mark.trajectory
 @pytest.mark.parametrize("moving_object_id", [1,2])
 def test_trajectory_and_osi_compliance(osi_trace: Path, odr_file: Path, yaml_ruleset: Path, generate_tool_trace: Callable, tmp_path: Path, moving_object_id: int, tolerance=1e-1):
     """
