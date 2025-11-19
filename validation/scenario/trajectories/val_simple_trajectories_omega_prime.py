@@ -24,7 +24,7 @@ def osi_trace(request):
 
 @pytest.fixture(
     scope="module",
-    params=["https://raw.githubusercontent.com/OpenSimulationInterface/qc-osi-trace/refs/heads/main/qc_ositrace/checks/osirules/rulesyml/osi_3_7_0.yml"], # OSI 3.7.0 rules
+    params=["https://raw.githubusercontent.com/thomassedlmayer/omega-prime/refs/heads/omega-prime-osi-rule-yml/docs/osirules/omega-prime-osi_3-7-0.yml"], # Omega-Prime OSI 3.7.0 rules
 )
 def yaml_ruleset(request):
     uri = request.param
@@ -44,13 +44,10 @@ def odr_file(request):
 
 
 @pytest.mark.parametrize("moving_object_id", [1,2])
-def test_trajectory_and_osi_compliance(osi_trace: Path, odr_file: Path, yaml_ruleset: Path, generate_tool_trace: Callable, tmp_path: Path, moving_object_id: int, tolerance=1e-1):
+def test_trajectory_and_omegaprime_compliance(osi_trace: Path, odr_file: Path, yaml_ruleset: Path, generate_tool_trace: Callable, tmp_path: Path, moving_object_id: int, tolerance=1e-1):
     """
     Validates that a tool-generated trajectory closely matches the original OSI trace
     for a given moving object, using similarity metrics within a specified tolerance.
-
-    Also runs qc_osi_trace on the tool-generated trace and checks if it complies with
-    the OSI 3.7.0 ruleset.
 
     Args:
         osi_trace (Path): Path to the original OSI trace file (pytest module fixture).
@@ -88,7 +85,7 @@ def test_trajectory_and_osi_compliance(osi_trace: Path, odr_file: Path, yaml_rul
         rate=0.05
     )
 
-    # Check compliance of tool trace OSI 3.7.0 ruleset
+    # Check compliance of tool trace to omega prime ruleset and OSI 3.7.0 ruleset
     qc_check = QCOSITraceChecker(osi_version="3.7.0", ruleset=yaml_ruleset)
     result = qc_check.check(
         channel_spec=tool_trace_channel_spec,
