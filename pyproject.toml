@@ -21,6 +21,7 @@ strip_sensorview = 'osc_validation.utils.strip_sensorview:main'
 trajectory_similarity = 'osc_validation.metrics.trajectory_similarity:main'
 
 [tool.poetry]
+requires-poetry = ">=2.0"
 include = [ "data", "validation", "specification" ]
 
 [tool.poetry.dependencies]
@@ -40,5 +41,5 @@ pytest = "^8.2.2"
 black = "^24.4.2"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"

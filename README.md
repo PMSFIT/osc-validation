@@ -8,6 +8,9 @@ It derives from this subset a validation suite of representative test cases and 
 
 ## Installation
 
+> [!NOTE]
+> If you choose to manage this project with Poetry, be aware that it requires **Poetry 2.0 or newer**.
+
 Use [poetry](https://python-poetry.org/) to install the validation suite into a new virtual environment:
 
 ```bash
