@@ -1,9 +1,7 @@
 import argparse
 import logging
-import math
 from pathlib import Path
-
-import numpy
+import os
 
 import matplotlib.pyplot as plt
 
@@ -75,13 +73,18 @@ class TrajectorySimilarityMetric(OSIMetric):
 
         reference_moving_object_ids = get_all_moving_object_ids(reference_channel_spec)
         if moving_object_id not in reference_moving_object_ids:
-            raise KeyError(f"Moving object ID {moving_object_id} not found in reference trace.")
+            raise KeyError(f"Moving object ID {moving_object_id} not found in reference trace (available ids: {reference_moving_object_ids}).")
         
-        ref_trajectory = get_trajectory_by_moving_object_id(reference_channel_spec, moving_object_id, start_time-time_tolerance, end_time+time_tolerance)
+        if start_time:
+            start_time = start_time-time_tolerance
+        if end_time:
+            end_time = end_time+time_tolerance
+
+        ref_trajectory = get_trajectory_by_moving_object_id(reference_channel_spec, moving_object_id, start_time, end_time)
         assert ref_trajectory is not None, f"Could not extract trajectory for moving_object_id={moving_object_id} from reference trace file {reference_channel_spec}."
-        tool_trajectory = get_closest_trajectory(ref_trajectory, tool_channel_spec, start_time-time_tolerance, end_time+time_tolerance) # matching trajectories based on starting position proximity
+        tool_trajectory = get_closest_trajectory(ref_trajectory, tool_channel_spec, start_time, end_time) # matching trajectories based on starting position proximity
         assert tool_trajectory is not None, f"Could not extract trajectory for moving_object_id={moving_object_id} from tool trace file {reference_channel_spec}."
-        logging.info(f"Comparing tool trace trajectory of moving object ID '{tool_trajectory.attrs['id']}' to reference trace trajectory of moving object ID '{moving_object_id}' in time range [{start_time-time_tolerance}, {end_time+time_tolerance}].")
+        logging.info(f"Comparing tool trace trajectory of moving object ID '{tool_trajectory.attrs['id']}' to reference trace trajectory of moving object ID '{moving_object_id}' in time range [{start_time}, {end_time}].")
 
         if len(ref_trajectory) < 2 or len(tool_trajectory) < 2:
             raise ValueError("Trajectories must contain at least 2 points for comparison.")
@@ -150,6 +153,12 @@ def create_argparser():
         "moving_object_id", help="ID of the moving object's trajectories to be compared."
     )
     parser.add_argument(
+        "--reference_topic", help="Topic name of reference OSI SensorView trace file if multi-trace file."
+    )
+    parser.add_argument(
+        "--tool_topic", help="Topic name of tool OSI SensorView trace file if multi-trace file."
+    )
+    parser.add_argument(
         "-p",
         "--plot",
         action="store_true",
@@ -164,17 +173,16 @@ def main():
     parser = create_argparser()
     args = parser.parse_args()
     path_reference = Path(args.reference_sv)
-    reference_reader = OSIChannelReader.from_osi_single_trace(path_reference, message_type="SensorView")
+    reference_spec = OSIChannelSpecification(path_reference, message_type="SensorView", topic=args.reference_topic)
     path_tool = Path(args.tool_sv)
-    tool_reader = OSIChannelReader.from_osi_single_trace(path_tool, message_type="SensorView")
-    metric = TrajectorySimilarityMetric("TrajectorySimilarityMetric")
+    tool_spec = OSIChannelSpecification(path_tool, message_type="SensorView", topic=args.tool_topic)
+    metric = TrajectorySimilarityMetric("TrajectorySimilarityMetric", plot_path=(Path(os.getcwd()) if args.plot else None))
     _, _, _ = metric.compute(
-        reference_channel_spec=reference_reader,
-        tool_channel_spec=tool_reader,
-        moving_object_id=args.moving_object_id,
-        plot=args.plot,
-        start_time=args.start_time,
-        end_time=args.end_time
+        reference_channel_spec=reference_spec,
+        tool_channel_spec=tool_spec,
+        moving_object_id=int(args.moving_object_id),
+        start_time=float(args.start_time) if args.start_time else None,
+        end_time=float(args.end_time) if args.end_time else None
     )
 
 
