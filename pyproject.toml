@@ -19,6 +19,7 @@ osi2osc = 'osc_validation.generation.osi2osc:main'
 esminigt2sv = 'osc_validation.utils.esminigt2sv:main'
 strip_sensorview = 'osc_validation.utils.strip_sensorview:main'
 trajectory_similarity = 'osc_validation.metrics.trajectory_similarity:main'
+osi_format_converter = 'osc_validation.utils.osi_format_converter:main'
 
 [tool.poetry]
 requires-poetry = ">=2.0"
