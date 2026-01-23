@@ -29,10 +29,10 @@ class QCOSITraceChecker(TraceChecker):
     Class to perform OSI trace checker bundle using the QC framework.
     
     Args:
-        osi_version (str, optional): OSI version ruleset to be checked against. Defaults to "3.7.0".
+        osi_version (str, optional): OSI version ruleset to be checked against. Defaults to None.
         ruleset (Path, optional): Path to the custom ruleset for OSITrace quality checks (osiRulesFile). If None, only the OSI version ruleset is checked.
     """
-    def __init__(self, osi_version: str = "3.7.0", ruleset: Path = None):
+    def __init__(self, osi_version: str = None, ruleset: Path = None):
         super().__init__(osi_version)
         self.checker_bundle_name = constants.BUNDLE_NAME
         self.ruleset = ruleset
@@ -63,7 +63,8 @@ class QCOSITraceChecker(TraceChecker):
         config = Configuration()
         config.set_config_param("InputFile", str(single_channel_trace_spec.path))
         config.set_config_param("osiType", "SensorView")
-        config.set_config_param("osiVersion", self.osi_version)
+        if self.osi_version:
+            config.set_config_param("osiVersion", self.osi_version)
         if self.ruleset is not None:
             config.set_config_param("osiRulesFile", str(self.ruleset))
         config.register_checker_bundle(self.checker_bundle_name)

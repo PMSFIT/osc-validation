@@ -24,7 +24,7 @@ def osi_trace(request):
 
 @pytest.fixture(
     scope="module",
-    params=["https://raw.githubusercontent.com/OpenSimulationInterface/qc-osi-trace/refs/heads/main/qc_ositrace/checks/osirules/rulesyml/osi_3_7_0.yml"], # OSI 3.7.0 rules
+    params=["https://raw.githubusercontent.com/OpenSimulationInterface/qc-osi-trace/refs/heads/main/qc_ositrace/checks/osirules/rulesyml/osi_3_7_0.yml"],
 )
 def yaml_ruleset(request):
     uri = request.param
@@ -89,8 +89,8 @@ def test_trajectory_and_osi_compliance(osi_trace: Path, odr_file: Path, yaml_rul
         rate=0.05
     )
 
-    # Check compliance of tool trace OSI 3.7.0 ruleset
-    qc_check = QCOSITraceChecker(osi_version="3.7.0", ruleset=yaml_ruleset)
+    # Check compliance of tool trace OSI ruleset
+    qc_check = QCOSITraceChecker(ruleset=yaml_ruleset)
     result = qc_check.check(
         channel_spec=tool_trace_channel_spec,
         result_file=tmp_path / "qc_result.xqar",
