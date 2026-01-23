@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-import re
 from osi3trace.osi_trace import OSITrace
 
 from mcap_protobuf.decoder import DecoderFactory
@@ -112,17 +111,17 @@ class OSITraceReaderMulti(OSITraceReaderBase):
         return metadata
 
     def get_available_topics(self):
-        return [channel.topic for id, channel in self._summary.channels.items()]
+        return [channel.topic for channel in self._summary.channels.values()]
 
     def get_channel_metadata(self, topic):
-        for id, channel in self._summary.channels.items():
+        for channel in self._summary.channels.values():
             if channel.topic == topic:
                 return channel.metadata
         return None
 
     def get_channel_info(self, topic):
         channel_info = self._retrieve_channel_info_from_data(topic=topic)
-        for channel_id, channel in self._summary.channels.items():
+        for channel in self._summary.channels.values():
             if channel.topic == topic:
                 schema = self._summary.schemas[channel.schema_id]
                 if schema.name.startswith("osi3."):
@@ -135,7 +134,7 @@ class OSITraceReaderMulti(OSITraceReaderBase):
         return channel_info
 
     def get_message_type(self, topic: str):
-        for channel_id, channel in self._summary.channels.items():
+        for channel in self._summary.channels.values():
             if channel.topic == topic:
                 schema = self._summary.schemas[channel.schema_id]
                 if schema.name.startswith("osi3."):

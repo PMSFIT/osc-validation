@@ -1,15 +1,14 @@
 from pathlib import Path
 import math
-import struct
 
 import pandas as pd
 
-from osi3 import osi_common_pb2, osi_sensordata_pb2, osi_sensorview_pb2
+from osi3 import osi_common_pb2, osi_sensordata_pb2
 from osi3trace.osi_trace import OSITrace
 
 from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter, OSITraceWriterMulti
+from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
 def timestamp_osi_to_float(osi_timestamp: osi_common_pb2.Timestamp) -> float:
@@ -277,8 +276,8 @@ def crop_trace(
     at the given output path.
 
     Args:
-        input (OSIChannelSpecification): OSI channel specification for the input OSI trace
-        output (Path): Path to the output OSI trace
+        input_channel_spec (OSIChannelSpecification): OSI channel specification for the input OSI trace
+        output_channel_spec (OSIChannelSpecification): OSI channel specification for the output OSI trace
         start_time (float, optional): Start time of the inclusive interval
         end_time (float, optional): End time of the inclusive interval
     Returns:

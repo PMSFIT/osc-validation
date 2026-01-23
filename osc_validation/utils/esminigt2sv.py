@@ -2,7 +2,6 @@
 trace. Also adds some fields (version, moving object ids, host vehicle id, etc.)
 that are missing in the esmini export."""
 
-import struct
 import argparse
 from pathlib import Path
 

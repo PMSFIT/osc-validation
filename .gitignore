@@ -1,5 +1,6 @@
 # esmini
 esmini/
+GTGEN_DATA/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

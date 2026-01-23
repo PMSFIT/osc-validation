@@ -10,10 +10,7 @@ from qc_ositrace.checks.deserialization import deserialization_constants
 
 from osc_validation.utils.osi_channel_specification import (
     OSIChannelSpecification,
-    TraceFileFormat,
 )
-from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
 class TraceChecker:

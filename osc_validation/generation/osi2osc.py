@@ -8,7 +8,6 @@ import sys
 import pandas as pd
 from lxml import etree
 
-import osi3
 from osi3 import osi_object_pb2
 
 from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
