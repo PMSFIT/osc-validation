@@ -50,18 +50,8 @@ class QCOSITraceChecker(TraceChecker):
             bool: True if all checkers completed without issues, False otherwise.
         """
 
-        # rewrite the trace to a single-channel file if it is not already in that format
-        if channel_spec.trace_file_format == TraceFileFormat.SINGLE_CHANNEL:
-            single_channel_trace_spec = channel_spec
-        else:
-            single_channel_trace_spec = channel_spec.with_trace_file_format(TraceFileFormat.SINGLE_CHANNEL).with_name_suffix("_qc")
-            with OSIChannelReader.from_osi_channel_specification(channel_spec) as reader:
-                with OSIChannelWriter.from_osi_channel_specification(single_channel_trace_spec) as writer:
-                    for message in reader:
-                        writer.write(message)
-
         config = Configuration()
-        config.set_config_param("InputFile", str(single_channel_trace_spec.path))
+        config.set_config_param("InputFile", str(channel_spec.path))
         config.set_config_param("osiType", "SensorView")
         if self.osi_version:
             config.set_config_param("osiVersion", self.osi_version)
