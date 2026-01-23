@@ -63,7 +63,8 @@ def parse_osi_trace_filename(filename: str) -> dict:
             - custom_trace_name (str)
         Or None if parsing fails.
     """
-    pattern = re.compile(r"""
+    pattern = re.compile(
+        r"""
         ^
         (?P<timestamp>\d{8}T\d{6}Z)
         _
@@ -77,7 +78,9 @@ def parse_osi_trace_filename(filename: str) -> dict:
         _
         (?P<custom_trace_name>[^.]+)
         \.osi$
-        """, re.VERBOSE)
+        """,
+        re.VERBOSE,
+    )
 
     match = pattern.match(filename)
     if not match:
@@ -92,7 +95,7 @@ def parse_osi_trace_filename(filename: str) -> dict:
             "osi_version": match.group("osi_version"),
             "protobuf_version": match.group("protobuf_version"),
             "number_of_frames": int(match.group("number_of_frames")),
-            "custom_trace_name": match.group("custom_trace_name")
+            "custom_trace_name": match.group("custom_trace_name"),
         }
     except Exception as e:
         logging.warning(f"Error while parsing filename {filename}: {e}")
@@ -114,17 +117,20 @@ class OSIChannelSpecification:
             If None, the metadata defaults to an empty dictionary.
             Single-channel files do not support storing metadata.
     """
+
     path: Path
     message_type: Optional[str] = None
     topic: Optional[str] = None
     metadata: Optional[dict] = field(default_factory=dict)
 
-    _format_mapper: FormatMapper = field(default_factory=FormatMapper, init=False, repr=False, compare=False)
+    _format_mapper: FormatMapper = field(
+        default_factory=FormatMapper, init=False, repr=False, compare=False
+    )
 
     @property
     def trace_file_format(self) -> TraceFileFormat:
         return self._format_mapper.get_format(self.path.suffix)
-    
+
     def try_autodetect_message_type(self) -> bool:
         """
         Attempts to detect and set the message type from the file name or content.
@@ -139,10 +145,15 @@ class OSIChannelSpecification:
         detected_type = None
         if format == TraceFileFormat.MULTI_CHANNEL:
             from osc_validation.utils.osi_reader import OSIChannelReader
-            with OSIChannelReader.from_osi_channel_specification(self) as channel_reader:
+
+            with OSIChannelReader.from_osi_channel_specification(
+                self
+            ) as channel_reader:
                 detected_type = channel_reader.get_message_type()
         elif format == TraceFileFormat.SINGLE_CHANNEL:
-            detected_type = parse_osi_trace_filename(self.path.name).get("message_type", None)
+            detected_type = parse_osi_trace_filename(self.path.name).get(
+                "message_type", None
+            )
 
         if detected_type is not None:
             self.message_type = detected_type
@@ -163,8 +174,8 @@ class OSIChannelSpecification:
             bool: True if the file exists, False otherwise.
         """
         return self.path.exists() and self.path.is_file()
-    
-    def rename_to(self, new_path: Path) -> 'OSIChannelSpecification':
+
+    def rename_to(self, new_path: Path) -> "OSIChannelSpecification":
         """
         Renames the OSI channel's source file to a new path.
         Args:
@@ -176,7 +187,9 @@ class OSIChannelSpecification:
             OSError: If the rename operation fails.
         """
         if not self.exists():
-            raise FileNotFoundError(f"Cannot rename: file does not exist at {self.path}")
+            raise FileNotFoundError(
+                f"Cannot rename: file does not exist at {self.path}"
+            )
         try:
             self.path.rename(new_path)
         except OSError as e:
@@ -185,50 +198,52 @@ class OSIChannelSpecification:
             path=new_path,
             message_type=self.message_type,
             topic=self.topic,
-            metadata=self.metadata
+            metadata=self.metadata,
         )
-    
-    def with_name(self, new_name: str) -> 'OSIChannelSpecification':
+
+    def with_name(self, new_name: str) -> "OSIChannelSpecification":
         new_path = self.path.with_name(new_name)
         return OSIChannelSpecification(
             path=new_path,
             message_type=self.message_type,
             topic=self.topic,
-            metadata=self.metadata
+            metadata=self.metadata,
         )
 
-    def with_name_suffix(self, suffix: str) -> 'OSIChannelSpecification':
+    def with_name_suffix(self, suffix: str) -> "OSIChannelSpecification":
         new_name = self.path.stem + suffix + self.path.suffix
         new_path = self.path.with_name(new_name)
         return OSIChannelSpecification(
             path=new_path,
             message_type=self.message_type,
             topic=self.topic,
-            metadata=self.metadata
+            metadata=self.metadata,
         )
-    
-    def with_trace_file_format(self, trace_file_format: TraceFileFormat) -> 'OSIChannelSpecification':
+
+    def with_trace_file_format(
+        self, trace_file_format: TraceFileFormat
+    ) -> "OSIChannelSpecification":
         return OSIChannelSpecification(
             path=self.path.with_suffix(FormatMapper().get_extension(trace_file_format)),
             message_type=self.message_type,
             topic=self.topic,
-            metadata=self.metadata
+            metadata=self.metadata,
         )
-    
-    def with_message_type(self, message_type: str) -> 'OSIChannelSpecification':
+
+    def with_message_type(self, message_type: str) -> "OSIChannelSpecification":
         return OSIChannelSpecification(
             path=self.path,
             message_type=message_type,
             topic=self.topic,
-            metadata=self.metadata
+            metadata=self.metadata,
         )
-    
-    def with_topic(self, topic: str) -> 'OSIChannelSpecification':
+
+    def with_topic(self, topic: str) -> "OSIChannelSpecification":
         return OSIChannelSpecification(
             path=self.path,
             message_type=self.message_type,
             topic=topic,
-            metadata=self.metadata
+            metadata=self.metadata,
         )
 
     def __str__(self):
@@ -240,15 +255,27 @@ class InvalidSpecificationError(Exception):
 
 
 class OSIChannelSpecValidator:
-    def __init__(self, allowed_message_types=None, require_message_type=False, require_topic=False, require_metadata_keys=None):
+    def __init__(
+        self,
+        allowed_message_types=None,
+        require_message_type=False,
+        require_topic=False,
+        require_metadata_keys=None,
+    ):
         self.allowed_message_types = allowed_message_types
         self.require_message_type = require_message_type
         self.require_topic = require_topic
         self.require_metadata_keys = require_metadata_keys or []
 
     def __call__(self, spec: OSIChannelSpecification):
-        if self.allowed_message_types and spec.message_type not in self.allowed_message_types and spec.message_type is not None:
-            raise InvalidSpecificationError(f"OSI message type is not allowed: {spec.message_type}")
+        if (
+            self.allowed_message_types
+            and spec.message_type not in self.allowed_message_types
+            and spec.message_type is not None
+        ):
+            raise InvalidSpecificationError(
+                f"OSI message type is not allowed: {spec.message_type}"
+            )
         if self.require_message_type and not spec.message_type:
             raise InvalidSpecificationError("OSI message type is required.")
         if self.require_topic and not spec.topic:

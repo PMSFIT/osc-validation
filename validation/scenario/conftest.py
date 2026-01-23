@@ -8,8 +8,8 @@ from osc_validation.tools.gtgen_cli import GTGen_Simulator
 
 
 def _make_tool(config):
-    tool_name = config.getoption('--tool')
-    toolpath = config.getoption('--toolpath')
+    tool_name = config.getoption("--tool")
+    toolpath = config.getoption("--toolpath")
 
     if tool_name == "ESMini":
         return ESMini(toolpath)
@@ -38,7 +38,10 @@ def pytest_report_header(config):
 def pytest_addoption(parser):
     group = parser.getgroup("OSC Validation Suite")
     group.addoption(
-        "--tool", action="store", default="ESMini", help="Tool to Validate: ESMini, GTGen"
+        "--tool",
+        action="store",
+        default="ESMini",
+        help="Tool to Validate: ESMini, GTGen",
     )
     group.addoption(
         "--toolpath",

@@ -1,6 +1,6 @@
-""" Converts OSI GroundTruth trace file export from esmini into OSI SensorView
+"""Converts OSI GroundTruth trace file export from esmini into OSI SensorView
 trace. Also adds some fields (version, moving object ids, host vehicle id, etc.)
-that are missing in the esmini export. """
+that are missing in the esmini export."""
 
 import struct
 import argparse
@@ -12,7 +12,10 @@ from osc_validation.utils.osi_channel_specification import OSIChannelSpecificati
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
 
-def gt2sv(gt_channel_spec: OSIChannelSpecification, sv_channel_spec: OSIChannelSpecification) -> OSIChannelSpecification:
+
+def gt2sv(
+    gt_channel_spec: OSIChannelSpecification, sv_channel_spec: OSIChannelSpecification
+) -> OSIChannelSpecification:
     writer = OSIChannelWriter.from_osi_channel_specification(sv_channel_spec)
     with OSIChannelReader.from_osi_channel_specification(gt_channel_spec) as gt_reader:
         with writer as sv_writer:
@@ -44,8 +47,12 @@ def create_argparser():
     parser = argparse.ArgumentParser(
         description="Wrap OSI GroundTruth in OSI SensorView."
     )
-    parser.add_argument("groundtruth", help="Path to the input OSI GroundTruth trace file.")
-    parser.add_argument("sensorview", help="Path to the output OSI SensorView trace file.")
+    parser.add_argument(
+        "groundtruth", help="Path to the input OSI GroundTruth trace file."
+    )
+    parser.add_argument(
+        "sensorview", help="Path to the output OSI SensorView trace file."
+    )
     return parser
 
 

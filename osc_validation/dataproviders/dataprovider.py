@@ -62,7 +62,9 @@ class DownloadDataProvider(BaseDownloadDataProvider):
     def __init__(self, uri: str, base_path: str | Path, force_download: bool = True):
         super().__init__(uri, base_path, force_download)
 
-        self.filename = Path(urlparse(self.uri).path).name # does not support indirect uri's
+        self.filename = Path(
+            urlparse(self.uri).path
+        ).name  # does not support indirect uri's
         self.file_path = self.base_path / self.filename
         self.loaded = False if self.force_download else self.file_path.exists()
 

@@ -81,7 +81,11 @@ def get_all_moving_object_ids(osi_trace: OSIChannelSpecification) -> list[int]:
     assert osi_trace.message_type in ("SensorView", "GroundTruth")
     moving_object_ids = []
     for message in OSIChannelReader.from_osi_channel_specification(osi_trace):
-        osi_moving_objects = message.global_ground_truth.moving_object if osi_trace.message_type == "SensorView" else message.moving_object
+        osi_moving_objects = (
+            message.global_ground_truth.moving_object
+            if osi_trace.message_type == "SensorView"
+            else message.moving_object
+        )
         for mo in osi_moving_objects:
             if not mo.id.value in moving_object_ids:
                 moving_object_ids.append(mo.id.value)
@@ -89,7 +93,10 @@ def get_all_moving_object_ids(osi_trace: OSIChannelSpecification) -> list[int]:
 
 
 def get_trajectory_by_moving_object_id(
-    osi_trace: OSIChannelSpecification, moving_object_id: str, start_time: float = None, end_time: float = None
+    osi_trace: OSIChannelSpecification,
+    moving_object_id: str,
+    start_time: float = None,
+    end_time: float = None,
 ) -> pd.DataFrame:
     """
     Extracts trajectory of OSI MovingObject from the input OSI SensorView or GroundTruth trace in the optionally
@@ -109,7 +116,11 @@ def get_trajectory_by_moving_object_id(
     trajectory = {"timestamp": [], "x": [], "y": [], "z": [], "h": [], "p": [], "r": []}
     object_metadata = {}
     for message in OSIChannelReader.from_osi_channel_specification(osi_trace):
-        osi_moving_objects = message.global_ground_truth.moving_object if osi_trace.message_type == "SensorView" else message.moving_object
+        osi_moving_objects = (
+            message.global_ground_truth.moving_object
+            if osi_trace.message_type == "SensorView"
+            else message.moving_object
+        )
         current_timestamp = timestamp_osi_to_float(message.timestamp)
         if start_time is not None and current_timestamp < start_time:
             continue
@@ -141,11 +152,11 @@ def get_trajectory_by_moving_object_id(
 
 
 def get_closest_trajectory(
-        ref_trajectory: pd.DataFrame,
-        tool_channel_spec: OSIChannelSpecification,
-        start_time: float = None,
-        end_time: float = None
-    ) -> pd.DataFrame:
+    ref_trajectory: pd.DataFrame,
+    tool_channel_spec: OSIChannelSpecification,
+    start_time: float = None,
+    end_time: float = None,
+) -> pd.DataFrame:
     """
     Finds the tool trajectory that is closest to the reference trajectory based on the starting position.
     Args:
@@ -159,7 +170,9 @@ def get_closest_trajectory(
 
     tool_moving_object_ids = get_all_moving_object_ids(tool_channel_spec)
     tool_trajectories = {
-        obj_id: get_trajectory_by_moving_object_id(tool_channel_spec, obj_id, start_time, end_time)
+        obj_id: get_trajectory_by_moving_object_id(
+            tool_channel_spec, obj_id, start_time, end_time
+        )
         for obj_id in tool_moving_object_ids
     }
 
@@ -179,7 +192,7 @@ def get_closest_trajectory(
     return tool_trajectory
 
 
-def rotatePointZYX(x,y,z,yaw,pitch,roll):
+def rotatePointZYX(x, y, z, yaw, pitch, roll):
     """Performs a rotation of the given coordinate based on given euler rotation angles.
     Rotation order:
     1. yaw (around z-axis)
@@ -201,14 +214,22 @@ def rotatePointZYX(x,y,z,yaw,pitch,roll):
     sin_roll = math.sin(roll)
 
     # rotation order z-y-x
-    rx = (cos_yaw*cos_pitch) * x + (cos_yaw*sin_pitch*sin_roll - sin_yaw*cos_roll) * y + (cos_yaw*sin_pitch*cos_roll + sin_yaw*sin_roll) * z
-    ry = (sin_yaw*cos_pitch) * x + (sin_yaw*sin_pitch*sin_roll + cos_yaw*cos_roll) * y + (sin_yaw*sin_pitch*cos_roll - cos_yaw*sin_roll) * z
-    rz = (-sin_pitch)        * x + (cos_pitch*sin_roll)                            * y + (cos_pitch*cos_roll)                            * z
+    rx = (
+        (cos_yaw * cos_pitch) * x
+        + (cos_yaw * sin_pitch * sin_roll - sin_yaw * cos_roll) * y
+        + (cos_yaw * sin_pitch * cos_roll + sin_yaw * sin_roll) * z
+    )
+    ry = (
+        (sin_yaw * cos_pitch) * x
+        + (sin_yaw * sin_pitch * sin_roll + cos_yaw * cos_roll) * y
+        + (sin_yaw * sin_pitch * cos_roll - cos_yaw * sin_roll) * z
+    )
+    rz = (-sin_pitch) * x + (cos_pitch * sin_roll) * y + (cos_pitch * cos_roll) * z
 
-    return (rx,ry,rz)
+    return (rx, ry, rz)
 
 
-def rotatePointXYZ(x,y,z,yaw,pitch,roll):
+def rotatePointXYZ(x, y, z, yaw, pitch, roll):
     """Performs a rotation of the given coordinate based on given euler rotation angles.
     Rotation order:
     1. roll (around x-axis)
@@ -230,14 +251,27 @@ def rotatePointXYZ(x,y,z,yaw,pitch,roll):
     sin_roll = math.sin(roll)
 
     # rotation order x-y-z
-    rx = (cos_pitch*cos_yaw)                              * x + (-cos_pitch*sin_yaw)                             * y + (sin_pitch)           * z
-    ry = (sin_roll*sin_pitch*cos_yaw + cos_roll*sin_yaw)  * x + (-sin_roll*sin_pitch*sin_yaw + cos_roll*cos_yaw) * y + (-sin_roll*cos_pitch) * z
-    rz = (-cos_roll*sin_pitch*cos_yaw + sin_roll*sin_yaw) * x + (cos_roll*sin_pitch*sin_yaw + sin_roll*cos_yaw)  * y + (cos_roll*cos_pitch)  * z
+    rx = (cos_pitch * cos_yaw) * x + (-cos_pitch * sin_yaw) * y + (sin_pitch) * z
+    ry = (
+        (sin_roll * sin_pitch * cos_yaw + cos_roll * sin_yaw) * x
+        + (-sin_roll * sin_pitch * sin_yaw + cos_roll * cos_yaw) * y
+        + (-sin_roll * cos_pitch) * z
+    )
+    rz = (
+        (-cos_roll * sin_pitch * cos_yaw + sin_roll * sin_yaw) * x
+        + (cos_roll * sin_pitch * sin_yaw + sin_roll * cos_yaw) * y
+        + (cos_roll * cos_pitch) * z
+    )
 
-    return (rx,ry,rz)
+    return (rx, ry, rz)
 
 
-def crop_trace(input_channel_spec: OSIChannelSpecification, output_channel_spec: OSIChannelSpecification, start_time: float = None, end_time: float = None) -> OSIChannelSpecification:
+def crop_trace(
+    input_channel_spec: OSIChannelSpecification,
+    output_channel_spec: OSIChannelSpecification,
+    start_time: float = None,
+    end_time: float = None,
+) -> OSIChannelSpecification:
     """
     Crops the content of an input OSI trace based on the given inclusive interval and stores it
     at the given output path.
@@ -250,11 +284,17 @@ def crop_trace(input_channel_spec: OSIChannelSpecification, output_channel_spec:
     Returns:
         Specification of the output OSI channel.
     """
-    input_trace_reader = OSIChannelReader.from_osi_channel_specification(input_channel_spec)
-    output_trace_writer = OSIChannelWriter.from_osi_channel_specification(output_channel_spec)
+    input_trace_reader = OSIChannelReader.from_osi_channel_specification(
+        input_channel_spec
+    )
+    output_trace_writer = OSIChannelWriter.from_osi_channel_specification(
+        output_channel_spec
+    )
     with input_trace_reader as channel_reader, output_trace_writer as channel_writer:
         for message in channel_reader:
             message_time = timestamp_osi_to_float(message.timestamp)
-            if (start_time is None or message_time >= start_time) and (end_time is None or message_time <= end_time):
+            if (start_time is None or message_time >= start_time) and (
+                end_time is None or message_time <= end_time
+            ):
                 channel_writer.write(message)
     return output_trace_writer.get_channel_specification()

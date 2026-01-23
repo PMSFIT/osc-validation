@@ -32,15 +32,15 @@ class TrajectorySimilarityMetric(OSIMetric):
         self.plot_path = plot_path
 
     def compute(
-            self,
-            reference_channel_spec: OSIChannelSpecification,
-            tool_channel_spec: OSIChannelSpecification,
-            moving_object_id: int,
-            start_time: float = None,
-            end_time: float = None,
-            result_file: Path = None,
-            time_tolerance: float = 0.0,
-        ):
+        self,
+        reference_channel_spec: OSIChannelSpecification,
+        tool_channel_spec: OSIChannelSpecification,
+        moving_object_id: int,
+        start_time: float = None,
+        end_time: float = None,
+        result_file: Path = None,
+        time_tolerance: float = 0.0,
+    ):
         """
         Compares the 2d-trajectories of a specified moving object in two OSI SensorView traces and computes similarity measures.
 
@@ -73,31 +73,51 @@ class TrajectorySimilarityMetric(OSIMetric):
 
         reference_moving_object_ids = get_all_moving_object_ids(reference_channel_spec)
         if moving_object_id not in reference_moving_object_ids:
-            raise KeyError(f"Moving object ID {moving_object_id} not found in reference trace (available ids: {reference_moving_object_ids}).")
-        
-        if start_time:
-            start_time = start_time-time_tolerance
-        if end_time:
-            end_time = end_time+time_tolerance
+            raise KeyError(
+                f"Moving object ID {moving_object_id} not found in reference trace (available ids: {reference_moving_object_ids})."
+            )
 
-        ref_trajectory = get_trajectory_by_moving_object_id(reference_channel_spec, moving_object_id, start_time, end_time)
-        assert ref_trajectory is not None, f"Could not extract trajectory for moving_object_id={moving_object_id} from reference trace file {reference_channel_spec}."
-        tool_trajectory = get_closest_trajectory(ref_trajectory, tool_channel_spec, start_time, end_time) # matching trajectories based on starting position proximity
-        assert tool_trajectory is not None, f"Could not extract trajectory for moving_object_id={moving_object_id} from tool trace file {reference_channel_spec}."
-        logging.info(f"Comparing tool trace trajectory of moving object ID '{tool_trajectory.attrs['id']}' to reference trace trajectory of moving object ID '{moving_object_id}' in time range [{start_time}, {end_time}].")
+        if start_time:
+            start_time = start_time - time_tolerance
+        if end_time:
+            end_time = end_time + time_tolerance
+
+        ref_trajectory = get_trajectory_by_moving_object_id(
+            reference_channel_spec, moving_object_id, start_time, end_time
+        )
+        assert (
+            ref_trajectory is not None
+        ), f"Could not extract trajectory for moving_object_id={moving_object_id} from reference trace file {reference_channel_spec}."
+        tool_trajectory = get_closest_trajectory(
+            ref_trajectory, tool_channel_spec, start_time, end_time
+        )  # matching trajectories based on starting position proximity
+        assert (
+            tool_trajectory is not None
+        ), f"Could not extract trajectory for moving_object_id={moving_object_id} from tool trace file {reference_channel_spec}."
+        logging.info(
+            f"Comparing tool trace trajectory of moving object ID '{tool_trajectory.attrs['id']}' to reference trace trajectory of moving object ID '{moving_object_id}' in time range [{start_time}, {end_time}]."
+        )
 
         if len(ref_trajectory) < 2 or len(tool_trajectory) < 2:
-            raise ValueError("Trajectories must contain at least 2 points for comparison.")
-        
+            raise ValueError(
+                "Trajectories must contain at least 2 points for comparison."
+            )
+
         if len(ref_trajectory) != len(tool_trajectory):
-            raise ValueError("Reference and tool trajectories must have the same number of points. Check if the frame rate differs or if the given interval timestamps deviate (e.g. one trace shows timestamp rounding errors).")
+            raise ValueError(
+                "Reference and tool trajectories must have the same number of points. Check if the frame rate differs or if the given interval timestamps deviate (e.g. one trace shows timestamp rounding errors)."
+            )
 
         report += f"Reference trajectory for moving object ID {moving_object_id}:\n"
         report += ref_trajectory.loc[:, ["timestamp", "x", "y"]].to_string(index=False)
-        report += "\n###################################################################\n"
+        report += (
+            "\n###################################################################\n"
+        )
         report += f"Tool trajectory for moving object ID {moving_object_id}:\n"
         report += tool_trajectory.loc[:, ["timestamp", "x", "y"]].to_string(index=False)
-        report += "\n###################################################################\n"
+        report += (
+            "\n###################################################################\n"
+        )
 
         area = similaritymeasures.area_between_two_curves(
             ref_trajectory.loc[:, ["x", "y"]].values,
@@ -129,8 +149,20 @@ class TrajectorySimilarityMetric(OSIMetric):
         if self.plot_path:
             plot_path = self.plot_path / f"trajectory_similarity_{moving_object_id}.png"
             plt.figure(figsize=(25.6, 14.4))
-            plt.plot(ref_trajectory["x"], ref_trajectory["y"], "o-", label="Reference", markersize=3)
-            plt.plot(tool_trajectory["x"], tool_trajectory["y"], "o-", label="Tool", markersize=3)
+            plt.plot(
+                ref_trajectory["x"],
+                ref_trajectory["y"],
+                "o-",
+                label="Reference",
+                markersize=3,
+            )
+            plt.plot(
+                tool_trajectory["x"],
+                tool_trajectory["y"],
+                "o-",
+                label="Tool",
+                markersize=3,
+            )
             plt.legend()
             plt.savefig(plot_path, dpi=100)
             plt.close()
@@ -150,13 +182,16 @@ def create_argparser():
         "tool_sv", help="Path to the tool output OSI SensorView trace file."
     )
     parser.add_argument(
-        "moving_object_id", help="ID of the moving object's trajectories to be compared."
+        "moving_object_id",
+        help="ID of the moving object's trajectories to be compared.",
     )
     parser.add_argument(
-        "--reference_topic", help="Topic name of reference OSI SensorView trace file if multi-trace file."
+        "--reference_topic",
+        help="Topic name of reference OSI SensorView trace file if multi-trace file.",
     )
     parser.add_argument(
-        "--tool_topic", help="Topic name of tool OSI SensorView trace file if multi-trace file."
+        "--tool_topic",
+        help="Topic name of tool OSI SensorView trace file if multi-trace file.",
     )
     parser.add_argument(
         "-p",
@@ -164,8 +199,16 @@ def create_argparser():
         action="store_true",
         help="Plot the reference and tool trajectories for visual comparison.",
     )
-    parser.add_argument("--start-time", type=float, help="Start time for trajectory comparison in seconds (float)")
-    parser.add_argument("--end-time", type=float, help="End time for trajectory comparison in seconds (float)")
+    parser.add_argument(
+        "--start-time",
+        type=float,
+        help="Start time for trajectory comparison in seconds (float)",
+    )
+    parser.add_argument(
+        "--end-time",
+        type=float,
+        help="End time for trajectory comparison in seconds (float)",
+    )
     return parser
 
 
@@ -173,16 +216,23 @@ def main():
     parser = create_argparser()
     args = parser.parse_args()
     path_reference = Path(args.reference_sv)
-    reference_spec = OSIChannelSpecification(path_reference, message_type="SensorView", topic=args.reference_topic)
+    reference_spec = OSIChannelSpecification(
+        path_reference, message_type="SensorView", topic=args.reference_topic
+    )
     path_tool = Path(args.tool_sv)
-    tool_spec = OSIChannelSpecification(path_tool, message_type="SensorView", topic=args.tool_topic)
-    metric = TrajectorySimilarityMetric("TrajectorySimilarityMetric", plot_path=(Path(os.getcwd()) if args.plot else None))
+    tool_spec = OSIChannelSpecification(
+        path_tool, message_type="SensorView", topic=args.tool_topic
+    )
+    metric = TrajectorySimilarityMetric(
+        "TrajectorySimilarityMetric",
+        plot_path=(Path(os.getcwd()) if args.plot else None),
+    )
     _, _, _ = metric.compute(
         reference_channel_spec=reference_spec,
         tool_channel_spec=tool_spec,
         moving_object_id=int(args.moving_object_id),
         start_time=float(args.start_time) if args.start_time else None,
-        end_time=float(args.end_time) if args.end_time else None
+        end_time=float(args.end_time) if args.end_time else None,
     )
 
 

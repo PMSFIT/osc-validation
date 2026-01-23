@@ -1,4 +1,4 @@
-""" Rewrites the specified input channel as the specified output channel.
+"""Rewrites the specified input channel as the specified output channel.
 
 Examples:
     osi_format_converter input_sv.mcap SensorView output_sv.osi --input_topic SensorViewTopic
@@ -14,9 +14,14 @@ from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
-def convert(input_channel_spec: OSIChannelSpecification, output_channel_spec: OSIChannelSpecification) -> OSIChannelSpecification:
+def convert(
+    input_channel_spec: OSIChannelSpecification,
+    output_channel_spec: OSIChannelSpecification,
+) -> OSIChannelSpecification:
     with OSIChannelReader.from_osi_channel_specification(input_channel_spec) as reader:
-        with OSIChannelWriter.from_osi_channel_specification(output_channel_spec) as writer:
+        with OSIChannelWriter.from_osi_channel_specification(
+            output_channel_spec
+        ) as writer:
             for msg in reader:
                 writer.write(msg)
     return writer.get_channel_specification()
@@ -41,8 +46,14 @@ def create_argparser():
 def main():
     parser = create_argparser()
     args = parser.parse_args()
-    input_trace_spec = OSIChannelSpecification(path=Path(args.input), message_type=args.type)
-    sensorview_trace_spec = OSIChannelSpecification(path=Path(args.output), message_type=args.type, topic=(args.output_topic if args.output_topic else None))
+    input_trace_spec = OSIChannelSpecification(
+        path=Path(args.input), message_type=args.type
+    )
+    sensorview_trace_spec = OSIChannelSpecification(
+        path=Path(args.output),
+        message_type=args.type,
+        topic=(args.output_topic if args.output_topic else None),
+    )
     output_spec = convert(input_trace_spec, sensorview_trace_spec)
     print(f"Wrote {output_spec}")
 

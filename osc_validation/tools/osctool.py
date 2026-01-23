@@ -10,7 +10,9 @@ class OSCTool:
     def get_version(self) -> list[str]:
         return ["unknown version"]
 
-    def run(self, osc_path: Path, odr_path: Path, osi_output_spec: OSIChannelSpecification) -> OSIChannelSpecification:
+    def run(
+        self, osc_path: Path, odr_path: Path, osi_output_spec: OSIChannelSpecification
+    ) -> OSIChannelSpecification:
         """
         Executes the OpenSCENARIO XML engine with the specified input files and parameters.
         Args:

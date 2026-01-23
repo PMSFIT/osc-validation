@@ -11,19 +11,17 @@ from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMet
 from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
 
 
-
 @pytest.fixture(
     scope="module",
-    params=["https://github.com/lichtblick-suite/asam-osi-converter/raw/refs/heads/main/example-data/disappearingVehicle.mcap"],
+    params=[
+        "https://github.com/lichtblick-suite/asam-osi-converter/raw/refs/heads/main/example-data/disappearingVehicle.mcap"
+    ],
 )
 def osi_trace(request):
     uri = request.param
     filename = Path(urlparse(uri).path).name
-    base_path = Path("download") 
-    provider = DownloadDataProvider(
-        uri=uri,
-        base_path=base_path
-    )
+    base_path = Path("download")
+    provider = DownloadDataProvider(uri=uri, base_path=base_path)
     yield provider.ensure_data_path(filename)
     provider.cleanup()
 
@@ -39,7 +37,14 @@ def odr_file(request):
 
 
 @pytest.mark.parametrize("moving_object_id", [1])
-def test_trajectory_remote(osi_trace: Path, odr_file: Path, generate_tool_trace: Callable, tmp_path: Path, moving_object_id: int, tolerance=1e-1):
+def test_trajectory_remote(
+    osi_trace: Path,
+    odr_file: Path,
+    generate_tool_trace: Callable,
+    tmp_path: Path,
+    moving_object_id: int,
+    tolerance=1e-1,
+):
     """
     Validates that a tool-generated trajectory closely matches the original OSI trace
     for a given moving object, using similarity metrics within a specified tolerance.
@@ -60,11 +65,13 @@ def test_trajectory_remote(osi_trace: Path, odr_file: Path, generate_tool_trace:
     logger.setLevel(logging.INFO)
 
     # Generate the OpenSCENARIO file from the reference OSI trace
-    reference_trace_channel_spec = OSIChannelSpecification(osi_trace, message_type="SensorView")
+    reference_trace_channel_spec = OSIChannelSpecification(
+        osi_trace, message_type="SensorView"
+    )
     osc_path = osi2osc(
         osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc.xosc",
-        path_xodr=odr_file
+        path_xodr=odr_file,
     )
 
     # Use the OpenSCENARIO and OpenDRIVE file fixtures to generate the tool trace with the specified format and rate
@@ -74,14 +81,18 @@ def test_trajectory_remote(osi_trace: Path, odr_file: Path, generate_tool_trace:
         osi_output_spec=OSIChannelSpecification(
             path=tmp_path / "tool_trace.mcap",
             message_type="SensorView",
-            metadata={"net.asam.osi.trace.channel.description": "Tool-generated trace for validation"},
+            metadata={
+                "net.asam.osi.trace.channel.description": "Tool-generated trace for validation"
+            },
         ),
         log_path=tmp_path,
-        rate=0.05
+        rate=0.05,
     )
-    
+
     # Calculate trajectory similarity metrics
-    trajectory_similarity_metric = TrajectorySimilarityMetric(name="TrajectorySimilarityMetric", plot_path=tmp_path)
+    trajectory_similarity_metric = TrajectorySimilarityMetric(
+        name="TrajectorySimilarityMetric", plot_path=tmp_path
+    )
     (area, cl, mae) = trajectory_similarity_metric.compute(
         reference_channel_spec=reference_trace_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
@@ -89,7 +100,7 @@ def test_trajectory_remote(osi_trace: Path, odr_file: Path, generate_tool_trace:
         start_time=3,
         end_time=10.0,
         result_file=tmp_path / f"trajectory_similarity_report.txt",
-        time_tolerance=0.01
+        time_tolerance=0.01,
     )
 
     assert area < tolerance

@@ -32,7 +32,14 @@ class GTGen_Simulator(OSCTool):
         text_out = stdout if stdout else "unknown version"
         return [line.strip() for line in text_out.splitlines() if line.strip()]
 
-    def run(self, osc_path: Path, odr_path: Path, osi_output_spec: OSIChannelSpecification, log_path: Path=None, rate=None) -> OSIChannelSpecification:
+    def run(
+        self,
+        osc_path: Path,
+        odr_path: Path,
+        osi_output_spec: OSIChannelSpecification,
+        log_path: Path = None,
+        rate=None,
+    ) -> OSIChannelSpecification:
         """
         Executes the gtgen_cli tool with the specified input files and parameters.
 
@@ -52,29 +59,40 @@ class GTGen_Simulator(OSCTool):
         """
 
         # Check if the requested output specification is supported
-        requested_spec_validator = OSIChannelSpecValidator(allowed_message_types=["SensorView"])
+        requested_spec_validator = OSIChannelSpecValidator(
+            allowed_message_types=["SensorView"]
+        )
         requested_spec_validator(osi_output_spec)
 
-        osi_gtgen_sv_spec = osi_output_spec.with_name_suffix("_gtgen").with_trace_file_format(TraceFileFormat.SINGLE_CHANNEL).with_message_type("SensorView")
+        osi_gtgen_sv_spec = (
+            osi_output_spec.with_name_suffix("_gtgen")
+            .with_trace_file_format(TraceFileFormat.SINGLE_CHANNEL)
+            .with_message_type("SensorView")
+        )
 
         cmd = [
             self.tool_path,
-            "-s", osc_path,
-            "--gtgen-data", "./GTGEN_DATA",
-            "--output-trace", osi_gtgen_sv_spec.path
+            "-s",
+            osc_path,
+            "--gtgen-data",
+            "./GTGEN_DATA",
+            "--output-trace",
+            osi_gtgen_sv_spec.path,
         ]
 
         if rate is not None:
             cmd.extend(["--step-size-ms", str(rate * 1000)])
-        
+
         if log_path is not None:
             cmd.extend(["--log-file-dir", str(log_path)])
 
         cmd_str = " ".join(map(str, cmd))
-        logging.info(f"Running gtgen_cli with command: \'{cmd_str}\'")
+        logging.info(f"Running gtgen_cli with command: '{cmd_str}'")
         os.system(cmd_str)
         if not osi_gtgen_sv_spec.exists():
-            raise RuntimeError(f"GTGen trace could not be generated. Check the tool's logs for more details.")
+            raise RuntimeError(
+                f"GTGen trace could not be generated. Check the tool's logs for more details."
+            )
         logging.info(f"GTGen temp output: {osi_gtgen_sv_spec}")
 
         # Adapt output trace file format according to the requested specification
@@ -85,7 +103,7 @@ class GTGen_Simulator(OSCTool):
             for message in reader:
                 writer.write(message)
         output_spec = writer.get_channel_specification()
-        
+
         logging.info(f"Output trace specification: {output_spec}")
 
         return output_spec

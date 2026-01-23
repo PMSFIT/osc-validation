@@ -27,30 +27,31 @@ STOPTRIGGER = True
 STOPTRIGGER_CONDITION = "SimulationTimeCondition"  # StoryboardElementStateCondition / SimulationTimeCondition
 INITACTIONS = True
 
+
 class OSI2OSCMovingObject:
     """
     Class containing relevant data to convert from OSI to OpenSCENARIO
     """
 
     osi_vehicle_type_to_osc_category: dict[int, str | None] = {
-        0: None, # unknown
-        1: None, # other
-        2: "car", # small car
-        3: "car", # compact car
-        4: "car", # car
-        5: "car", # luxury car
-        6: "van", # delivery van
-        7: "truck", # heavy truck
-        8: None, # semitrailer
-        9: "trailer", # trailer
-        10: "motorbike", # motorbike
-        11: "bicycle", # bicycle
-        12: "bus", # bus
-        13: "tram", # tram
-        14: "train", # train
-        15: None, # wheelchair
-        16: None, # semitractor
-        17: None, # standup scooter
+        0: None,  # unknown
+        1: None,  # other
+        2: "car",  # small car
+        3: "car",  # compact car
+        4: "car",  # car
+        5: "car",  # luxury car
+        6: "van",  # delivery van
+        7: "truck",  # heavy truck
+        8: None,  # semitrailer
+        9: "trailer",  # trailer
+        10: "motorbike",  # motorbike
+        11: "bicycle",  # bicycle
+        12: "bus",  # bus
+        13: "tram",  # tram
+        14: "train",  # train
+        15: None,  # wheelchair
+        16: None,  # semitractor
+        17: None,  # standup scooter
     }
     """OSI 3.7.0 to OpenSCENARIO XML 1.3.0 Mapping"""
 
@@ -68,7 +69,9 @@ class OSI2OSCMovingObject:
         host_vehicle: bool = False,
     ):
         self.id = id
-        self.entity_ref = f"osi_moving_object_{self.id}" if not host_vehicle else "Ego"  # name of ScenarioObject
+        self.entity_ref = (
+            f"osi_moving_object_{self.id}" if not host_vehicle else "Ego"
+        )  # name of ScenarioObject
         self.length_static = length_static
         self.width_static = width_static
         self.height_static = height_static
@@ -77,11 +80,19 @@ class OSI2OSCMovingObject:
         self.trajectory = pd.DataFrame(
             columns=["timestamp", "x", "y", "z", "h", "p", "r"]
         )
-        if bbcenter_to_rear_x == None and bbcenter_to_rear_y == None and bbcenter_to_rear_z == None:
-            self.bbcenter_to_rear_x = -self.length_static * 0.3 # default
-            self.bbcenter_to_rear_y = 0 # default
-            self.bbcenter_to_rear_z = -self.height_static * 0.5 # default
-        elif bbcenter_to_rear_x != None and bbcenter_to_rear_y != None and bbcenter_to_rear_z != None:
+        if (
+            bbcenter_to_rear_x == None
+            and bbcenter_to_rear_y == None
+            and bbcenter_to_rear_z == None
+        ):
+            self.bbcenter_to_rear_x = -self.length_static * 0.3  # default
+            self.bbcenter_to_rear_y = 0  # default
+            self.bbcenter_to_rear_z = -self.height_static * 0.5  # default
+        elif (
+            bbcenter_to_rear_x != None
+            and bbcenter_to_rear_y != None
+            and bbcenter_to_rear_z != None
+        ):
             self.bbcenter_to_rear_x = bbcenter_to_rear_x
             self.bbcenter_to_rear_y = bbcenter_to_rear_y
             self.bbcenter_to_rear_z = bbcenter_to_rear_z
@@ -89,8 +100,8 @@ class OSI2OSCMovingObject:
             raise RuntimeError("Problem with bbcenter_to_rear")
 
     def append_trajectory_row(self, timestamp, x, y, z, h, p, r):
-        """ Appends a new dataframe row to build a full trajectory.
-        
+        """Appends a new dataframe row to build a full trajectory.
+
         Positions are given in OSI coordinates and describe the center of the
         bounding box of the object.
         """
@@ -119,7 +130,9 @@ class OSI2OSCMovingObject:
         """
         osc_vehicle_category = self.osi_vehicle_type_to_osc_category[self.vehicle_type]
         xml_scenario_object = etree.Element("ScenarioObject", name=self.entity_ref)
-        assert osc_vehicle_category != None, "Missing OSI2OSC mapping for vehicle category."
+        assert (
+            osc_vehicle_category != None
+        ), "Missing OSI2OSC mapping for vehicle category."
         xml_vehicle = etree.SubElement(
             xml_scenario_object,
             "Vehicle",
@@ -132,7 +145,7 @@ class OSI2OSCMovingObject:
             "Center",
             x=str(-self.bbcenter_to_rear_x),
             y=str(-self.bbcenter_to_rear_y),
-            z=str(self.height_static/2),
+            z=str(self.height_static / 2),
         )
         xml_dimensions = etree.SubElement(
             xml_bounding_box,
@@ -190,13 +203,17 @@ class OSI2OSCMovingObject:
             h = point["h"]
             p = point["p"]
             r = point["r"]
-            rx, ry, rz = rotatePointZYX(self.bbcenter_to_rear_x,
-                                        self.bbcenter_to_rear_y,
-                                        -self.height_static/2, # projection onto ground plane of bounding box
-                                        h,p,r)
-            x = x+rx
-            y = y+ry
-            z = z+rz
+            rx, ry, rz = rotatePointZYX(
+                self.bbcenter_to_rear_x,
+                self.bbcenter_to_rear_y,
+                -self.height_static / 2,  # projection onto ground plane of bounding box
+                h,
+                p,
+                r,
+            )
+            x = x + rx
+            y = y + ry
+            z = z + rz
             xml_world_position = etree.SubElement(
                 xml_position,
                 "WorldPosition",
@@ -282,17 +299,21 @@ class OSI2OSCMovingObject:
         xml_trajectory = self.build_osc_polyline_trajectory()
         xml_trajectory_ref.append(xml_trajectory)
         return xml_act
-    
+
     def build_init_action(self):
         xml_private = etree.Element("Private", entityRef=self.entity_ref)
         xml_private_action = etree.SubElement(xml_private, "PrivateAction")
         xml_teleport_action = etree.SubElement(xml_private_action, "TeleportAction")
         xml_position = etree.SubElement(xml_teleport_action, "Position")
-        xml_world_position = etree.SubElement(xml_position, "WorldPosition", x="0", y="0", z="0", h="0", p="0", r="0")
+        xml_world_position = etree.SubElement(
+            xml_position, "WorldPosition", x="0", y="0", z="0", h="0", p="0", r="0"
+        )
         return xml_private
 
 
-def parse_moving_objects(osi_trace_spec: OSIChannelSpecification, host_vehicle_id: str) -> list[OSI2OSCMovingObject]:
+def parse_moving_objects(
+    osi_trace_spec: OSIChannelSpecification, host_vehicle_id: str
+) -> list[OSI2OSCMovingObject]:
     """
     Extracts all moving objects from an OSI SensorView or GroundTruth trace.
     """
@@ -301,7 +322,11 @@ def parse_moving_objects(osi_trace_spec: OSIChannelSpecification, host_vehicle_i
     my_moving_objects = []
     for osi_message in reader:
         current_timestamp = timestamp_osi_to_float(osi_message.timestamp)
-        osi_moving_object_list = osi_message.global_ground_truth.moving_object if reader.get_message_type() == "SensorView" else osi_message.moving_object
+        osi_moving_object_list = (
+            osi_message.global_ground_truth.moving_object
+            if reader.get_message_type() == "SensorView"
+            else osi_message.moving_object
+        )
         for osi_moving_object in osi_moving_object_list:
             current_moving_object_id = osi_moving_object.id.value
             if not any(obj.id == current_moving_object_id for obj in my_moving_objects):
@@ -348,7 +373,9 @@ def parse_moving_objects(osi_trace_spec: OSIChannelSpecification, host_vehicle_i
     return my_moving_objects
 
 
-def osi2osc(osi_trace_spec: OSIChannelSpecification, path_xosc: Path, path_xodr: Path=None) -> Path:
+def osi2osc(
+    osi_trace_spec: OSIChannelSpecification, path_xosc: Path, path_xodr: Path = None
+) -> Path:
     """
     Converts an OSI GroundTruth or SensorView trace to an OpenSCENARIO XML file
     at the specified path.
@@ -363,13 +390,17 @@ def osi2osc(osi_trace_spec: OSIChannelSpecification, path_xosc: Path, path_xodr:
         AssertionError: If the input OSI trace is not of type SensorView or GroundTruth.
     """
 
-    osi_trace_channel_reader = OSIChannelReader.from_osi_channel_specification(osi_trace_spec)
+    osi_trace_channel_reader = OSIChannelReader.from_osi_channel_specification(
+        osi_trace_spec
+    )
     assert osi_trace_channel_reader.get_message_type() in ("SensorView", "GroundTruth")
     stop_timestamp = osi_trace_channel_reader.get_channel_info().get("stop")
     msg = next(osi_trace_channel_reader.get_messages())
     host_vehicle_id = msg.host_vehicle_id.value if msg else None
     if host_vehicle_id == None:
-        logging.warning(f"Input OSI trace ({osi_trace_channel_reader.get_source_path()}) has no specified host_vehicle_id. The output OpenSCENARIO file will not have a specified ego vehicle.")
+        logging.warning(
+            f"Input OSI trace ({osi_trace_channel_reader.get_source_path()}) has no specified host_vehicle_id. The output OpenSCENARIO file will not have a specified ego vehicle."
+        )
 
     my_moving_objects = parse_moving_objects(osi_trace_spec, host_vehicle_id)
     # Order objects so that Ego is always added first (in entities and init actions)
@@ -399,9 +430,7 @@ def osi2osc(osi_trace_spec: OSIChannelSpecification, path_xosc: Path, path_xodr:
     xml_catalog_locations = etree.SubElement(xml_root, "CatalogLocations")
     xml_road_network = etree.SubElement(xml_root, "RoadNetwork")
     if path_xodr is not None:
-        xml_road_network.append(
-            etree.Element("LogicFile", filepath=str(path_xodr))
-        )
+        xml_road_network.append(etree.Element("LogicFile", filepath=str(path_xodr)))
     xml_entities = etree.SubElement(xml_root, "Entities")
     for xml_scenario_object in xml_scenario_objects:
         xml_entities.append(xml_scenario_object)
@@ -417,7 +446,9 @@ def osi2osc(osi_trace_spec: OSIChannelSpecification, path_xosc: Path, path_xodr:
         xml_story.append(xml_act)
     if STOPTRIGGER:
         if STOPTRIGGER_CONDITION == "StoryboardElementStateCondition":
-            xml_storyboard_stop_trigger = etree.SubElement(xml_storyboard, "StopTrigger")
+            xml_storyboard_stop_trigger = etree.SubElement(
+                xml_storyboard, "StopTrigger"
+            )
             xml_stop_trigger_condition_group = etree.SubElement(
                 xml_storyboard_stop_trigger, "ConditionGroup"
             )
@@ -436,10 +467,12 @@ def osi2osc(osi_trace_spec: OSIChannelSpecification, path_xosc: Path, path_xodr:
                 "StoryboardElementStateCondition",
                 storyboardElementType="story",
                 storyboardElementRef=story_name,
-                state="completeState"
+                state="completeState",
             )
         elif STOPTRIGGER_CONDITION == "SimulationTimeCondition":
-            xml_storyboard_stop_trigger = etree.SubElement(xml_storyboard, "StopTrigger")
+            xml_storyboard_stop_trigger = etree.SubElement(
+                xml_storyboard, "StopTrigger"
+            )
             xml_stop_trigger_condition_group = etree.SubElement(
                 xml_storyboard_stop_trigger, "ConditionGroup"
             )
@@ -457,7 +490,7 @@ def osi2osc(osi_trace_spec: OSIChannelSpecification, path_xosc: Path, path_xodr:
                 xml_stop_trigger_byvalue_condition,
                 "SimulationTimeCondition",
                 value=str(stop_timestamp),
-                rule="greaterThan"
+                rule="greaterThan",
             )
 
     xml_tree = etree.ElementTree(xml_root)
@@ -469,8 +502,15 @@ def create_argparser():
     parser = argparse.ArgumentParser(
         description="Convert an OSI GroundTruth or SensorView trace file to an OpenScenario XML file."
     )
-    parser.add_argument("ositrace", help="Path to the input OSI SensorView or OSI GroundTruth trace file.")
-    parser.add_argument("ositype", help="Type of the input OSI trace.", choices=["SensorView", "GroundTruth"])
+    parser.add_argument(
+        "ositrace",
+        help="Path to the input OSI SensorView or OSI GroundTruth trace file.",
+    )
+    parser.add_argument(
+        "ositype",
+        help="Type of the input OSI trace.",
+        choices=["SensorView", "GroundTruth"],
+    )
     parser.add_argument("xosc", help="Path to the output OpenScenario XML file.")
     return parser
 
@@ -481,11 +521,12 @@ def main():
     try:
         path_ositrace = Path(args.ositrace)
         if not path_ositrace.exists():
-            raise FileNotFoundError(f"Input OSI trace file '{path_ositrace}' does not exist.")
+            raise FileNotFoundError(
+                f"Input OSI trace file '{path_ositrace}' does not exist."
+            )
 
         osi_trace_spec = OSIChannelSpecification(
-            path=path_ositrace,
-            message_type=args.ositype
+            path=path_ositrace, message_type=args.ositype
         )
         path_xosc = Path(args.xosc)
         osi2osc(osi_trace_spec, path_xosc)

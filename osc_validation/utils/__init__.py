@@ -7,13 +7,5 @@ from .osi_channel_specification import (
     OSIChannelSpecValidator,
     TraceFileFormat,
 )
-from .osi_reader import (
-    OSIChannelReader,
-    OSITraceReaderMulti,
-    OSITraceAdapter
-)
-from .osi_writer import (
-    OSIChannelWriter,
-    OSITraceWriterMulti,
-    OSITraceWriterSingle
-)
+from .osi_reader import OSIChannelReader, OSITraceReaderMulti, OSITraceAdapter
+from .osi_writer import OSIChannelWriter, OSITraceWriterMulti, OSITraceWriterSingle

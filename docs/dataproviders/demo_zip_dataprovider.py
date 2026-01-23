@@ -11,12 +11,11 @@ from osc_validation.utils.osi_channel_specification import OSIChannelSpecificati
 from osc_validation.utils.utils import get_all_moving_object_ids
 
 
-
 ZIP_URI = "https://github.com/thomassedlmayer/example-files-zip/raw/refs/heads/main/example-mcaps.zip"
 
 # Map each file to the object IDs to be tested
 ZIP_CONTENTS_TO_IDS = {
-    #"nurbs_road.mcap": [14],
+    # "nurbs_road.mcap": [14],
     "disappearing_vehicle.mcap": [1],
     "nurbs_trajectory.mcap": [10],
 }
@@ -35,7 +34,9 @@ def zip_provider():
     provider.cleanup()
 
 
-@pytest.fixture(scope="module", params=[
+@pytest.fixture(
+    scope="module",
+    params=[
         (filename, obj_id)
         for filename, ids in ZIP_CONTENTS_TO_IDS.items()
         for obj_id in ids
@@ -62,7 +63,13 @@ def odr_file(request):
     provider.cleanup()
 
 
-def test_trajectory_remote_zip(osi_trace_with_ids: Path, odr_file: Path, generate_tool_trace: Callable, tmp_path: Path, tolerance=1e-1):
+def test_trajectory_remote_zip(
+    osi_trace_with_ids: Path,
+    odr_file: Path,
+    generate_tool_trace: Callable,
+    tmp_path: Path,
+    tolerance=1e-1,
+):
     """
     Validates that a tool-generated trajectory closely matches the original OSI trace
     for a specific moving object, using trajectory similarity metrics within a specified tolerance.
@@ -86,16 +93,20 @@ def test_trajectory_remote_zip(osi_trace_with_ids: Path, odr_file: Path, generat
     osi_trace, moving_object_id = osi_trace_with_ids
 
     # Generate the OpenSCENARIO file from the reference OSI trace
-    reference_trace_channel_spec = OSIChannelSpecification(osi_trace, message_type="SensorView")
+    reference_trace_channel_spec = OSIChannelSpecification(
+        osi_trace, message_type="SensorView"
+    )
 
     object_ids = get_all_moving_object_ids(reference_trace_channel_spec)
     if moving_object_id not in object_ids:
-        pytest.skip(f"Object ID {moving_object_id} not found in {osi_trace.name}. Available ids: {str(object_ids)}")
+        pytest.skip(
+            f"Object ID {moving_object_id} not found in {osi_trace.name}. Available ids: {str(object_ids)}"
+        )
 
     osc_path = osi2osc(
         osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc.xosc",
-        path_xodr=odr_file
+        path_xodr=odr_file,
     )
 
     # Use the OpenSCENARIO and OpenDRIVE file fixtures to generate the tool trace with the specified format and rate
@@ -105,14 +116,18 @@ def test_trajectory_remote_zip(osi_trace_with_ids: Path, odr_file: Path, generat
         osi_output_spec=OSIChannelSpecification(
             path=tmp_path / "tool_trace.mcap",
             message_type="SensorView",
-            metadata={"net.asam.osi.trace.channel.description": "Tool-generated trace for validation"},
+            metadata={
+                "net.asam.osi.trace.channel.description": "Tool-generated trace for validation"
+            },
         ),
         log_path=tmp_path,
-        rate=0.05
+        rate=0.05,
     )
-    
+
     # Calculate trajectory similarity metrics
-    trajectory_similarity_metric = TrajectorySimilarityMetric(name="TrajectorySimilarityMetric", plot_path=tmp_path)
+    trajectory_similarity_metric = TrajectorySimilarityMetric(
+        name="TrajectorySimilarityMetric", plot_path=tmp_path
+    )
     (area, cl, mae) = trajectory_similarity_metric.compute(
         reference_channel_spec=reference_trace_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
@@ -120,7 +135,7 @@ def test_trajectory_remote_zip(osi_trace_with_ids: Path, odr_file: Path, generat
         start_time=3,
         end_time=10.0,
         result_file=tmp_path / f"trajectory_similarity_report.txt",
-        time_tolerance=0.01
+        time_tolerance=0.01,
     )
 
     assert area < tolerance

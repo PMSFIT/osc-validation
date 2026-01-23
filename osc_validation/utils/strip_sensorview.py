@@ -1,12 +1,13 @@
-""" Removes OSI SensorView overhead that may not be required for the validation
+"""Removes OSI SensorView overhead that may not be required for the validation
 activity. The given boolean arguments can be used to specify which OSI content
-should be removed. """
+should be removed."""
 
 import struct
 import argparse
 from pathlib import Path
 
 from osi3trace.osi_trace import OSITrace
+
 
 def strip(sv_in: Path, sv_out: Path, args):
     trace = OSITrace(str(sv_in), "SensorView")
@@ -29,18 +30,51 @@ def strip(sv_in: Path, sv_out: Path, args):
         sv_output_file.write(bytes_buffer)
     sv_output_file.close()
 
+
 def create_argparser():
-    parser = argparse.ArgumentParser(
-        description="Strip content from OSI SensorView."
+    parser = argparse.ArgumentParser(description="Strip content from OSI SensorView.")
+    parser.add_argument(
+        "sensorview_in", help="Path to the input OSI SensorView trace file."
     )
-    parser.add_argument("sensorview_in", help="Path to the input OSI SensorView trace file.")
-    parser.add_argument("sensorview_out", help="Path to the output OSI SensorView trace file.")
-    parser.add_argument('--lane_boundary', action=argparse.BooleanOptionalAction, default=False, help="Remove lane boundaries")
-    parser.add_argument('--logical_lane', action=argparse.BooleanOptionalAction, default=False, help="Remove logical lanes")
-    parser.add_argument('--logical_lane_boundary', action=argparse.BooleanOptionalAction, default=False, help="Remove logical lane boundaries")
-    parser.add_argument('--lane', action=argparse.BooleanOptionalAction, default=False, help="Remove lanes")
-    parser.add_argument('--reference_line', action=argparse.BooleanOptionalAction, default=False, help="Remove reference lines")
-    parser.add_argument('--environmental_conditions', action=argparse.BooleanOptionalAction, default=False, help="Remove environmental conditions")
+    parser.add_argument(
+        "sensorview_out", help="Path to the output OSI SensorView trace file."
+    )
+    parser.add_argument(
+        "--lane_boundary",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Remove lane boundaries",
+    )
+    parser.add_argument(
+        "--logical_lane",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Remove logical lanes",
+    )
+    parser.add_argument(
+        "--logical_lane_boundary",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Remove logical lane boundaries",
+    )
+    parser.add_argument(
+        "--lane",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Remove lanes",
+    )
+    parser.add_argument(
+        "--reference_line",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Remove reference lines",
+    )
+    parser.add_argument(
+        "--environmental_conditions",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Remove environmental conditions",
+    )
     return parser
 
 
