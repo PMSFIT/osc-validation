@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 from pathlib import Path
 
 from osc_validation.tools.osctool import OSCTool
@@ -24,6 +25,13 @@ class ESMini(OSCTool):
         if not os.path.exists(tool_path):
             raise FileNotFoundError(f"esmini not found at path: {tool_path}")
         super().__init__(tool_path)
+
+    def get_version(self) -> list[str]:
+        cmd = [str(self.tool_path), "--version"]
+        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        stdout = (res.stdout or "").strip()
+        text_out = stdout if stdout else "unknown version"
+        return [line.strip() for line in text_out.splitlines() if line.strip()]
 
     def run(self, osc_path: Path, odr_path: Path, osi_output_spec: OSIChannelSpecification, log_path: Path=None, rate=0.05) -> OSIChannelSpecification:
         """
