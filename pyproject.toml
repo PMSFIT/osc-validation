@@ -30,6 +30,7 @@ python = "^3.10"
 lxml = "^5.2.2"
 matplotlib = "^3.8.2"
 osi-python = { git = "https://github.com/OpenSimulationInterface/osi-python.git", branch = "main" }
+asam-osi-utilities = { path = "submodules/asam-osi-utilities/python", develop = true }
 pandas = "2.2.3"
 similaritymeasures = "1.2.0"
 requests = "^2.32.3"
