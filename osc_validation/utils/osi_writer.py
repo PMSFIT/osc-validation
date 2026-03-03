@@ -8,7 +8,6 @@ from mcap.writer import Writer
 from mcap.well_known import MessageEncoding
 
 import google
-from google.protobuf.descriptor import FileDescriptor
 from google.protobuf.descriptor_pb2 import FileDescriptorSet
 
 from osc_validation.utils.osi_channel_specification import (
@@ -16,32 +15,13 @@ from osc_validation.utils.osi_channel_specification import (
     TraceFileFormat,
 )
 
-from osi3 import (
-    osi_sensorview_pb2,
-    osi_sensordata_pb2,
-    osi_groundtruth_pb2,
-    osi_hostvehicledata_pb2,
-    osi_trafficcommand_pb2,
-    osi_trafficcommandupdate_pb2,
-    osi_trafficupdate_pb2,
-    osi_motionrequest_pb2,
-    osi_streamingupdate_pb2,
-    osi_sensorviewconfiguration_pb2,
-)
+# F04: Use SDK's build_file_descriptor_set
+from osi_utilities.tracefile._mcap_utils import build_file_descriptor_set as _sdk_build_fds
 
+# F17/F19: Use SDK's _get_message_class to resolve message type strings to protobuf classes
+from osi_utilities.tracefile._types import MessageType, MESSAGE_TYPE_TO_CLASS_NAME, _get_message_class
 
-MESSAGE_TYPE_MAP = {
-    osi_sensorview_pb2.SensorView.DESCRIPTOR.name: osi_sensorview_pb2.SensorView,
-    osi_sensorviewconfiguration_pb2.SensorViewConfiguration.DESCRIPTOR.name: osi_sensorviewconfiguration_pb2.SensorViewConfiguration,
-    osi_groundtruth_pb2.GroundTruth.DESCRIPTOR.name: osi_groundtruth_pb2.GroundTruth,
-    osi_hostvehicledata_pb2.HostVehicleData.DESCRIPTOR.name: osi_hostvehicledata_pb2.HostVehicleData,
-    osi_sensordata_pb2.SensorData.DESCRIPTOR.name: osi_sensordata_pb2.SensorData,
-    osi_trafficcommand_pb2.TrafficCommand.DESCRIPTOR.name: osi_trafficcommand_pb2.TrafficCommand,
-    osi_trafficcommandupdate_pb2.TrafficCommandUpdate.DESCRIPTOR.name: osi_trafficcommandupdate_pb2.TrafficCommandUpdate,
-    osi_trafficupdate_pb2.TrafficUpdate.DESCRIPTOR.name: osi_trafficupdate_pb2.TrafficUpdate,
-    osi_motionrequest_pb2.MotionRequest.DESCRIPTOR.name: osi_motionrequest_pb2.MotionRequest,
-    osi_streamingupdate_pb2.StreamingUpdate.DESCRIPTOR.name: osi_streamingupdate_pb2.StreamingUpdate,
-}
+_NAME_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_CLASS_NAME.items()}
 
 
 class OSITraceWriterBase:
@@ -187,7 +167,7 @@ class OSITraceWriterMulti(OSITraceWriterBase):
         )
         self.validate_channel_metadata(metadata)
         file_descriptor_set = self._build_file_descriptor_set(
-            MESSAGE_TYPE_MAP[osi_channel_spec.message_type]
+            _get_message_class(_NAME_TO_MESSAGE_TYPE[osi_channel_spec.message_type])
         )
         schema_id = self.mcap_writer.register_schema(
             name=f"osi3.{osi_channel_spec.message_type}",
@@ -206,18 +186,7 @@ class OSITraceWriterMulti(OSITraceWriterBase):
         return osi_channel_spec
 
     def _build_file_descriptor_set(self, message_class) -> FileDescriptorSet:
-        file_descriptor_set = FileDescriptorSet()
-        seen_dependencies = set()
-
-        def append_file_descriptor(file_descriptor: FileDescriptor):
-            for dep in file_descriptor.dependencies:
-                if dep.name not in seen_dependencies:
-                    seen_dependencies.add(dep.name)
-                    append_file_descriptor(dep)
-            file_descriptor.CopyToProto(file_descriptor_set.file.add())
-
-        append_file_descriptor(message_class.DESCRIPTOR.file)
-        return file_descriptor_set
+        return _sdk_build_fds(message_class)
 
     def write(self, message: google.protobuf.message.Message, topic: str):
         """
@@ -328,7 +297,7 @@ class OSITraceWriterSingle(OSITraceWriterBase):
         self.message_type = message_type
         self.compress = compress
         if self.compress:
-            if not self.path.suffix == ".osi.xz":
+            if "".join(self.path.suffixes) != ".osi.xz":
                 raise ValueError(
                     f"Invalid file path: '{self.path}'. File extension must be '.osi.xz' for compressed OSI binary files."
                 )

@@ -1,25 +1,22 @@
 from dataclasses import dataclass, field
-from datetime import datetime
-import logging
 from pathlib import Path
 from typing import Optional
-from enum import Enum
-import re
 
+# F01: Re-export TraceFileFormat from SDK
+from osi_utilities.tracefile._types import TraceFileFormat
 
-class TraceFileFormat(Enum):
-    SINGLE_CHANNEL = 1
-    MULTI_CHANNEL = 2
+# F02: Re-export parse_osi_trace_filename and MESSAGE_TYPE_MAP from SDK
+from osi_utilities.tracefile._types import parse_osi_trace_filename
+from osi_utilities.tracefile._types import _SHORT_CODE_TO_MESSAGE_TYPE as MESSAGE_TYPE_MAP
+
+# F03: Re-export get_trace_file_format; keep FormatMapper as thin wrapper
+from osi_utilities.tracefile._types import get_trace_file_format as _sdk_get_format
+from osi_utilities.tracefile._types import _EXT_TO_FORMAT
 
 
 class FormatMapper:
     def __init__(self):
-        self.ext_to_format = {
-            ".osi": TraceFileFormat.SINGLE_CHANNEL,
-            ".xz": TraceFileFormat.SINGLE_CHANNEL,
-            ".lzma": TraceFileFormat.SINGLE_CHANNEL,
-            ".mcap": TraceFileFormat.MULTI_CHANNEL,
-        }
+        self.ext_to_format = dict(_EXT_TO_FORMAT)
         self.format_to_ext = {}
         for ext, fmt in self.ext_to_format.items():
             if fmt not in self.format_to_ext:
@@ -30,76 +27,6 @@ class FormatMapper:
 
     def get_extension(self, file_format: TraceFileFormat) -> str:
         return self.format_to_ext[file_format]
-
-
-MESSAGE_TYPE_MAP = {
-    "sv": "SensorView",
-    "svc": "SensorViewConfiguration",
-    "gt": "GroundTruth",
-    "hvd": "HostVehicleData",
-    "sd": "SensorData",
-    "tc": "TrafficCommand",
-    "tcu": "TrafficCommandUpdate",
-    "tu": "TrafficUpdate",
-    "mr": "MotionRequest",
-    "su": "StreamingUpdate",
-}
-
-
-def parse_osi_trace_filename(filename: str) -> dict:
-    """
-    Parses an OSI trace filename according to the 2.2.6.2 OSI naming convention.
-
-    Format:
-        <timestamp>_<type>_<osi-version>_<protobuf-version>_<number-of-frames>_<custom-trace-name>.osi
-
-    Returns:
-        A dict containing:
-            - timestamp (datetime)
-            - message_type (str)
-            - osi_version (str)
-            - protobuf_version (str)
-            - number_of_frames (int)
-            - custom_trace_name (str)
-        Or None if parsing fails.
-    """
-    pattern = re.compile(
-        r"""
-        ^
-        (?P<timestamp>\d{8}T\d{6}Z)
-        _
-        (?P<message_type>sv|svc|gt|hvd|sd|tc|tcu|tu|mr|su)
-        _
-        (?P<osi_version>[^_]+)
-        _
-        (?P<protobuf_version>[^_]+)
-        _
-        (?P<number_of_frames>\d+)
-        _
-        (?P<custom_trace_name>[^.]+)
-        \.osi$
-        """,
-        re.VERBOSE,
-    )
-
-    match = pattern.match(filename)
-    if not match:
-        return {}
-
-    try:
-        timestamp = datetime.strptime(match.group("timestamp"), "%Y%m%dT%H%M%SZ")
-
-        return {
-            "timestamp": timestamp,
-            "message_type": MESSAGE_TYPE_MAP.get(match.group("message_type")),
-            "osi_version": match.group("osi_version"),
-            "protobuf_version": match.group("protobuf_version"),
-            "number_of_frames": int(match.group("number_of_frames")),
-            "custom_trace_name": match.group("custom_trace_name"),
-        }
-    except Exception as e:
-        logging.warning(f"Error while parsing filename {filename}: {e}")
-        return {}
 
 
 @dataclass

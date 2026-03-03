@@ -163,9 +163,7 @@ class TestF12McapRead:
         from osc_validation.utils.osi_reader import OSITraceReaderMulti
 
         reader = OSITraceReaderMulti(mcap_sv_trace)
-        with pytest.raises((ValueError, TypeError)):
-            # NOTE: Pre-existing bug on Windows — string concatenation with
-            # WindowsPath raises TypeError instead of ValueError.
+        with pytest.raises(ValueError, match="not found"):
             list(reader.get_messages("NonExistentTopic"))
         reader.close()
 

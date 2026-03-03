@@ -106,8 +106,8 @@ class TestF17BinaryWrite:
             OSITraceWriterSingle(tmp_path / "bad.mcap", "SensorView")
 
     def test_writer_message_type_map_covers_all(self):
-        """Verify writer's MESSAGE_TYPE_MAP covers all expected types."""
-        from osc_validation.utils.osi_writer import MESSAGE_TYPE_MAP
+        """Verify writer's message type resolution covers all expected types."""
+        from osc_validation.utils.osi_writer import _NAME_TO_MESSAGE_TYPE
 
         expected = {
             "SensorView", "SensorViewConfiguration", "GroundTruth",
@@ -115,7 +115,7 @@ class TestF17BinaryWrite:
             "TrafficCommandUpdate", "TrafficUpdate", "MotionRequest",
             "StreamingUpdate",
         }
-        assert set(MESSAGE_TYPE_MAP.keys()) == expected
+        assert set(_NAME_TO_MESSAGE_TYPE.keys()) == expected
 
 
 # ===========================================================================
@@ -129,21 +129,12 @@ class TestF18BinaryCompression:
     def test_compress_creates_file(self, tmp_path):
         from osc_validation.utils.osi_writer import OSITraceWriterSingle
 
-        # OSITraceWriterSingle checks suffix == ".osi.xz" but Path(".osi.xz").suffix is ".xz"
-        # The actual validation checks self.path.suffix == ".osi.xz" which won't match
-        # Let's check the actual behavior
         path = tmp_path / "output.osi.xz"
-        # The code checks `self.path.suffix == ".osi.xz"` but Path.suffix returns ".xz"
-        # This means the validation logic has a bug — let's test what actually happens
-        try:
-            writer = OSITraceWriterSingle(path, "SensorView", compress=True)
-            msg = _make_sensor_view(0.0)
-            writer.write(msg, "ignored")
-            writer.close()
-            assert path.exists()
-        except ValueError:
-            # If validation rejects it, that's the current behavior too
-            pytest.skip("Compression extension validation rejects .osi.xz — known behavior")
+        writer = OSITraceWriterSingle(path, "SensorView", compress=True)
+        msg = _make_sensor_view(0.0)
+        writer.write(msg, "ignored")
+        writer.close()
+        assert path.exists()
 
     def test_compress_bad_extension_raises(self, tmp_path):
         from osc_validation.utils.osi_writer import OSITraceWriterSingle

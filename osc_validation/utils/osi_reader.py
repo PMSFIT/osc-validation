@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from osi3trace.osi_trace import OSITrace
 
 from mcap_protobuf.decoder import DecoderFactory
 from mcap.reader import make_reader
@@ -9,6 +8,12 @@ from osc_validation.utils.osi_channel_specification import (
     OSIChannelSpecification,
     TraceFileFormat,
 )
+
+from osi_utilities.tracefile.binary_reader import BinaryTraceFileReader
+from osi_utilities.tracefile._types import MessageType, MESSAGE_TYPE_TO_CLASS_NAME
+
+# Reverse map: "SensorView" -> MessageType.SENSOR_VIEW
+_NAME_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_CLASS_NAME.items()}
 
 
 class OSITraceReaderBase:
@@ -148,12 +153,8 @@ class OSITraceReaderMulti(OSITraceReaderBase):
     def get_messages(self, topic):
         if topic not in self.get_available_topics():
             raise ValueError(
-                "Topic '"
-                + topic
-                + "' not found in MCAP file '"
-                + self.path
-                + "'. Available topics: "
-                + str(self.get_available_topics())
+                f"Topic '{topic}' not found in MCAP file '{self.path}'. "
+                f"Available topics: {self.get_available_topics()}"
             )
         for message in self.mcap_reader.iter_decoded_messages(topics=[topic]):
             yield message.decoded_message
@@ -167,15 +168,16 @@ class OSITraceReaderMulti(OSITraceReaderBase):
 
 
 class OSITraceAdapter(OSITraceReaderBase):
-    """Adapter that wraps an OSITrace and mimics a multi-channel interface while ignoring topic input."""
+    """Adapter using SDK BinaryTraceFileReader, mimics multi-channel interface for single-channel binary files."""
 
     def __init__(self, path: Path, message_type: str, cache_messages=False):
         super().__init__(path)
-        self.trace = OSITrace(
-            path=str(path), type_name=message_type, cache_messages=cache_messages
-        )
-        self.topic_placeholder = self.path.stem
-        self.message_type = message_type  # OSITrace is single-channel, so only one message type is possible.
+        self.topic_placeholder = Path(str(path)).stem
+        self.message_type = message_type
+        self._msg_type_enum = _NAME_TO_MESSAGE_TYPE.get(message_type, MessageType.UNKNOWN)
+        self._path = Path(str(path))
+        self._cache_messages = cache_messages
+        self._cached_messages = None
 
     def get_file_metadata(self):
         return {}
@@ -196,13 +198,29 @@ class OSITraceAdapter(OSITraceReaderBase):
         return self.message_type
 
     def get_messages(self, topic: str):
-        self.trace.restart()
-        for msg in self.trace:
-            yield msg
+        if self._cache_messages and self._cached_messages is not None:
+            yield from self._cached_messages
+            return
+
+        reader = BinaryTraceFileReader(message_type=self._msg_type_enum)
+        if not reader.open(self._path):
+            raise ValueError(f"Failed to open binary trace file '{self._path}'")
+        try:
+            messages = []
+            while True:
+                result = reader.read_message()
+                if result is None:
+                    break
+                if self._cache_messages:
+                    messages.append(result.message)
+                yield result.message
+            if self._cache_messages:
+                self._cached_messages = messages
+        finally:
+            reader.close()
 
     def close(self):
-        """Closes the OSITrace instance."""
-        self.trace.close()
+        """Closes the adapter."""
         logging.info(
             f"{self.__class__.__name__}: Closed OSI binary trace file '{self.path}'."
         )
