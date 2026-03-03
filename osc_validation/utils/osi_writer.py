@@ -2,23 +2,16 @@ import logging
 import lzma
 from pathlib import Path
 import struct
-import osc_validation
-
-from mcap.writer import Writer
-from mcap.well_known import MessageEncoding
 
 import google
-from google.protobuf.descriptor_pb2 import FileDescriptorSet
+import google.protobuf
 
 from osc_validation.utils.osi_channel_specification import (
     OSIChannelSpecification,
     TraceFileFormat,
 )
 
-# F04: Use SDK's build_file_descriptor_set
-from osi_utilities.tracefile._mcap_utils import build_file_descriptor_set as _sdk_build_fds
-
-# F17/F19: Use SDK's _get_message_class to resolve message type strings to protobuf classes
+from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
 from osi_utilities.tracefile._types import MessageType, MESSAGE_TYPE_TO_CLASS_NAME, _get_message_class
 
 _NAME_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_CLASS_NAME.items()}
@@ -39,19 +32,9 @@ class OSITraceWriterBase:
 
 
 class OSITraceWriterMulti(OSITraceWriterBase):
+    """MCAP writer backed by SDK MCAPTraceFileWriter, with version enforcement."""
+
     def __init__(self, path: Path, net_asam_osi_metadata: dict):
-        """
-        Args:
-            path (Path): The file path where the MCAP file will be written.
-                         Must have a '.mcap' extension.
-            net_asam_osi_metadata (dict): Metadata for the 'net.asam.osi.trace'
-                                          to be added to the MCAP file.
-
-        Raises:
-            ValueError: If the provided file path does not have a '.mcap' extension.
-            ValueError: If the file already exists, as appending to an existing file is not supported.
-        """
-
         super().__init__(path)
         self.net_asam_osi_metadata = net_asam_osi_metadata
         self.active_channels = {}
@@ -66,83 +49,15 @@ class OSITraceWriterMulti(OSITraceWriterBase):
                 f"File '{self.path}' already exists. Appending to an existing file is not supported. Please specify a new path or delete the existing file before writing."
             )
 
-        self.mcap_writer = Writer(
-            output=str(self.path),
-        )
+        self._sdk_writer = MCAPTraceFileWriter()
+        if not self._sdk_writer.open(self.path, net_asam_osi_metadata):
+            raise RuntimeError(f"Failed to open MCAP writer for '{self.path}'")
 
-        self.mcap_writer.start(library=f"osc_validation {osc_validation.__version__}")
-
-        self.validate_file_metadata(net_asam_osi_metadata)
-        self.mcap_writer.add_metadata(
-            name="net.asam.osi.trace", data=net_asam_osi_metadata
-        )
         self.written_message_count = 0
-
-    def validate_file_metadata(self, osi_metadata):
-        """Validate 'net.asam.osi.trace' metadata completeness."""
-
-        required_keys = {
-            "version",
-            "min_osi_version",
-            "max_osi_version",
-            "min_protobuf_version",
-            "max_protobuf_version",
-        }
-        recommended_keys = {
-            "zero_time",
-            "creation_time",
-            "description",
-            "authors",
-            "data_sources",
-        }
-        missing_required_keys = required_keys - osi_metadata.keys()
-        missing_recommended_keys = recommended_keys - osi_metadata.keys()
-        if missing_required_keys:
-            logging.warning(
-                f"Missing mandatory 'net.asam.osi.trace' metadata for compliance with OSI MCAP trace file format: {', '.join(missing_required_keys)}"
-            )
-        if missing_recommended_keys:
-            logging.info(
-                f"Missing recommended 'net.asam.osi.trace' metadata: {', '.join(missing_recommended_keys)}"
-            )
-
-    def validate_channel_metadata(self, channel_metadata):
-        """Validate 'net.asam.osi.trace.channel' metadata completeness."""
-
-        required_keys = {
-            "net.asam.osi.trace.channel.osi_version",
-            "net.asam.osi.trace.channel.protobuf_version",
-        }
-        missing_required_keys = required_keys - channel_metadata.keys()
-        recommended_keys = {"net.asam.osi.trace.channel.description"}
-        missing_recommended_keys = recommended_keys - channel_metadata.keys()
-        if missing_required_keys:
-            logging.warning(
-                f"Missing mandatory 'net.asam.osi.trace.channel' metadata for compliance with OSI MCAP trace file format: {', '.join(missing_required_keys)}"
-            )
-        if missing_recommended_keys:
-            logging.info(
-                f"Missing recommended 'net.asam.osi.trace.channel' metadata: {', '.join(missing_recommended_keys)}"
-            )
 
     def add_osi_channel(
         self, osi_channel_spec: OSIChannelSpecification
     ) -> OSIChannelSpecification:
-        """
-        Adds an OSI (Open Simulation Interface) channel to the MCAP writer. This
-        method validates the provided channel metadata, builds a file descriptor
-        set for the given message type, registers the schema with the MCAP
-        writer, and then registers the channel with the specified topic (or
-        auto-generated topic if not given), message encoding, schema ID, and
-        metadata.
-        Args:
-            osi_channel_spec (OSIChannelSpecification): Specification of the OSI channel to be added.
-        Raises:
-            ValueError: If channel specification path does not match the MCAP writer path.
-            ValueError: If the channel topic already exists in the active channels.
-            ValueError: If the channel message type is not set.
-        """
-
         if osi_channel_spec.path != self.path:
             raise ValueError(
                 f"Channel path '{osi_channel_spec.path}' does not match the MCAP writer path '{self.path}'. Please ensure the channel is added to the correct MCAP writer."
@@ -165,41 +80,14 @@ class OSITraceWriterMulti(OSITraceWriterBase):
         metadata = (
             {} if osi_channel_spec.metadata is None else osi_channel_spec.metadata
         )
-        self.validate_channel_metadata(metadata)
-        file_descriptor_set = self._build_file_descriptor_set(
-            _get_message_class(_NAME_TO_MESSAGE_TYPE[osi_channel_spec.message_type])
-        )
-        schema_id = self.mcap_writer.register_schema(
-            name=f"osi3.{osi_channel_spec.message_type}",
-            encoding=MessageEncoding.Protobuf,
-            data=file_descriptor_set.SerializeToString(),
-        )
-        channel_id = self.mcap_writer.register_channel(
-            topic=osi_channel_spec.topic,
-            message_encoding=MessageEncoding.Protobuf,
-            schema_id=schema_id,
-            metadata=metadata,
-        )
-        self.active_channels[osi_channel_spec.topic] = channel_id
+        message_class = _get_message_class(_NAME_TO_MESSAGE_TYPE[osi_channel_spec.message_type])
+        self._sdk_writer.add_channel(osi_channel_spec.topic, message_class, metadata)
+        self.active_channels[osi_channel_spec.topic] = True
         self.channel_metadata[osi_channel_spec.topic] = metadata
 
         return osi_channel_spec
 
-    def _build_file_descriptor_set(self, message_class) -> FileDescriptorSet:
-        return _sdk_build_fds(message_class)
-
     def write(self, message: google.protobuf.message.Message, topic: str):
-        """
-        Writes a message to the specified topic channel in the MCAP writer.
-        Args:
-            message: The OSI protobuf message object to be written. It must have a `timestamp` attribute
-                     with `seconds` and `nanos` properties, and a `SerializeToString` method.
-            topic (str): The topic name to which the message should be written.
-        Raises:
-            ValueError: If the specified topic is not found in the active channels.
-            ValueError: If the message OSI version is not equivalent to the channel's OSI version specified in the channel metadata.
-        """
-
         if topic not in self.active_channels:
             raise ValueError(
                 f"Topic '{topic}' not found in writing channels. Available topics: {list(self.active_channels.keys())}"
@@ -243,33 +131,17 @@ class OSITraceWriterMulti(OSITraceWriterBase):
             "net.asam.osi.trace.channel.protobuf_version"
         ] = google.protobuf.__version__
 
-        time = message.timestamp.seconds + message.timestamp.nanos / 1e9
-        self.mcap_writer.add_message(
-            channel_id=self.active_channels[topic],
-            log_time=int(time * 1000000000),
-            data=message.SerializeToString(),
-            publish_time=int(time * 1000000000),
-        )
-        self.written_message_count = self.written_message_count + 1
+        self._sdk_writer.write_message(message, topic)
+        self.written_message_count += 1
 
     def close(self):
-        """Closes the TraceWriter instance and finalizes the writing process."""
         active_channels_list = ", ".join(self.active_channels.keys())
         logging.info(
             f"{self.__class__.__name__}: Wrote {self.written_message_count} messages to the channel(s) [{active_channels_list}] to '{self.path}'."
         )
-        self.mcap_writer.finish()
+        self._sdk_writer.close()
 
     def get_channel_metadata(self, topic: str) -> dict:
-        """
-        Returns the metadata of the specified channel.
-
-        Args:
-            topic (str): The topic name of the channel.
-
-        Returns:
-            dict: The metadata of the channel.
-        """
         return self.channel_metadata.get(topic, {})
 
     def __enter__(self):

@@ -83,30 +83,33 @@ class TestF02ParseOsiTraceFilename:
 
 
 # ===========================================================================
-# F03: FormatMapper parity
+# F03: Format mapping (FormatMapper deleted, now using SDK directly)
 # ===========================================================================
 
 
-class TestF03FormatMapper:
-    """Verify SDK get_trace_file_format matches FormatMapper."""
+class TestF03FormatMapping:
+    """Verify format mapping via SDK get_trace_file_format."""
 
     EXTENSIONS = [".osi", ".xz", ".lzma", ".mcap"]
 
     @pytest.mark.parametrize("ext", EXTENSIONS)
-    def test_extension_mapping_parity(self, ext):
-        from osc_validation.utils.osi_channel_specification import FormatMapper, TraceFileFormat as OldTFF
-        from osi_utilities.tracefile._types import get_trace_file_format, TraceFileFormat as SdkTFF
+    def test_extension_mapping(self, ext):
+        from osi_utilities.tracefile._types import get_trace_file_format, TraceFileFormat
 
-        old_format = FormatMapper().get_format(ext)
-        sdk_format = get_trace_file_format(Path(f"test{ext}"))
-
-        assert old_format.value == sdk_format.value
+        fmt = get_trace_file_format(Path(f"test{ext}"))
+        assert isinstance(fmt, TraceFileFormat)
 
     def test_unsupported_extension_raises(self):
         from osi_utilities.tracefile._types import get_trace_file_format
 
         with pytest.raises(ValueError, match="Unsupported"):
             get_trace_file_format(Path("test.csv"))
+
+    def test_reverse_lookup(self):
+        from osc_validation.utils.osi_channel_specification import _FORMAT_TO_EXT, TraceFileFormat
+
+        assert _FORMAT_TO_EXT[TraceFileFormat.SINGLE_CHANNEL] == ".osi"
+        assert _FORMAT_TO_EXT[TraceFileFormat.MULTI_CHANNEL] == ".mcap"
 
 
 # ===========================================================================
@@ -115,30 +118,20 @@ class TestF03FormatMapper:
 
 
 class TestF04BuildFileDescriptorSet:
-    """Verify SDK build_file_descriptor_set produces same output as old method."""
+    """Verify SDK build_file_descriptor_set works for OSI message types."""
 
-    def test_fds_serialization_parity(self):
+    def test_fds_for_sensor_view(self):
         from osi3 import osi_sensorview_pb2
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
         from osi_utilities.tracefile._mcap_utils import build_file_descriptor_set
 
-        # Old way: instance method
-        old_fds = OSITraceWriterMulti._build_file_descriptor_set(
-            None, osi_sensorview_pb2.SensorView
-        )
-        # SDK way: standalone function
-        sdk_fds = build_file_descriptor_set(osi_sensorview_pb2.SensorView)
-
-        assert old_fds.SerializeToString() == sdk_fds.SerializeToString()
+        fds = build_file_descriptor_set(osi_sensorview_pb2.SensorView)
+        assert len(fds.file) > 0
+        assert fds.SerializeToString()
 
     def test_fds_for_ground_truth(self):
         from osi3 import osi_groundtruth_pb2
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
         from osi_utilities.tracefile._mcap_utils import build_file_descriptor_set
 
-        old_fds = OSITraceWriterMulti._build_file_descriptor_set(
-            None, osi_groundtruth_pb2.GroundTruth
-        )
-        sdk_fds = build_file_descriptor_set(osi_groundtruth_pb2.GroundTruth)
-
-        assert old_fds.SerializeToString() == sdk_fds.SerializeToString()
+        fds = build_file_descriptor_set(osi_groundtruth_pb2.GroundTruth)
+        assert len(fds.file) > 0
+        assert fds.SerializeToString()

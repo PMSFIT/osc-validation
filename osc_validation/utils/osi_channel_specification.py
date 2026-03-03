@@ -9,24 +9,14 @@ from osi_utilities.tracefile._types import TraceFileFormat
 from osi_utilities.tracefile._types import parse_osi_trace_filename
 from osi_utilities.tracefile._types import _SHORT_CODE_TO_MESSAGE_TYPE as MESSAGE_TYPE_MAP
 
-# F03: Re-export get_trace_file_format; keep FormatMapper as thin wrapper
+# F03: Use SDK's get_trace_file_format directly (replaces FormatMapper)
 from osi_utilities.tracefile._types import get_trace_file_format as _sdk_get_format
 from osi_utilities.tracefile._types import _EXT_TO_FORMAT
 
-
-class FormatMapper:
-    def __init__(self):
-        self.ext_to_format = dict(_EXT_TO_FORMAT)
-        self.format_to_ext = {}
-        for ext, fmt in self.ext_to_format.items():
-            if fmt not in self.format_to_ext:
-                self.format_to_ext[fmt] = ext
-
-    def get_format(self, extension: str) -> TraceFileFormat:
-        return self.ext_to_format[extension.lower()]
-
-    def get_extension(self, file_format: TraceFileFormat) -> str:
-        return self.format_to_ext[file_format]
+_FORMAT_TO_EXT = {
+    TraceFileFormat.SINGLE_CHANNEL: ".osi",
+    TraceFileFormat.MULTI_CHANNEL: ".mcap",
+}
 
 
 @dataclass
@@ -50,13 +40,9 @@ class OSIChannelSpecification:
     topic: Optional[str] = None
     metadata: Optional[dict] = field(default_factory=dict)
 
-    _format_mapper: FormatMapper = field(
-        default_factory=FormatMapper, init=False, repr=False, compare=False
-    )
-
     @property
     def trace_file_format(self) -> TraceFileFormat:
-        return self._format_mapper.get_format(self.path.suffix)
+        return _sdk_get_format(self.path)
 
     def try_autodetect_message_type(self) -> bool:
         """
@@ -151,7 +137,7 @@ class OSIChannelSpecification:
         self, trace_file_format: TraceFileFormat
     ) -> "OSIChannelSpecification":
         return OSIChannelSpecification(
-            path=self.path.with_suffix(FormatMapper().get_extension(trace_file_format)),
+            path=self.path.with_suffix(_FORMAT_TO_EXT[trace_file_format]),
             message_type=self.message_type,
             topic=self.topic,
             metadata=self.metadata,
