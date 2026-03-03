@@ -2,33 +2,35 @@
 activity. The given boolean arguments can be used to specify which OSI content
 should be removed."""
 
-import struct
 import argparse
 from pathlib import Path
 
-from osi3trace.osi_trace import OSITrace
+from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+from osc_validation.utils.osi_reader import OSIChannelReader
+from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
 def strip(sv_in: Path, sv_out: Path, args):
-    trace = OSITrace(str(sv_in), "SensorView")
-    sv_output_file = open(sv_out, "ab")
-    for message in trace:
-        if args.lane_boundary:
-            message.global_ground_truth.ClearField("lane_boundary")
-        if args.reference_line:
-            message.global_ground_truth.ClearField("reference_line")
-        if args.logical_lane:
-            message.global_ground_truth.ClearField("logical_lane")
-        if args.logical_lane_boundary:
-            message.global_ground_truth.ClearField("logical_lane_boundary")
-        if args.lane:
-            message.global_ground_truth.ClearField("lane")
-        if args.environmental_conditions:
-            message.global_ground_truth.ClearField("environmental_conditions")
-        bytes_buffer = message.SerializeToString()
-        sv_output_file.write(struct.pack("<L", len(bytes_buffer)))
-        sv_output_file.write(bytes_buffer)
-    sv_output_file.close()
+    in_spec = OSIChannelSpecification(path=sv_in, message_type="SensorView")
+    out_spec = OSIChannelSpecification(path=sv_out, message_type="SensorView")
+    with (
+        OSIChannelReader.from_osi_channel_specification(in_spec) as reader,
+        OSIChannelWriter.from_osi_channel_specification(out_spec) as writer,
+    ):
+        for message in reader:
+            if args.lane_boundary:
+                message.global_ground_truth.ClearField("lane_boundary")
+            if args.reference_line:
+                message.global_ground_truth.ClearField("reference_line")
+            if args.logical_lane:
+                message.global_ground_truth.ClearField("logical_lane")
+            if args.logical_lane_boundary:
+                message.global_ground_truth.ClearField("logical_lane_boundary")
+            if args.lane:
+                message.global_ground_truth.ClearField("lane")
+            if args.environmental_conditions:
+                message.global_ground_truth.ClearField("environmental_conditions")
+            writer.write(message)
 
 
 def create_argparser():

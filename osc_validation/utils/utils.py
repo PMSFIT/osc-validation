@@ -3,8 +3,7 @@ import math
 
 import pandas as pd
 
-from osi3 import osi_common_pb2, osi_sensordata_pb2
-from osi3trace.osi_trace import OSITrace
+from osi3 import osi_common_pb2
 
 from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
@@ -22,36 +21,6 @@ def timestamp_float_to_osi(float_timestamp: float) -> osi_common_pb2.Timestamp:
         (float_timestamp - math.floor(float_timestamp)) * 1000000000
     )
     return osi_timestamp
-
-
-def sensordata_timestamp_osi_to_list(osi_sensordata_trace: OSITrace) -> list[float]:
-    """
-    Extracts all timestamps from OSI SensorData trace.
-
-    Returns list with float timestamps.
-    """
-    assert isinstance(osi_sensordata_trace, osi_sensordata_pb2.SensorData)
-    osi_sensordata_trace.restart()
-    timestamp_list = []
-    for message in osi_sensordata_trace:
-        timestamp_list.append(timestamp_osi_to_float(message.timestamp))
-    return timestamp_list
-
-
-def sensordata_last_measurement_time_osi_to_list(
-    osi_sensordata_trace: OSITrace,
-) -> list[float]:
-    """
-    Extracts all last_measurement_time timestamps from OSI SensorData trace.
-
-    Returns list with float timestamps.
-    """
-    assert isinstance(osi_sensordata_trace, osi_sensordata_pb2.SensorData)
-    osi_sensordata_trace.restart()
-    timestamp_list = []
-    for message in osi_sensordata_trace:
-        timestamp_list.append(timestamp_osi_to_float(message.last_measurement_time))
-    return timestamp_list
 
 
 def trajectory_df_info(trajectory_df):

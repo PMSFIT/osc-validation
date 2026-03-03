@@ -24,7 +24,9 @@ def _retrieve_channel_info_from_data(get_messages_fn):
     for message in get_messages_fn():
         if hasattr(message, "version"):
             osi_version = f"{message.version.version_major}.{message.version.version_minor}.{message.version.version_patch}"
-        timestamp = message.timestamp.seconds + message.timestamp.nanos / 1e9
+        timestamp = (
+            message.timestamp.seconds * 1_000_000_000 + message.timestamp.nanos
+        ) / 1_000_000_000
         step = timestamp - prev_timestamp if prev_timestamp is not None else None
         step_acc = step_acc + step if step is not None else step_acc
         if start is None:
@@ -104,7 +106,9 @@ class OSITraceReaderMulti(OSITraceReaderBase):
         return self._sdk.get_channel_metadata(topic)
 
     def get_channel_info(self, topic):
-        channel_info = _retrieve_channel_info_from_data(lambda: self.get_messages(topic))
+        channel_info = _retrieve_channel_info_from_data(
+            lambda: self.get_messages(topic)
+        )
         msg_type = self._sdk.get_message_type_for_topic(topic)
         if msg_type is not None:
             channel_info["message_type"] = MESSAGE_TYPE_TO_CLASS_NAME[msg_type]
@@ -145,7 +149,9 @@ class OSITraceAdapter(OSITraceReaderBase):
         super().__init__(path)
         self.topic_placeholder = Path(str(path)).stem
         self.message_type = message_type
-        self._msg_type_enum = _NAME_TO_MESSAGE_TYPE.get(message_type, MessageType.UNKNOWN)
+        self._msg_type_enum = _NAME_TO_MESSAGE_TYPE.get(
+            message_type, MessageType.UNKNOWN
+        )
         self._path = Path(str(path))
         self._cache_messages = cache_messages
         self._cached_messages = None

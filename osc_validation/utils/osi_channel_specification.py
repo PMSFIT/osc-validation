@@ -1,17 +1,14 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
-# F01: Re-export TraceFileFormat from SDK
-from osi_utilities.tracefile._types import TraceFileFormat
-
-# F02: Re-export parse_osi_trace_filename and MESSAGE_TYPE_MAP from SDK
-from osi_utilities.tracefile._types import parse_osi_trace_filename
-from osi_utilities.tracefile._types import _SHORT_CODE_TO_MESSAGE_TYPE as MESSAGE_TYPE_MAP
-
-# F03: Use SDK's get_trace_file_format directly (replaces FormatMapper)
-from osi_utilities.tracefile._types import get_trace_file_format as _sdk_get_format
-from osi_utilities.tracefile._types import _EXT_TO_FORMAT
+from osi_utilities.tracefile._types import (
+    ChannelSpecification,
+    TraceFileFormat,
+    parse_osi_trace_filename,
+    get_trace_file_format,
+    _SHORT_CODE_TO_MESSAGE_TYPE as MESSAGE_TYPE_MAP,
+    _EXT_TO_FORMAT,
+)
 
 _FORMAT_TO_EXT = {
     TraceFileFormat.SINGLE_CHANNEL: ".osi",
@@ -20,85 +17,41 @@ _FORMAT_TO_EXT = {
 
 
 @dataclass
-class OSIChannelSpecification:
-    """
-    Specification for an OSI channel.
-    Args:
-        path (Path): The path to the file containing the OSI channel data.
-        message_type (str, optional): The OSI message type expected in the channel.
-            If None, a trace file reader will rely on the file's specification if available.
-        topic (str, optional): The topic name of the channel.
-            If None, first or only channel found in the file is used for reading.
-            If the source file is a single channel file, the topic parameter is ignored.
-        metadata (dict, optional): Additional metadata for the OSI channel.
-            If None, the metadata defaults to an empty dictionary.
-            Single-channel files do not support storing metadata.
-    """
+class OSIChannelSpecification(ChannelSpecification):
+    """Project extension of SDK ChannelSpecification.
 
-    path: Path
-    message_type: Optional[str] = None
-    topic: Optional[str] = None
-    metadata: Optional[dict] = field(default_factory=dict)
+    Inherits path, message_type, topic, metadata fields and common methods
+    (trace_file_format, autofill_topic, exists, with_message_type, with_topic,
+    with_trace_file_format) from the SDK.
 
-    @property
-    def trace_file_format(self) -> TraceFileFormat:
-        return _sdk_get_format(self.path)
+    Adds project-specific file management (rename_to, with_name, with_name_suffix)
+    and richer message type auto-detection for MCAP files.
+    """
 
     def try_autodetect_message_type(self) -> bool:
-        """
-        Attempts to detect and set the message type from the file name or content.
-        Returns:
-            bool: True if detection was successful and sets self.message_type.
-                  False if detection failed and leaves self.message_type unchanged.
-        """
+        """Detect message type from filename or, for MCAP, by reading the file."""
         if self.message_type is not None:
             return True
 
-        format = self.trace_file_format
-        detected_type = None
-        if format == TraceFileFormat.MULTI_CHANNEL:
+        # Try SDK's filename-based detection first
+        if super().try_autodetect_message_type():
+            return True
+
+        # For MCAP files, fall back to reading channel metadata
+        if self.trace_file_format == TraceFileFormat.MULTI_CHANNEL:
             from osc_validation.utils.osi_reader import OSIChannelReader
 
             with OSIChannelReader.from_osi_channel_specification(
                 self
             ) as channel_reader:
                 detected_type = channel_reader.get_message_type()
-        elif format == TraceFileFormat.SINGLE_CHANNEL:
-            detected_type = parse_osi_trace_filename(self.path.name).get(
-                "message_type", None
-            )
+            if detected_type is not None:
+                self.message_type = detected_type
+                return True
 
-        if detected_type is not None:
-            self.message_type = detected_type
-            return True
         return False
 
-    def autofill_topic(self) -> None:
-        """
-        Sets the topic to the file name without the extension if not already set.
-        """
-        if self.topic is None:
-            self.topic = self.path.stem
-
-    def exists(self) -> bool:
-        """
-        Checks if the file specified by the path exists.
-        Returns:
-            bool: True if the file exists, False otherwise.
-        """
-        return self.path.exists() and self.path.is_file()
-
     def rename_to(self, new_path: Path) -> "OSIChannelSpecification":
-        """
-        Renames the OSI channel's source file to a new path.
-        Args:
-            new_path (Path): The new path to rename the file to.
-        Returns:
-            OSIChannelSpecification: A new instance with the updated path.
-        Raises:
-            FileNotFoundError: If the file does not exist at the current path.
-            OSError: If the rename operation fails.
-        """
         if not self.exists():
             raise FileNotFoundError(
                 f"Cannot rename: file does not exist at {self.path}"
@@ -115,9 +68,8 @@ class OSIChannelSpecification:
         )
 
     def with_name(self, new_name: str) -> "OSIChannelSpecification":
-        new_path = self.path.with_name(new_name)
         return OSIChannelSpecification(
-            path=new_path,
+            path=self.path.with_name(new_name),
             message_type=self.message_type,
             topic=self.topic,
             metadata=self.metadata,
@@ -125,14 +77,14 @@ class OSIChannelSpecification:
 
     def with_name_suffix(self, suffix: str) -> "OSIChannelSpecification":
         new_name = self.path.stem + suffix + self.path.suffix
-        new_path = self.path.with_name(new_name)
         return OSIChannelSpecification(
-            path=new_path,
+            path=self.path.with_name(new_name),
             message_type=self.message_type,
             topic=self.topic,
             metadata=self.metadata,
         )
 
+    # Override SDK builders to preserve OSIChannelSpecification type
     def with_trace_file_format(
         self, trace_file_format: TraceFileFormat
     ) -> "OSIChannelSpecification":

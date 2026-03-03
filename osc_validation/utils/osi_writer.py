@@ -12,7 +12,12 @@ from osc_validation.utils.osi_channel_specification import (
 )
 
 from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
-from osi_utilities.tracefile._types import MessageType, MESSAGE_TYPE_TO_CLASS_NAME, _get_message_class
+from osi_utilities.tracefile.binary_writer import BinaryTraceFileWriter
+from osi_utilities.tracefile._types import (
+    MessageType,
+    MESSAGE_TYPE_TO_CLASS_NAME,
+    _get_message_class,
+)
 
 _NAME_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_CLASS_NAME.items()}
 
@@ -80,7 +85,9 @@ class OSITraceWriterMulti(OSITraceWriterBase):
         metadata = (
             {} if osi_channel_spec.metadata is None else osi_channel_spec.metadata
         )
-        message_class = _get_message_class(_NAME_TO_MESSAGE_TYPE[osi_channel_spec.message_type])
+        message_class = _get_message_class(
+            _NAME_TO_MESSAGE_TYPE[osi_channel_spec.message_type]
+        )
         self._sdk_writer.add_channel(osi_channel_spec.topic, message_class, metadata)
         self.active_channels[osi_channel_spec.topic] = True
         self.channel_metadata[osi_channel_spec.topic] = metadata
@@ -153,60 +160,65 @@ class OSITraceWriterMulti(OSITraceWriterBase):
 
 
 class OSITraceWriterSingle(OSITraceWriterBase):
-    def __init__(self, path: Path, message_type: str, compress=False):
-        """
-        Args:
-            path (Path): The file path where the data will be written.
-                        Must have '.osi' extension for uncompressed files or '.osi.xz' for compressed files.
-            message_type (str): The protobuf message type name to be written to the file (e.g. SensorView).
-            compress (bool, optional): Indicates whether the file should be compressed. Defaults to False.
-        Raises:
-            ValueError: If `compress` is True and the file path does not end with '.osi.xz'.
-            ValueError: If `compress` is False and the file path does not end with '.osi'.
-        """
+    """Single-channel binary writer. Delegates to SDK BinaryTraceFileWriter
+    for uncompressed .osi files; handles .osi.xz LZMA compression locally
+    (SDK gap)."""
 
+    def __init__(self, path: Path, message_type: str, compress=False):
         super().__init__(path)
         self.message_type = message_type
         self.compress = compress
+        self.written_message_count = 0
+        self.size = 0
+        self.size_uncompressed = 0
+
         if self.compress:
             if "".join(self.path.suffixes) != ".osi.xz":
                 raise ValueError(
                     f"Invalid file path: '{self.path}'. File extension must be '.osi.xz' for compressed OSI binary files."
                 )
+            self._file = open(self.path, "wb")
+            self._sdk_writer = None
         else:
             if not self.path.suffix == ".osi":
                 raise ValueError(
                     f"Invalid file path: '{self.path}'. File extension must be '.osi' for OSI binary files."
                 )
-        self.file = open(self.path, "wb")
-        self.size = 0
-        self.size_uncompressed = 0
-        self.written_message_count = 0
+            self._sdk_writer = BinaryTraceFileWriter()
+            if not self._sdk_writer.open(self.path):
+                raise RuntimeError(f"Failed to open binary writer for '{self.path}'")
+            self._file = None
 
     def write(self, message: google.protobuf.message.Message, topic: str):
-        buf = message.SerializeToString()
-        len_uncompressed = len(buf)
-        if self.compress:
+        if self._sdk_writer is not None:
+            self._sdk_writer.write_message(message)
+            self.written_message_count += 1
+        else:
+            buf = message.SerializeToString()
+            len_uncompressed = len(buf)
             buf = lzma.compress(buf)
-        self.file.write(struct.pack("<L", len(buf)))
-        self.file.write(buf)
-        self.written_message_count = self.written_message_count + 1
-        self.size = self.size + len(buf)
-        self.size_uncompressed = self.size_uncompressed + len_uncompressed
+            self._file.write(struct.pack("<L", len(buf)))
+            self._file.write(buf)
+            self.written_message_count += 1
+            self.size += len(buf)
+            self.size_uncompressed += len_uncompressed
 
     def close(self):
-        """Closes OSI single-channel file and logs writing status."""
-
-        if self.compress:
-            compression_ratio_str = "; Compression ratio: " + str(
-                round(self.size_uncompressed / self.size, 2)
+        if self._sdk_writer is not None:
+            self._sdk_writer.close()
+            logging.info(
+                f"{self.__class__.__name__}: Wrote {self.written_message_count} {self.message_type} messages to '{self.path}'; no compression."
             )
         else:
-            compression_ratio_str = "; no compression"
-        logging.info(
-            f"{self.__class__.__name__}: Wrote {self.written_message_count} {self.message_type} messages to OSI single-channel file '{self.path}' ({round(self.size/1024/1024, 2)}MB{compression_ratio_str})."
-        )
-        self.file.close()
+            compression_ratio_str = (
+                str(round(self.size_uncompressed / self.size, 2))
+                if self.size > 0
+                else "N/A"
+            )
+            logging.info(
+                f"{self.__class__.__name__}: Wrote {self.written_message_count} {self.message_type} messages to '{self.path}' ({round(self.size/1024/1024, 2)}MB; Compression ratio: {compression_ratio_str})."
+            )
+            self._file.close()
 
     def get_channel_metadata(self, topic: str):
         return {}
