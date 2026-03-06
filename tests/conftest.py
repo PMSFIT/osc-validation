@@ -20,7 +20,9 @@ def _get_osi_version():
     ]
 
 
-def _make_sensor_view(timestamp_s: float, obj_id: int = 1) -> osi_sensorview_pb2.SensorView:
+def _make_sensor_view(
+    timestamp_s: float, obj_id: int = 1
+) -> osi_sensorview_pb2.SensorView:
     """Create a SensorView message with a moving object."""
     sv = osi_sensorview_pb2.SensorView()
     sv.version.CopyFrom(_get_osi_version())
@@ -43,7 +45,9 @@ def _make_sensor_view(timestamp_s: float, obj_id: int = 1) -> osi_sensorview_pb2
     return sv
 
 
-def _make_ground_truth(timestamp_s: float, obj_id: int = 1) -> osi_groundtruth_pb2.GroundTruth:
+def _make_ground_truth(
+    timestamp_s: float, obj_id: int = 1
+) -> osi_groundtruth_pb2.GroundTruth:
     """Create a GroundTruth message with a moving object."""
     gt = osi_groundtruth_pb2.GroundTruth()
     gt.version.CopyFrom(_get_osi_version())
@@ -105,7 +109,9 @@ def mcap_sv_trace(tmp_path, sample_sensor_views):
 
     path = tmp_path / "test_sv.mcap"
     version = _get_osi_version()
-    osi_ver_str = f"{version.version_major}.{version.version_minor}.{version.version_patch}"
+    osi_ver_str = (
+        f"{version.version_major}.{version.version_minor}.{version.version_patch}"
+    )
     metadata = {
         "version": "1.0.0",
         "min_osi_version": osi_ver_str,
@@ -135,7 +141,9 @@ def mcap_gt_trace(tmp_path, sample_ground_truths):
 
     path = tmp_path / "test_gt.mcap"
     version = _get_osi_version()
-    osi_ver_str = f"{version.version_major}.{version.version_minor}.{version.version_patch}"
+    osi_ver_str = (
+        f"{version.version_major}.{version.version_minor}.{version.version_patch}"
+    )
     metadata = {
         "version": "1.0.0",
         "min_osi_version": osi_ver_str,

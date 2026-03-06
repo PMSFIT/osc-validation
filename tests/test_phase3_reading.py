@@ -11,7 +11,10 @@ from pathlib import Path
 from tests.conftest import _make_sensor_view, _make_ground_truth, _write_binary_trace
 
 from osi_utilities.tracefile.channel_reader import ChannelReader
-from osi_utilities.tracefile._types import ChannelSpecification, MESSAGE_TYPE_TO_CLASS_NAME
+from osi_utilities.tracefile._types import (
+    ChannelSpecification,
+    MESSAGE_TYPE_TO_CLASS_NAME,
+)
 
 
 # ===========================================================================
@@ -292,12 +295,12 @@ class TestF15ReaderFacade:
     """Verify OSIChannelReader facade for both .osi and .mcap."""
 
     def test_from_spec_osi(self, binary_sv_trace, sample_sensor_views):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=binary_sv_trace, message_type="SensorView"
-        )
+        spec = OSIChannelSpecification(path=binary_sv_trace, message_type="SensorView")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             messages = list(reader)
             assert len(messages) == 5
@@ -305,7 +308,9 @@ class TestF15ReaderFacade:
                 assert orig.SerializeToString() == read.SerializeToString()
 
     def test_from_spec_mcap(self, mcap_sv_trace, sample_sensor_views):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
         spec = OSIChannelSpecification(
@@ -320,7 +325,9 @@ class TestF15ReaderFacade:
                 assert orig.SerializeToString() == read.SerializeToString()
 
     def test_from_spec_mcap_no_topic_uses_first(self, mcap_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
         spec = OSIChannelSpecification(path=mcap_sv_trace)
@@ -330,7 +337,9 @@ class TestF15ReaderFacade:
             assert len(messages) == 5
 
     def test_from_spec_mcap_wrong_type_raises(self, mcap_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
         spec = OSIChannelSpecification(
@@ -342,7 +351,9 @@ class TestF15ReaderFacade:
             OSIChannelReader.from_osi_channel_specification(spec)
 
     def test_from_spec_missing_file_raises(self):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
         spec = OSIChannelSpecification(
@@ -352,7 +363,9 @@ class TestF15ReaderFacade:
             OSIChannelReader.from_osi_channel_specification(spec)
 
     def test_from_spec_osi_no_msg_type_raises(self, binary_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
         spec = OSIChannelSpecification(path=binary_sv_trace)
@@ -360,67 +373,67 @@ class TestF15ReaderFacade:
             OSIChannelReader.from_osi_channel_specification(spec)
 
     def test_from_single_trace(self, binary_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=binary_sv_trace, message_type="SensorView"
-        )
+        spec = OSIChannelSpecification(path=binary_sv_trace, message_type="SensorView")
         reader = OSIChannelReader.from_osi_channel_specification(spec)
         messages = list(reader)
         assert len(messages) == 5
         reader.close()
 
     def test_from_multi_trace(self, mcap_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=mcap_sv_trace, topic="SensorViewTopic"
-        )
+        spec = OSIChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
         reader = OSIChannelReader.from_osi_channel_specification(spec)
         messages = list(reader)
         assert len(messages) == 5
         reader.close()
 
     def test_from_multi_trace_bad_topic_raises(self, mcap_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=mcap_sv_trace, topic="BadTopic"
-        )
+        spec = OSIChannelSpecification(path=mcap_sv_trace, topic="BadTopic")
         with pytest.raises(ValueError, match="not found"):
             OSIChannelReader.from_osi_channel_specification(spec)
 
     def test_get_source_path(self, binary_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=binary_sv_trace, message_type="SensorView"
-        )
+        spec = OSIChannelSpecification(path=binary_sv_trace, message_type="SensorView")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             assert reader.get_source_path() == binary_sv_trace
 
     def test_get_topic_name(self, binary_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=binary_sv_trace, message_type="SensorView"
-        )
+        spec = OSIChannelSpecification(path=binary_sv_trace, message_type="SensorView")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             topic = reader.get_topic_name()
             assert topic is not None
 
     def test_get_channel_specification(self, mcap_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=mcap_sv_trace, topic="SensorViewTopic"
-        )
+        spec = OSIChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             out_spec = reader.get_channel_specification()
             assert out_spec.path == mcap_sv_trace
@@ -436,24 +449,24 @@ class TestF16ReaderContextManager:
     """Verify context manager and iteration protocol."""
 
     def test_context_manager(self, binary_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=binary_sv_trace, message_type="SensorView"
-        )
+        spec = OSIChannelSpecification(path=binary_sv_trace, message_type="SensorView")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             count = sum(1 for _ in reader)
         assert count == 5
 
     def test_iteration_yields_protobuf_messages(self, binary_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
         from google.protobuf.message import Message
 
-        spec = OSIChannelSpecification(
-            path=binary_sv_trace, message_type="SensorView"
-        )
+        spec = OSIChannelSpecification(path=binary_sv_trace, message_type="SensorView")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             for msg in reader:
                 assert isinstance(msg, Message)
@@ -461,56 +474,56 @@ class TestF16ReaderContextManager:
                 assert hasattr(msg, "sensor_id")
 
     def test_get_messages_returns_iterator(self, mcap_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=mcap_sv_trace, topic="SensorViewTopic"
-        )
+        spec = OSIChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             msgs = reader.get_messages()
             count = sum(1 for _ in msgs)
         assert count == 5
 
     def test_get_file_metadata_passthrough(self, mcap_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=mcap_sv_trace, topic="SensorViewTopic"
-        )
+        spec = OSIChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             meta = reader.get_file_metadata()
             assert len(meta) > 0
 
     def test_get_channel_metadata_passthrough(self, mcap_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=mcap_sv_trace, topic="SensorViewTopic"
-        )
+        spec = OSIChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             meta = reader.get_channel_metadata()
             assert "net.asam.osi.trace.channel.osi_version" in meta
 
     def test_get_channel_info_passthrough(self, mcap_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=mcap_sv_trace, topic="SensorViewTopic"
-        )
+        spec = OSIChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             info = reader.get_channel_info()
             assert info["total_steps"] == 5
 
     def test_get_message_type_passthrough(self, mcap_sv_trace):
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_channel_specification import (
+            OSIChannelSpecification,
+        )
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        spec = OSIChannelSpecification(
-            path=mcap_sv_trace, topic="SensorViewTopic"
-        )
+        spec = OSIChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             assert reader.get_message_type() == "SensorView"

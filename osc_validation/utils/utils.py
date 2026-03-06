@@ -21,25 +21,6 @@ def timestamp_float_to_osi(float_timestamp: float) -> osi_common_pb2.Timestamp:
     return seconds_to_timestamp(float_timestamp)
 
 
-def trajectory_df_info(trajectory_df):
-    print(trajectory_df)
-    print("number of frames:    " + str(len(trajectory_df)))
-    print(
-        "start/end:           "
-        + str(trajectory_df["timestamp"].iloc[0])
-        + "/"
-        + str(trajectory_df["timestamp"].iloc[-1])
-    )
-    print(
-        "avg step size:       "
-        + str(
-            (trajectory_df["timestamp"].iloc[-1] - trajectory_df["timestamp"].iloc[0])
-            / len(trajectory_df)
-        )
-    )
-    print("-------------------------------------------------------")
-
-
 def get_all_moving_object_ids(osi_trace: OSIChannelSpecification) -> list[int]:
     """
     Extracts all moving object ids from the input OSI SensorView or GroundTruth trace.

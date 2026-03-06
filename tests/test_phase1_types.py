@@ -17,14 +17,18 @@ class TestF01TraceFileFormat:
     """Verify SDK TraceFileFormat has same members and values as osc_validation."""
 
     def test_enum_members_match(self):
-        from osc_validation.utils.osi_channel_specification import TraceFileFormat as OldTFF
+        from osc_validation.utils.osi_channel_specification import (
+            TraceFileFormat as OldTFF,
+        )
         from osi_utilities.tracefile._types import TraceFileFormat as SdkTFF
 
         assert OldTFF.SINGLE_CHANNEL.value == SdkTFF.SINGLE_CHANNEL.value
         assert OldTFF.MULTI_CHANNEL.value == SdkTFF.MULTI_CHANNEL.value
 
     def test_enum_member_count(self):
-        from osc_validation.utils.osi_channel_specification import TraceFileFormat as OldTFF
+        from osc_validation.utils.osi_channel_specification import (
+            TraceFileFormat as OldTFF,
+        )
         from osi_utilities.tracefile._types import TraceFileFormat as SdkTFF
 
         assert len(OldTFF) == len(SdkTFF)
@@ -53,7 +57,9 @@ class TestF02ParseOsiTraceFilename:
 
     @pytest.mark.parametrize("filename", VALID_FILENAMES)
     def test_valid_filename_parity(self, filename):
-        from osc_validation.utils.osi_channel_specification import parse_osi_trace_filename as old_parse
+        from osc_validation.utils.osi_channel_specification import (
+            parse_osi_trace_filename as old_parse,
+        )
         from osi_utilities.tracefile._types import parse_osi_trace_filename as sdk_parse
 
         old_result = old_parse(filename)
@@ -68,7 +74,9 @@ class TestF02ParseOsiTraceFilename:
 
     @pytest.mark.parametrize("filename", INVALID_FILENAMES)
     def test_invalid_filename_both_return_empty(self, filename):
-        from osc_validation.utils.osi_channel_specification import parse_osi_trace_filename as old_parse
+        from osc_validation.utils.osi_channel_specification import (
+            parse_osi_trace_filename as old_parse,
+        )
         from osi_utilities.tracefile._types import parse_osi_trace_filename as sdk_parse
 
         assert old_parse(filename) == {}
@@ -76,8 +84,12 @@ class TestF02ParseOsiTraceFilename:
 
     def test_message_type_map_parity(self):
         """SDK _SHORT_CODE_TO_MESSAGE_TYPE matches osc_validation MESSAGE_TYPE_MAP."""
-        from osc_validation.utils.osi_channel_specification import MESSAGE_TYPE_MAP as old_map
-        from osi_utilities.tracefile._types import _SHORT_CODE_TO_MESSAGE_TYPE as sdk_map
+        from osc_validation.utils.osi_channel_specification import (
+            MESSAGE_TYPE_MAP as old_map,
+        )
+        from osi_utilities.tracefile._types import (
+            _SHORT_CODE_TO_MESSAGE_TYPE as sdk_map,
+        )
 
         assert old_map == sdk_map
 
@@ -94,7 +106,10 @@ class TestF03FormatMapping:
 
     @pytest.mark.parametrize("ext", EXTENSIONS)
     def test_extension_mapping(self, ext):
-        from osi_utilities.tracefile._types import get_trace_file_format, TraceFileFormat
+        from osi_utilities.tracefile._types import (
+            get_trace_file_format,
+            TraceFileFormat,
+        )
 
         fmt = get_trace_file_format(Path(f"test{ext}"))
         assert isinstance(fmt, TraceFileFormat)
@@ -106,7 +121,10 @@ class TestF03FormatMapping:
             get_trace_file_format(Path("test.csv"))
 
     def test_reverse_lookup(self):
-        from osc_validation.utils.osi_channel_specification import _FORMAT_TO_EXT, TraceFileFormat
+        from osc_validation.utils.osi_channel_specification import (
+            _FORMAT_TO_EXT,
+            TraceFileFormat,
+        )
 
         assert _FORMAT_TO_EXT[TraceFileFormat.SINGLE_CHANNEL] == ".osi"
         assert _FORMAT_TO_EXT[TraceFileFormat.MULTI_CHANNEL] == ".mcap"
