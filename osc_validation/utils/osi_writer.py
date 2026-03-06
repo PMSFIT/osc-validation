@@ -234,48 +234,16 @@ class OSIChannelWriter:
     def from_osi_single(
         cls, trace_writer_single: OSITraceWriterSingle, topic: str, message_type: str
     ):
-        """
-        Creates an OSIChannelWriter instance from an existing OSITraceWriterSingle.
-
-        Args:
-            trace_writer_single (OSITraceWriterSingle): An instance of OSITraceWriterSingle to be written to.
-            topic (str): The topic name to which messages will be written.
-            message_type (str): The OSI message type expected in the channel (e.g. SensorView).
-        """
         return cls(source=trace_writer_single, topic=topic, message_type=message_type)
 
     @classmethod
     def from_osi_multi(
         cls, trace_writer_multi: OSITraceWriterMulti, topic: str, message_type: str
     ):
-        """
-        Creates an OSIChannelWriter instance from an existing MCAP writer.
-
-        Args:
-            trace_writer_multi (OSITraceWriterMulti): An instance of OSITraceWriterMulti to be written to.
-            topic (str): The topic name to which messages will be written.
-            message_type (str): The OSI message type expected in the channel (e.g. SensorView).
-
-        Returns:
-            OSIChannelWriter: An instance of OSIChannelWriter initialized with the given MCAP writer and topic.
-        """
         return cls(source=trace_writer_multi, topic=topic, message_type=message_type)
 
     @classmethod
     def from_osi_channel_specification(cls, osi_channel_spec: OSIChannelSpecification):
-        """
-        Creates an OSIChannelWriter instance from an OSIChannelSpecification.
-        Note that this method does not support writing multiple channels to a single multi-channel file; Use `from_osi_multi` for that purpose.
-
-        Args:
-            osi_channel_spec (OSIChannelSpecification): The specification of the OSI channel.
-
-        Returns:
-            OSIChannelWriter: An instance of OSIChannelWriter initialized with the given specification.
-
-        Raises:
-            ValueError: If trace file format is not supported.
-        """
         trace_file_format = osi_channel_spec.trace_file_format
         if trace_file_format == TraceFileFormat.MULTI_CHANNEL:
             source = OSITraceWriterMulti(

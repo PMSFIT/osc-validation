@@ -10,21 +10,20 @@ import argparse
 from pathlib import Path
 
 from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
+from osi_utilities.converters.format_converter import convert_format
 
 
 def convert(
     input_channel_spec: OSIChannelSpecification,
     output_channel_spec: OSIChannelSpecification,
 ) -> OSIChannelSpecification:
-    with OSIChannelReader.from_osi_channel_specification(input_channel_spec) as reader:
-        with OSIChannelWriter.from_osi_channel_specification(
-            output_channel_spec
-        ) as writer:
-            for msg in reader:
-                writer.write(msg)
-    return writer.get_channel_specification()
+    result = convert_format(input_channel_spec, output_channel_spec)
+    return OSIChannelSpecification(
+        path=result.path,
+        message_type=result.message_type,
+        topic=result.topic,
+        metadata=result.metadata,
+    )
 
 
 def create_argparser():

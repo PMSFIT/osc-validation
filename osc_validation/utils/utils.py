@@ -9,18 +9,16 @@ from osc_validation.utils.osi_channel_specification import OSIChannelSpecificati
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
 
+from osi_utilities.tracefile.timestamp import timestamp_to_seconds, seconds_to_timestamp
+from osi_utilities.converters.crop import crop_trace as _sdk_crop_trace
+
 
 def timestamp_osi_to_float(osi_timestamp: osi_common_pb2.Timestamp) -> float:
     return (osi_timestamp.seconds * 1000000000 + osi_timestamp.nanos) / 1000000000
 
 
 def timestamp_float_to_osi(float_timestamp: float) -> osi_common_pb2.Timestamp:
-    osi_timestamp = osi_common_pb2.Timestamp()
-    osi_timestamp.seconds = math.floor(float_timestamp)
-    osi_timestamp.nanos = int(
-        (float_timestamp - math.floor(float_timestamp)) * 1000000000
-    )
-    return osi_timestamp
+    return seconds_to_timestamp(float_timestamp)
 
 
 def trajectory_df_info(trajectory_df):
@@ -252,17 +250,12 @@ def crop_trace(
     Returns:
         Specification of the output OSI channel.
     """
-    input_trace_reader = OSIChannelReader.from_osi_channel_specification(
-        input_channel_spec
+    result = _sdk_crop_trace(
+        input_channel_spec, output_channel_spec, start_time, end_time
     )
-    output_trace_writer = OSIChannelWriter.from_osi_channel_specification(
-        output_channel_spec
+    return OSIChannelSpecification(
+        path=result.path,
+        message_type=result.message_type,
+        topic=result.topic,
+        metadata=result.metadata,
     )
-    with input_trace_reader as channel_reader, output_trace_writer as channel_writer:
-        for message in channel_reader:
-            message_time = timestamp_osi_to_float(message.timestamp)
-            if (start_time is None or message_time >= start_time) and (
-                end_time is None or message_time <= end_time
-            ):
-                channel_writer.write(message)
-    return output_trace_writer.get_channel_specification()
