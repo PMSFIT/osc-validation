@@ -99,7 +99,8 @@ def binary_gt_trace(tmp_path, sample_ground_truths):
 @pytest.fixture
 def mcap_sv_trace(tmp_path, sample_sensor_views):
     """Write SensorView messages to an MCAP file, return path."""
-    from osc_validation.utils.osi_writer import OSITraceWriterMulti
+    from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
+    from osi3.osi_sensorview_pb2 import SensorView
     import google.protobuf
 
     path = tmp_path / "test_sv.mcap"
@@ -112,20 +113,15 @@ def mcap_sv_trace(tmp_path, sample_sensor_views):
         "min_protobuf_version": google.protobuf.__version__,
         "max_protobuf_version": google.protobuf.__version__,
     }
-    from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-    spec = OSIChannelSpecification(
-        path=path,
-        message_type="SensorView",
-        topic="SensorViewTopic",
-        metadata={
-            "net.asam.osi.trace.channel.osi_version": osi_ver_str,
-            "net.asam.osi.trace.channel.protobuf_version": google.protobuf.__version__,
-        },
-    )
-    writer = OSITraceWriterMulti(path, metadata)
-    writer.add_osi_channel(spec)
+    channel_meta = {
+        "net.asam.osi.trace.channel.osi_version": osi_ver_str,
+        "net.asam.osi.trace.channel.protobuf_version": google.protobuf.__version__,
+    }
+    writer = MCAPTraceFileWriter()
+    writer.open(path, metadata)
+    writer.add_channel("SensorViewTopic", SensorView, channel_meta)
     for msg in sample_sensor_views:
-        writer.write(msg, "SensorViewTopic")
+        writer.write_message(msg, "SensorViewTopic")
     writer.close()
     return path
 
@@ -133,7 +129,8 @@ def mcap_sv_trace(tmp_path, sample_sensor_views):
 @pytest.fixture
 def mcap_gt_trace(tmp_path, sample_ground_truths):
     """Write GroundTruth messages to an MCAP file, return path."""
-    from osc_validation.utils.osi_writer import OSITraceWriterMulti
+    from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
+    from osi3.osi_groundtruth_pb2 import GroundTruth
     import google.protobuf
 
     path = tmp_path / "test_gt.mcap"
@@ -146,19 +143,14 @@ def mcap_gt_trace(tmp_path, sample_ground_truths):
         "min_protobuf_version": google.protobuf.__version__,
         "max_protobuf_version": google.protobuf.__version__,
     }
-    from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-    spec = OSIChannelSpecification(
-        path=path,
-        message_type="GroundTruth",
-        topic="GroundTruthTopic",
-        metadata={
-            "net.asam.osi.trace.channel.osi_version": osi_ver_str,
-            "net.asam.osi.trace.channel.protobuf_version": google.protobuf.__version__,
-        },
-    )
-    writer = OSITraceWriterMulti(path, metadata)
-    writer.add_osi_channel(spec)
+    channel_meta = {
+        "net.asam.osi.trace.channel.osi_version": osi_ver_str,
+        "net.asam.osi.trace.channel.protobuf_version": google.protobuf.__version__,
+    }
+    writer = MCAPTraceFileWriter()
+    writer.open(path, metadata)
+    writer.add_channel("GroundTruthTopic", GroundTruth, channel_meta)
     for msg in sample_ground_truths:
-        writer.write(msg, "GroundTruthTopic")
+        writer.write_message(msg, "GroundTruthTopic")
     writer.close()
     return path

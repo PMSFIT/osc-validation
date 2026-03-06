@@ -1,7 +1,7 @@
 """Integration tests: Phase 5 — Higher-level Operations (F23-F26).
 
-Tests capture CURRENT behavior of format converter, esminigt2sv, strip_sensorview,
-and utils.py domain functions.
+Tests verify format converter, esminigt2sv, strip_sensorview,
+and utils.py domain functions using SDK reader/writer classes.
 """
 
 import struct
@@ -17,6 +17,9 @@ from tests.conftest import (
     _write_binary_trace,
     _get_osi_version,
 )
+
+from osi_utilities.tracefile.channel_reader import ChannelReader
+from osi_utilities.tracefile._types import ChannelSpecification
 
 
 def _osi_version_str():
@@ -59,9 +62,10 @@ class TestF23FormatConverter:
         assert result_spec.path == mcap_path
 
         # Read back and verify content
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
-        reader = OSITraceReaderMulti(mcap_path)
-        read_msgs = list(reader.get_messages("SVTopic"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=mcap_path, topic="SVTopic")
+        )
+        read_msgs = list(reader.get_messages())
         assert len(read_msgs) == 5
         for orig, read in zip(sample_sensor_views, read_msgs):
             assert orig.SerializeToString() == read.SerializeToString()
@@ -82,13 +86,14 @@ class TestF23FormatConverter:
         assert osi_path.exists()
 
         # Read back and verify content
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-        adapter = OSITraceAdapter(osi_path, "SensorView")
-        read_msgs = list(adapter.get_messages("any"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=osi_path, message_type="SensorView")
+        )
+        read_msgs = list(reader.get_messages())
         assert len(read_msgs) == 5
         for orig, read in zip(sample_sensor_views, read_msgs):
             assert orig.SerializeToString() == read.SerializeToString()
-        adapter.close()
+        reader.close()
 
     def test_roundtrip_osi_mcap_osi(self, tmp_path, sample_sensor_views):
         """osi -> mcap -> osi, verify messages identical to original."""
@@ -113,13 +118,14 @@ class TestF23FormatConverter:
             OSIChannelSpecification(path=osi_2, message_type="SensorView"),
         )
 
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-        adapter = OSITraceAdapter(osi_2, "SensorView")
-        roundtrip_msgs = list(adapter.get_messages("any"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=osi_2, message_type="SensorView")
+        )
+        roundtrip_msgs = list(reader.get_messages())
         assert len(roundtrip_msgs) == 5
         for orig, rt in zip(sample_sensor_views, roundtrip_msgs):
             assert orig.SerializeToString() == rt.SerializeToString()
-        adapter.close()
+        reader.close()
 
 
 # ===========================================================================
@@ -142,16 +148,16 @@ class TestF24EsminiGt2Sv:
         sv_spec = OSIChannelSpecification(path=sv_path, message_type="SensorView")
         gt2sv(gt_spec, sv_spec)
 
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-        adapter = OSITraceAdapter(sv_path, "SensorView")
-        sv_msgs = list(adapter.get_messages("any"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=sv_path, message_type="SensorView")
+        )
+        sv_msgs = list(reader.get_messages())
         assert len(sv_msgs) == 5
-        adapter.close()
+        reader.close()
 
     def test_gt2sv_sensor_id(self, tmp_path, sample_ground_truths):
         from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
         from osc_validation.utils.esminigt2sv import gt2sv
-        from osc_validation.utils.osi_reader import OSITraceAdapter
 
         gt_path = tmp_path / "input_gt.osi"
         _write_binary_trace(gt_path, sample_ground_truths)
@@ -162,15 +168,16 @@ class TestF24EsminiGt2Sv:
             OSIChannelSpecification(path=sv_path, message_type="SensorView"),
         )
 
-        adapter = OSITraceAdapter(sv_path, "SensorView")
-        for msg in adapter.get_messages("any"):
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=sv_path, message_type="SensorView")
+        )
+        for msg in reader.get_messages():
             assert msg.sensor_id.value == 10000
-        adapter.close()
+        reader.close()
 
     def test_gt2sv_mounting_position(self, tmp_path, sample_ground_truths):
         from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
         from osc_validation.utils.esminigt2sv import gt2sv
-        from osc_validation.utils.osi_reader import OSITraceAdapter
 
         gt_path = tmp_path / "input_gt.osi"
         _write_binary_trace(gt_path, sample_ground_truths)
@@ -181,17 +188,18 @@ class TestF24EsminiGt2Sv:
             OSIChannelSpecification(path=sv_path, message_type="SensorView"),
         )
 
-        adapter = OSITraceAdapter(sv_path, "SensorView")
-        for msg in adapter.get_messages("any"):
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=sv_path, message_type="SensorView")
+        )
+        for msg in reader.get_messages():
             assert msg.mounting_position.position.x == 0
             assert msg.mounting_position.position.y == 0
             assert msg.mounting_position.position.z == 0
-        adapter.close()
+        reader.close()
 
     def test_gt2sv_version_stamped(self, tmp_path, sample_ground_truths):
         from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
         from osc_validation.utils.esminigt2sv import gt2sv
-        from osc_validation.utils.osi_reader import OSITraceAdapter
 
         gt_path = tmp_path / "input_gt.osi"
         _write_binary_trace(gt_path, sample_ground_truths)
@@ -203,17 +211,18 @@ class TestF24EsminiGt2Sv:
         )
 
         version = _get_osi_version()
-        adapter = OSITraceAdapter(sv_path, "SensorView")
-        for msg in adapter.get_messages("any"):
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=sv_path, message_type="SensorView")
+        )
+        for msg in reader.get_messages():
             assert msg.version.version_major == version.version_major
             assert msg.version.version_minor == version.version_minor
             assert msg.version.version_patch == version.version_patch
-        adapter.close()
+        reader.close()
 
     def test_gt2sv_host_vehicle_id_copied(self, tmp_path, sample_ground_truths):
         from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
         from osc_validation.utils.esminigt2sv import gt2sv
-        from osc_validation.utils.osi_reader import OSITraceAdapter
 
         gt_path = tmp_path / "input_gt.osi"
         _write_binary_trace(gt_path, sample_ground_truths)
@@ -224,15 +233,16 @@ class TestF24EsminiGt2Sv:
             OSIChannelSpecification(path=sv_path, message_type="SensorView"),
         )
 
-        adapter = OSITraceAdapter(sv_path, "SensorView")
-        for i, msg in enumerate(adapter.get_messages("any")):
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=sv_path, message_type="SensorView")
+        )
+        for i, msg in enumerate(reader.get_messages()):
             assert msg.host_vehicle_id.value == sample_ground_truths[i].host_vehicle_id.value
-        adapter.close()
+        reader.close()
 
     def test_gt2sv_ground_truth_embedded(self, tmp_path, sample_ground_truths):
         from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
         from osc_validation.utils.esminigt2sv import gt2sv
-        from osc_validation.utils.osi_reader import OSITraceAdapter
 
         gt_path = tmp_path / "input_gt.osi"
         _write_binary_trace(gt_path, sample_ground_truths)
@@ -243,15 +253,17 @@ class TestF24EsminiGt2Sv:
             OSIChannelSpecification(path=sv_path, message_type="SensorView"),
         )
 
-        adapter = OSITraceAdapter(sv_path, "SensorView")
-        sv_msgs = list(adapter.get_messages("any"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=sv_path, message_type="SensorView")
+        )
+        sv_msgs = list(reader.get_messages())
         for i, sv in enumerate(sv_msgs):
             gt = sample_ground_truths[i]
             assert len(sv.global_ground_truth.moving_object) == len(gt.moving_object)
             for sv_mo, gt_mo in zip(sv.global_ground_truth.moving_object, gt.moving_object):
                 assert sv_mo.id.value == gt_mo.id.value
                 assert sv_mo.base.position.x == pytest.approx(gt_mo.base.position.x)
-        adapter.close()
+        reader.close()
 
 
 # ===========================================================================
@@ -288,13 +300,14 @@ class TestF25StripSensorView:
         )
         strip(in_path, out_path, args)
 
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-        adapter = OSITraceAdapter(out_path, "SensorView")
-        for msg in adapter.get_messages("any"):
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=out_path, message_type="SensorView")
+        )
+        for msg in reader.get_messages():
             assert len(msg.global_ground_truth.lane_boundary) == 0
             # lane should be preserved
             assert len(msg.global_ground_truth.lane) > 0
-        adapter.close()
+        reader.close()
 
     def test_strip_lane(self, tmp_path):
         from osc_validation.utils.strip_sensorview import strip
@@ -311,13 +324,14 @@ class TestF25StripSensorView:
         )
         strip(in_path, out_path, args)
 
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-        adapter = OSITraceAdapter(out_path, "SensorView")
-        for msg in adapter.get_messages("any"):
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=out_path, message_type="SensorView")
+        )
+        for msg in reader.get_messages():
             assert len(msg.global_ground_truth.lane) == 0
             # lane_boundary should be preserved
             assert len(msg.global_ground_truth.lane_boundary) > 0
-        adapter.close()
+        reader.close()
 
     def test_strip_preserves_other_fields(self, tmp_path):
         from osc_validation.utils.strip_sensorview import strip
@@ -334,13 +348,14 @@ class TestF25StripSensorView:
         )
         strip(in_path, out_path, args)
 
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-        adapter = OSITraceAdapter(out_path, "SensorView")
-        for msg in adapter.get_messages("any"):
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=out_path, message_type="SensorView")
+        )
+        for msg in reader.get_messages():
             # moving objects should be preserved
             assert len(msg.global_ground_truth.moving_object) > 0
             assert msg.sensor_id.value == 42
-        adapter.close()
+        reader.close()
 
     def test_strip_reference_line(self, tmp_path):
         from osc_validation.utils.strip_sensorview import strip
@@ -359,11 +374,12 @@ class TestF25StripSensorView:
         )
         strip(in_path, out_path, args)
 
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-        adapter = OSITraceAdapter(out_path, "SensorView")
-        for msg in adapter.get_messages("any"):
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=out_path, message_type="SensorView")
+        )
+        for msg in reader.get_messages():
             assert len(msg.global_ground_truth.reference_line) == 0
-        adapter.close()
+        reader.close()
 
     def test_strip_environmental_conditions(self, tmp_path):
         from osc_validation.utils.strip_sensorview import strip
@@ -381,11 +397,12 @@ class TestF25StripSensorView:
         )
         strip(in_path, out_path, args)
 
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-        adapter = OSITraceAdapter(out_path, "SensorView")
-        for msg in adapter.get_messages("any"):
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=out_path, message_type="SensorView")
+        )
+        for msg in reader.get_messages():
             assert msg.global_ground_truth.environmental_conditions.atmospheric_pressure == 0.0
-        adapter.close()
+        reader.close()
 
 
 # ===========================================================================
@@ -491,7 +508,6 @@ class TestF26UtilsDomain:
     def test_crop_trace(self, tmp_path, sample_sensor_views):
         from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
         from osc_validation.utils.utils import crop_trace
-        from osc_validation.utils.osi_reader import OSITraceAdapter
 
         in_path = tmp_path / "full.osi"
         _write_binary_trace(in_path, sample_sensor_views)
@@ -502,15 +518,16 @@ class TestF26UtilsDomain:
             OSIChannelSpecification(path=out_path, message_type="SensorView"),
         )
 
-        adapter = OSITraceAdapter(out_path, "SensorView")
-        cropped = list(adapter.get_messages("any"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=out_path, message_type="SensorView")
+        )
+        cropped = list(reader.get_messages())
         assert len(cropped) == 5  # no interval = all messages
-        adapter.close()
+        reader.close()
 
     def test_crop_trace_with_interval(self, tmp_path):
         from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
         from osc_validation.utils.utils import crop_trace
-        from osc_validation.utils.osi_reader import OSITraceAdapter
 
         msgs = [_make_sensor_view(i * 0.1) for i in range(10)]
         in_path = tmp_path / "full.osi"
@@ -524,10 +541,12 @@ class TestF26UtilsDomain:
             end_time=0.5,
         )
 
-        adapter = OSITraceAdapter(out_path, "SensorView")
-        cropped = list(adapter.get_messages("any"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=out_path, message_type="SensorView")
+        )
+        cropped = list(reader.get_messages())
         assert len(cropped) == 4  # 0.2, 0.3, 0.4, 0.5
-        adapter.close()
+        reader.close()
 
     def test_rotate_point_zyx_identity(self):
         from osc_validation.utils.utils import rotatePointZYX

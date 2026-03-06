@@ -43,23 +43,23 @@ def tmp_dir():
 
 
 def _write_binary(path, msgs):
-    from osc_validation.utils.osi_writer import OSITraceWriterSingle
+    from osi_utilities.tracefile.binary_writer import BinaryTraceFileWriter
 
-    writer = OSITraceWriterSingle(path, "SensorView")
+    writer = BinaryTraceFileWriter()
+    writer.open(path)
     for m in msgs:
-        writer.write(m, "sv")
+        writer.write_message(m)
     writer.close()
 
 
 def _write_mcap(path, msgs, topic="sv"):
-    from osc_validation.utils.osi_writer import OSITraceWriterMulti
-    from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+    from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
 
-    writer = OSITraceWriterMulti(path, {})
-    spec = OSIChannelSpecification(path=path, message_type="SensorView", topic=topic)
-    writer.add_osi_channel(spec)
+    writer = MCAPTraceFileWriter()
+    writer.open(path, {})
+    writer.add_channel(topic, type(msgs[0]))
     for m in msgs:
-        writer.write(m, topic)
+        writer.write_message(m, topic)
     writer.close()
 
 
@@ -110,24 +110,30 @@ class TestChannelInfoIntegration:
         path = tmp_dir / "trace.osi"
         _write_binary(path, [_make_sv(i) for i in range(5)])
 
-        from osc_validation.utils.osi_reader import OSITraceAdapter
+        from osi_utilities.tracefile.channel_reader import ChannelReader
+        from osi_utilities.tracefile._types import ChannelSpecification
 
-        adapter = OSITraceAdapter(path, "SensorView")
-        info = adapter.get_channel_info(adapter.get_available_topics()[0])
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=path, message_type="SensorView")
+        )
+        info = reader.get_channel_info()
         assert info["start"] == 0.0
         assert info["stop"] == 4.0
         assert info["total_steps"] == 5
         assert info["osi_version"] == "3.7.0"
-        adapter.close()
+        reader.close()
 
     def test_mcap_channel_info(self, tmp_dir):
         path = tmp_dir / "trace.mcap"
         _write_mcap(path, [_make_sv(i) for i in range(3)], topic="sv")
 
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
+        from osi_utilities.tracefile.channel_reader import ChannelReader
+        from osi_utilities.tracefile._types import ChannelSpecification
 
-        reader = OSITraceReaderMulti(path)
-        info = reader.get_channel_info("sv")
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=path, topic="sv")
+        )
+        info = reader.get_channel_info()
         assert info["start"] == 0.0
         assert info["stop"] == 2.0
         assert info["total_steps"] == 3

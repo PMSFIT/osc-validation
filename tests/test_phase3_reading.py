@@ -1,7 +1,7 @@
 """Integration tests: Phase 3 — Reading (F10-F16).
 
-Tests capture CURRENT behavior of OSITraceAdapter, OSITraceReaderMulti,
-and OSIChannelReader before any SDK replacement.
+Tests verify ChannelReader, MCAPTraceFileReader,
+and OSIChannelReader reading behaviour using SDK classes.
 """
 
 import struct
@@ -10,80 +10,82 @@ from pathlib import Path
 
 from tests.conftest import _make_sensor_view, _make_ground_truth, _write_binary_trace
 
+from osi_utilities.tracefile.channel_reader import ChannelReader
+from osi_utilities.tracefile._types import ChannelSpecification, MESSAGE_TYPE_TO_CLASS_NAME
+
 
 # ===========================================================================
-# F10: Binary read — OSITraceAdapter
+# F10: Binary read — ChannelReader
 # ===========================================================================
 
 
 class TestF10BinaryRead:
-    """Verify OSITraceAdapter reads binary .osi files correctly."""
+    """Verify ChannelReader reads binary .osi files correctly."""
 
     def test_adapter_construct(self, binary_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
-        adapter = OSITraceAdapter(binary_sv_trace, "SensorView")
-        assert adapter.path == binary_sv_trace
-        assert adapter.message_type == "SensorView"
-        adapter.close()
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=binary_sv_trace, message_type="SensorView")
+        )
+        assert reader.get_source_path() == binary_sv_trace
+        assert reader.get_message_type() == "SensorView"
+        reader.close()
 
     def test_adapter_get_messages_count(self, binary_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
-        adapter = OSITraceAdapter(binary_sv_trace, "SensorView")
-        messages = list(adapter.get_messages("any_topic"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=binary_sv_trace, message_type="SensorView")
+        )
+        messages = list(reader.get_messages())
         assert len(messages) == 5
-        adapter.close()
+        reader.close()
 
     def test_adapter_get_messages_content(self, binary_sv_trace, sample_sensor_views):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
-        adapter = OSITraceAdapter(binary_sv_trace, "SensorView")
-        messages = list(adapter.get_messages("any_topic"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=binary_sv_trace, message_type="SensorView")
+        )
+        messages = list(reader.get_messages())
         for original, read_back in zip(sample_sensor_views, messages):
             assert original.SerializeToString() == read_back.SerializeToString()
-        adapter.close()
+        reader.close()
 
     def test_adapter_get_available_topics(self, binary_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
-        adapter = OSITraceAdapter(binary_sv_trace, "SensorView")
-        topics = adapter.get_available_topics()
-        assert len(topics) == 1
-        assert topics[0] == binary_sv_trace.stem
-        adapter.close()
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=binary_sv_trace, message_type="SensorView")
+        )
+        topic = reader.get_topic_name()
+        assert topic == binary_sv_trace.stem
+        reader.close()
 
     def test_adapter_get_message_type(self, binary_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
-        adapter = OSITraceAdapter(binary_sv_trace, "SensorView")
-        assert adapter.get_message_type("any") == "SensorView"
-        adapter.close()
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=binary_sv_trace, message_type="SensorView")
+        )
+        assert reader.get_message_type() == "SensorView"
+        reader.close()
 
     def test_adapter_get_file_metadata_empty(self, binary_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
-        adapter = OSITraceAdapter(binary_sv_trace, "SensorView")
-        assert adapter.get_file_metadata() == {}
-        adapter.close()
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=binary_sv_trace, message_type="SensorView")
+        )
+        assert reader.get_file_metadata() == {}
+        reader.close()
 
     def test_adapter_get_channel_metadata_empty(self, binary_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
-        adapter = OSITraceAdapter(binary_sv_trace, "SensorView")
-        assert adapter.get_channel_metadata("any") == {}
-        adapter.close()
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=binary_sv_trace, message_type="SensorView")
+        )
+        assert reader.get_channel_metadata() == {}
+        reader.close()
 
     def test_adapter_get_channel_info(self, binary_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
-        adapter = OSITraceAdapter(binary_sv_trace, "SensorView")
-        info = adapter.get_channel_info("any")
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=binary_sv_trace, message_type="SensorView")
+        )
+        info = reader.get_channel_info()
         assert info["total_steps"] == 5
         assert info["start"] == pytest.approx(0.0)
         assert info["stop"] == pytest.approx(0.4)
         assert info["step_size_avg"] == pytest.approx(0.1, abs=1e-6)
-        adapter.close()
+        reader.close()
 
 
 # ===========================================================================
@@ -95,82 +97,80 @@ class TestF11BinaryEdgeCases:
     """Edge cases for binary .osi reading."""
 
     def test_empty_file_yields_nothing(self, tmp_path):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
         path = tmp_path / "empty.osi"
         path.write_bytes(b"")
-        adapter = OSITraceAdapter(path, "SensorView")
-        messages = list(adapter.get_messages("any"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=path, message_type="SensorView")
+        )
+        messages = list(reader.get_messages())
         assert len(messages) == 0
-        adapter.close()
+        reader.close()
 
     def test_single_message(self, tmp_path):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
         path = tmp_path / "single.osi"
         msg = _make_sensor_view(1.0)
         _write_binary_trace(path, [msg])
-        adapter = OSITraceAdapter(path, "SensorView")
-        messages = list(adapter.get_messages("any"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=path, message_type="SensorView")
+        )
+        messages = list(reader.get_messages())
         assert len(messages) == 1
         assert messages[0].SerializeToString() == msg.SerializeToString()
-        adapter.close()
+        reader.close()
 
     def test_ground_truth_read(self, binary_gt_trace, sample_ground_truths):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
-        adapter = OSITraceAdapter(binary_gt_trace, "GroundTruth")
-        messages = list(adapter.get_messages("any"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=binary_gt_trace, message_type="GroundTruth")
+        )
+        messages = list(reader.get_messages())
         assert len(messages) == 5
         for original, read_back in zip(sample_ground_truths, messages):
             assert original.SerializeToString() == read_back.SerializeToString()
-        adapter.close()
+        reader.close()
 
 
 # ===========================================================================
-# F12: MCAP read — OSITraceReaderMulti
+# F12: MCAP read — MCAPTraceFileReader / ChannelReader
 # ===========================================================================
 
 
 class TestF12McapRead:
-    """Verify OSITraceReaderMulti reads MCAP files correctly."""
+    """Verify MCAPTraceFileReader and ChannelReader read MCAP files correctly."""
 
     def test_multi_construct(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
+        from osi_utilities.tracefile.mcap_reader import MCAPTraceFileReader
 
-        reader = OSITraceReaderMulti(mcap_sv_trace)
-        assert reader.path == mcap_sv_trace
+        reader = MCAPTraceFileReader()
+        assert reader.open(Path(str(mcap_sv_trace)))
         reader.close()
 
     def test_multi_get_messages_count(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
-
-        reader = OSITraceReaderMulti(mcap_sv_trace)
-        messages = list(reader.get_messages("SensorViewTopic"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
+        )
+        messages = list(reader.get_messages())
         assert len(messages) == 5
         reader.close()
 
     def test_multi_get_messages_content(self, mcap_sv_trace, sample_sensor_views):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
-
-        reader = OSITraceReaderMulti(mcap_sv_trace)
-        messages = list(reader.get_messages("SensorViewTopic"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
+        )
+        messages = list(reader.get_messages())
         for original, read_back in zip(sample_sensor_views, messages):
             assert original.SerializeToString() == read_back.SerializeToString()
         reader.close()
 
     def test_multi_invalid_topic_raises(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
-
-        reader = OSITraceReaderMulti(mcap_sv_trace)
         with pytest.raises(ValueError, match="not found"):
-            list(reader.get_messages("NonExistentTopic"))
-        reader.close()
+            ChannelReader.from_specification(
+                ChannelSpecification(path=mcap_sv_trace, topic="NonExistentTopic")
+            )
 
     def test_multi_close(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
-
-        reader = OSITraceReaderMulti(mcap_sv_trace)
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
+        )
         reader.close()
         # No exception on double close expected behavior varies;
         # just verify it ran without error.
@@ -185,17 +185,19 @@ class TestF13McapMetadata:
     """Verify topic listing, channel metadata, file metadata, message type."""
 
     def test_get_available_topics(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
+        from osi_utilities.tracefile.mcap_reader import MCAPTraceFileReader
 
-        reader = OSITraceReaderMulti(mcap_sv_trace)
+        reader = MCAPTraceFileReader()
+        reader.open(Path(str(mcap_sv_trace)))
         topics = reader.get_available_topics()
         assert "SensorViewTopic" in topics
         reader.close()
 
     def test_get_channel_metadata(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
+        from osi_utilities.tracefile.mcap_reader import MCAPTraceFileReader
 
-        reader = OSITraceReaderMulti(mcap_sv_trace)
+        reader = MCAPTraceFileReader()
+        reader.open(Path(str(mcap_sv_trace)))
         meta = reader.get_channel_metadata("SensorViewTopic")
         assert meta is not None
         assert "net.asam.osi.trace.channel.osi_version" in meta
@@ -203,34 +205,39 @@ class TestF13McapMetadata:
         reader.close()
 
     def test_get_channel_metadata_missing_topic(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
+        from osi_utilities.tracefile.mcap_reader import MCAPTraceFileReader
 
-        reader = OSITraceReaderMulti(mcap_sv_trace)
+        reader = MCAPTraceFileReader()
+        reader.open(Path(str(mcap_sv_trace)))
         meta = reader.get_channel_metadata("NonExistent")
         assert meta is None
         reader.close()
 
     def test_get_file_metadata(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
+        from osi_utilities.tracefile.mcap_reader import MCAPTraceFileReader
 
-        reader = OSITraceReaderMulti(mcap_sv_trace)
+        reader = MCAPTraceFileReader()
+        reader.open(Path(str(mcap_sv_trace)))
         file_meta = reader.get_file_metadata()
         assert len(file_meta) > 0
         reader.close()
 
     def test_get_message_type(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
+        from osi_utilities.tracefile.mcap_reader import MCAPTraceFileReader
 
-        reader = OSITraceReaderMulti(mcap_sv_trace)
-        msg_type = reader.get_message_type("SensorViewTopic")
-        assert msg_type == "SensorView"
+        reader = MCAPTraceFileReader()
+        reader.open(Path(str(mcap_sv_trace)))
+        msg_type = reader.get_message_type_for_topic("SensorViewTopic")
+        assert msg_type is not None
+        assert MESSAGE_TYPE_TO_CLASS_NAME[msg_type] == "SensorView"
         reader.close()
 
     def test_get_message_type_missing_topic(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
+        from osi_utilities.tracefile.mcap_reader import MCAPTraceFileReader
 
-        reader = OSITraceReaderMulti(mcap_sv_trace)
-        msg_type = reader.get_message_type("NonExistent")
+        reader = MCAPTraceFileReader()
+        reader.open(Path(str(mcap_sv_trace)))
+        msg_type = reader.get_message_type_for_topic("NonExistent")
         assert msg_type is None
         reader.close()
 
@@ -241,13 +248,13 @@ class TestF13McapMetadata:
 
 
 class TestF14ChannelInfo:
-    """Verify _retrieve_channel_info_from_data and get_channel_info."""
+    """Verify channel info computation via ChannelReader.get_channel_info."""
 
     def test_channel_info_from_mcap(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
-
-        reader = OSITraceReaderMulti(mcap_sv_trace)
-        info = reader.get_channel_info("SensorViewTopic")
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
+        )
+        info = reader.get_channel_info()
         assert info["total_steps"] == 5
         assert info["start"] == pytest.approx(0.0)
         assert info["stop"] == pytest.approx(0.4)
@@ -258,19 +265,19 @@ class TestF14ChannelInfo:
         reader.close()
 
     def test_channel_info_from_binary(self, binary_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
-        adapter = OSITraceAdapter(binary_sv_trace, "SensorView")
-        info = adapter.get_channel_info("any")
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=binary_sv_trace, message_type="SensorView")
+        )
+        info = reader.get_channel_info()
         assert info["total_steps"] == 5
         assert "osi_version" in info
-        adapter.close()
+        reader.close()
 
     def test_print_summary_no_crash(self, mcap_sv_trace, capsys):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
-
-        reader = OSITraceReaderMulti(mcap_sv_trace)
-        reader.print_summary("SensorViewTopic")
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=mcap_sv_trace, topic="SensorViewTopic")
+        )
+        reader.print_summary()
         captured = capsys.readouterr()
         assert "SensorView" in captured.out
         reader.close()
@@ -353,31 +360,38 @@ class TestF15ReaderFacade:
             OSIChannelReader.from_osi_channel_specification(spec)
 
     def test_from_single_trace(self, binary_sv_trace):
+        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        reader = OSIChannelReader.from_osi_single_trace(
-            binary_sv_trace, "SensorView"
+        spec = OSIChannelSpecification(
+            path=binary_sv_trace, message_type="SensorView"
         )
+        reader = OSIChannelReader.from_osi_channel_specification(spec)
         messages = list(reader)
         assert len(messages) == 5
         reader.close()
 
     def test_from_multi_trace(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti, OSIChannelReader
+        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_reader import OSIChannelReader
 
-        multi = OSITraceReaderMulti(mcap_sv_trace)
-        reader = OSIChannelReader.from_osi_multi_trace(multi, "SensorViewTopic")
+        spec = OSIChannelSpecification(
+            path=mcap_sv_trace, topic="SensorViewTopic"
+        )
+        reader = OSIChannelReader.from_osi_channel_specification(spec)
         messages = list(reader)
         assert len(messages) == 5
         reader.close()
 
     def test_from_multi_trace_bad_topic_raises(self, mcap_sv_trace):
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti, OSIChannelReader
+        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_reader import OSIChannelReader
 
-        multi = OSITraceReaderMulti(mcap_sv_trace)
+        spec = OSIChannelSpecification(
+            path=mcap_sv_trace, topic="BadTopic"
+        )
         with pytest.raises(ValueError, match="not found"):
-            OSIChannelReader.from_osi_multi_trace(multi, "BadTopic")
-        multi.close()
+            OSIChannelReader.from_osi_channel_specification(spec)
 
     def test_get_source_path(self, binary_sv_trace):
         from osc_validation.utils.osi_channel_specification import OSIChannelSpecification

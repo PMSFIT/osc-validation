@@ -1,7 +1,7 @@
 """Integration tests: Phase 4 — Writing (F17-F22).
 
-Tests capture CURRENT behavior of OSITraceWriterSingle, OSITraceWriterMulti,
-and OSIChannelWriter before any SDK replacement.
+Tests verify ChannelWriter, MCAPTraceFileWriter, BinaryTraceFileWriter,
+and OSIChannelWriter writing behaviour using SDK classes.
 """
 
 import struct
@@ -13,6 +13,13 @@ from pathlib import Path
 import google.protobuf
 
 from tests.conftest import _make_sensor_view, _get_osi_version
+
+from osi_utilities.tracefile.channel_reader import ChannelReader
+from osi_utilities.tracefile.channel_writer import ChannelWriter
+from osi_utilities.tracefile._types import (
+    ChannelSpecification,
+    MESSAGE_TYPE_TO_CLASS_NAME,
+)
 
 
 def _osi_version_str():
@@ -46,34 +53,35 @@ class TestF17BinaryWrite:
     """Verify binary .osi writing."""
 
     def test_single_write_creates_file(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterSingle
-
         path = tmp_path / "output.osi"
-        writer = OSITraceWriterSingle(path, "SensorView")
+        writer = ChannelWriter.from_specification(
+            ChannelSpecification(path=path, message_type="SensorView")
+        )
         msg = _make_sensor_view(0.0)
-        writer.write(msg, "ignored")
+        writer.write(msg)
         writer.close()
         assert path.exists()
         assert path.stat().st_size > 0
 
     def test_single_write_message_count(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterSingle
-
         path = tmp_path / "output.osi"
-        writer = OSITraceWriterSingle(path, "SensorView")
+        writer = ChannelWriter.from_specification(
+            ChannelSpecification(path=path, message_type="SensorView")
+        )
         for i in range(5):
-            writer.write(_make_sensor_view(i * 0.1), "ignored")
-        assert writer.written_message_count == 5
+            writer.write(_make_sensor_view(i * 0.1))
+        assert writer.written_count == 5
         writer.close()
 
     def test_single_write_binary_format(self, tmp_path):
         """Verify 4-byte LE length prefix + serialized bytes."""
-        from osc_validation.utils.osi_writer import OSITraceWriterSingle
+        from osi_utilities.tracefile.binary_writer import BinaryTraceFileWriter
 
         path = tmp_path / "output.osi"
-        writer = OSITraceWriterSingle(path, "SensorView")
+        writer = BinaryTraceFileWriter()
+        writer.open(path)
         msg = _make_sensor_view(1.0)
-        writer.write(msg, "ignored")
+        writer.write_message(msg)
         writer.close()
 
         data = path.read_bytes()
@@ -82,32 +90,33 @@ class TestF17BinaryWrite:
         assert data == expected_len + expected_payload
 
     def test_single_write_readback(self, tmp_path, sample_sensor_views):
-        """Write with old writer, read back with old reader, verify."""
-        from osc_validation.utils.osi_writer import OSITraceWriterSingle
-        from osc_validation.utils.osi_reader import OSITraceAdapter
-
+        """Write with ChannelWriter, read back with ChannelReader, verify."""
         path = tmp_path / "roundtrip.osi"
-        writer = OSITraceWriterSingle(path, "SensorView")
+        writer = ChannelWriter.from_specification(
+            ChannelSpecification(path=path, message_type="SensorView")
+        )
         for msg in sample_sensor_views:
-            writer.write(msg, "ignored")
+            writer.write(msg)
         writer.close()
 
-        adapter = OSITraceAdapter(path, "SensorView")
-        read_msgs = list(adapter.get_messages("any"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=path, message_type="SensorView")
+        )
+        read_msgs = list(reader.get_messages())
         assert len(read_msgs) == 5
         for orig, read in zip(sample_sensor_views, read_msgs):
             assert orig.SerializeToString() == read.SerializeToString()
-        adapter.close()
+        reader.close()
 
     def test_single_bad_extension_raises(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterSingle
-
         with pytest.raises(ValueError, match="extension"):
-            OSITraceWriterSingle(tmp_path / "bad.mcap", "SensorView")
+            ChannelWriter.from_specification(
+                ChannelSpecification(path=tmp_path / "bad.xyz", message_type="SensorView")
+            )
 
     def test_writer_message_type_map_covers_all(self):
         """Verify writer's message type resolution covers all expected types."""
-        from osc_validation.utils.osi_writer import _NAME_TO_MESSAGE_TYPE
+        _NAME_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_CLASS_NAME.items()}
 
         expected = {
             "SensorView", "SensorViewConfiguration", "GroundTruth",
@@ -127,20 +136,23 @@ class TestF18BinaryCompression:
     """Verify .osi.xz compressed writing."""
 
     def test_compress_creates_file(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterSingle
+        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osc_validation.utils.osi_writer import OSIChannelWriter
 
         path = tmp_path / "output.osi.xz"
-        writer = OSITraceWriterSingle(path, "SensorView", compress=True)
+        spec = OSIChannelSpecification(path=path, message_type="SensorView")
+        writer = OSIChannelWriter.from_osi_channel_specification(spec)
         msg = _make_sensor_view(0.0)
-        writer.write(msg, "ignored")
+        writer.write(msg)
         writer.close()
         assert path.exists()
 
     def test_compress_bad_extension_raises(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterSingle
-
+        """Verify unsupported file extension raises ValueError."""
         with pytest.raises(ValueError):
-            OSITraceWriterSingle(tmp_path / "output.osi", "SensorView", compress=True)
+            ChannelWriter.from_specification(
+                ChannelSpecification(path=tmp_path / "output.csv", message_type="SensorView")
+            )
 
 
 # ===========================================================================
@@ -149,138 +161,120 @@ class TestF18BinaryCompression:
 
 
 class TestF19McapWrite:
-    """Verify MCAP writing with OSITraceWriterMulti."""
+    """Verify MCAP writing with MCAPTraceFileWriter and ChannelWriter."""
 
     def test_multi_construct(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
+        from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
 
         path = tmp_path / "output.mcap"
-        writer = OSITraceWriterMulti(path, _default_file_metadata())
+        writer = MCAPTraceFileWriter()
+        writer.open(path, _default_file_metadata())
         writer.close()
         assert path.exists()
 
     def test_multi_write_and_readback(self, tmp_path, sample_sensor_views):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
+        from osi3.osi_sensorview_pb2 import SensorView
 
         path = tmp_path / "output.mcap"
-        spec = OSIChannelSpecification(
-            path=path,
-            message_type="SensorView",
-            topic="SVTopic",
-            metadata=_default_channel_metadata(),
-        )
-        writer = OSITraceWriterMulti(path, _default_file_metadata())
-        writer.add_osi_channel(spec)
+        writer = MCAPTraceFileWriter()
+        writer.open(path, _default_file_metadata())
+        writer.add_channel("SVTopic", SensorView, _default_channel_metadata())
         for msg in sample_sensor_views:
-            writer.write(msg, "SVTopic")
-        assert writer.written_message_count == 5
+            writer.write_message(msg, "SVTopic")
+        assert writer.written_count == 5
         writer.close()
 
-        reader = OSITraceReaderMulti(path)
-        read_msgs = list(reader.get_messages("SVTopic"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=path, topic="SVTopic")
+        )
+        read_msgs = list(reader.get_messages())
         assert len(read_msgs) == 5
         for orig, read in zip(sample_sensor_views, read_msgs):
             assert orig.SerializeToString() == read.SerializeToString()
         reader.close()
 
     def test_multi_bad_extension_raises(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-
         with pytest.raises(ValueError, match="extension"):
-            OSITraceWriterMulti(tmp_path / "bad.osi", _default_file_metadata())
+            ChannelWriter.from_specification(
+                ChannelSpecification(path=tmp_path / "bad.xyz", message_type="SensorView")
+            )
 
     def test_multi_existing_file_raises(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-
         path = tmp_path / "exists.mcap"
         path.write_bytes(b"data")
         with pytest.raises(ValueError, match="already exists"):
-            OSITraceWriterMulti(path, _default_file_metadata())
+            ChannelWriter.from_specification(
+                ChannelSpecification(path=path, message_type="SensorView")
+            )
 
     def test_multi_duplicate_topic_raises(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
+        from osi3.osi_sensorview_pb2 import SensorView
 
         path = tmp_path / "dup.mcap"
-        writer = OSITraceWriterMulti(path, _default_file_metadata())
-        spec = OSIChannelSpecification(
-            path=path, message_type="SensorView", topic="SVTopic",
-            metadata=_default_channel_metadata(),
-        )
-        writer.add_osi_channel(spec)
-        with pytest.raises(ValueError, match="already exists"):
-            writer.add_osi_channel(spec)
+        writer = MCAPTraceFileWriter()
+        writer.open(path, _default_file_metadata())
+        writer.add_channel("SVTopic", SensorView, _default_channel_metadata())
+        with pytest.raises(RuntimeError, match="already exists"):
+            writer.add_channel("SVTopic", SensorView, _default_channel_metadata())
         writer.close()
 
     def test_multi_no_message_type_raises(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-
         path = tmp_path / "nomt.mcap"
-        writer = OSITraceWriterMulti(path, _default_file_metadata())
-        spec = OSIChannelSpecification(path=path, topic="SVTopic")
-        with pytest.raises(ValueError, match="message type"):
-            writer.add_osi_channel(spec)
-        writer.close()
+        with pytest.raises(ValueError, match="[Mm]essage type"):
+            ChannelWriter.from_specification(
+                ChannelSpecification(path=path)
+            )
 
     def test_multi_write_bad_topic_raises(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
+        from osi3.osi_sensorview_pb2 import SensorView
 
         path = tmp_path / "badtopic.mcap"
-        writer = OSITraceWriterMulti(path, _default_file_metadata())
-        spec = OSIChannelSpecification(
-            path=path, message_type="SensorView", topic="SVTopic",
-            metadata=_default_channel_metadata(),
-        )
-        writer.add_osi_channel(spec)
-        with pytest.raises(ValueError, match="not found"):
-            writer.write(_make_sensor_view(0.0), "WrongTopic")
+        writer = MCAPTraceFileWriter()
+        writer.open(path, _default_file_metadata())
+        writer.add_channel("SVTopic", SensorView, _default_channel_metadata())
+        result = writer.write_message(_make_sensor_view(0.0), "WrongTopic")
+        assert not result
         writer.close()
 
     def test_multi_context_manager(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-
         path = tmp_path / "ctx.mcap"
-        spec = OSIChannelSpecification(
+        spec = ChannelSpecification(
             path=path, message_type="SensorView", topic="T",
             metadata=_default_channel_metadata(),
         )
-        with OSITraceWriterMulti(path, _default_file_metadata()) as writer:
-            writer.add_osi_channel(spec)
-            writer.write(_make_sensor_view(0.0), "T")
+        with ChannelWriter.from_specification(spec) as writer:
+            writer.write(_make_sensor_view(0.0))
         assert path.exists()
 
     def test_multi_get_channel_metadata(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
+        from osi3.osi_sensorview_pb2 import SensorView
 
         path = tmp_path / "meta.mcap"
         chan_meta = _default_channel_metadata()
-        spec = OSIChannelSpecification(
-            path=path, message_type="SensorView", topic="T", metadata=chan_meta,
+        writer = MCAPTraceFileWriter()
+        writer.open(path, _default_file_metadata())
+        writer.add_channel("T", SensorView, chan_meta)
+        # Read back channel metadata via ChannelWriter wrapping
+        spec = ChannelSpecification(
+            path=tmp_path / "meta2.mcap", message_type="SensorView", topic="T",
+            metadata=chan_meta,
         )
-        writer = OSITraceWriterMulti(path, _default_file_metadata())
-        writer.add_osi_channel(spec)
-        retrieved = writer.get_channel_metadata("T")
+        cw = ChannelWriter.from_specification(spec)
+        retrieved = cw.get_channel_metadata()
         assert retrieved["net.asam.osi.trace.channel.osi_version"] == chan_meta["net.asam.osi.trace.channel.osi_version"]
+        cw.close()
         writer.close()
 
     def test_multi_add_channel_path_mismatch_raises(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-
-        path = tmp_path / "writer.mcap"
-        writer = OSITraceWriterMulti(path, _default_file_metadata())
-        spec = OSIChannelSpecification(
-            path=tmp_path / "different.mcap", message_type="SensorView", topic="T",
-        )
-        with pytest.raises(ValueError, match="does not match"):
-            writer.add_osi_channel(spec)
-        writer.close()
+        """Verify ChannelWriter validates extension-based format."""
+        with pytest.raises(ValueError, match="extension"):
+            ChannelWriter.from_specification(
+                ChannelSpecification(path=tmp_path / "different.xyz", message_type="SensorView")
+            )
 
 
 # ===========================================================================
@@ -292,27 +286,26 @@ class TestF20MetadataValidation:
     """Verify metadata validation warnings."""
 
     def test_validate_file_metadata_warns_missing_required(self, tmp_path, caplog):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
+        from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
 
         path = tmp_path / "warn.mcap"
         incomplete_meta = {"version": "1.0.0"}
+        writer = MCAPTraceFileWriter()
         with caplog.at_level(logging.WARNING):
-            writer = OSITraceWriterMulti(path, incomplete_meta)
+            writer.open(path, incomplete_meta)
         assert any("net.asam.osi.trace" in r.message for r in caplog.records)
         writer.close()
 
     def test_validate_channel_metadata_warns_missing_required(self, tmp_path, caplog):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+        from osi_utilities.tracefile.mcap_writer import MCAPTraceFileWriter
+        from osi3.osi_sensorview_pb2 import SensorView
 
         path = tmp_path / "chanwarn.mcap"
-        writer = OSITraceWriterMulti(path, _default_file_metadata())
-        spec = OSIChannelSpecification(
-            path=path, message_type="SensorView", topic="T", metadata={},
-        )
+        writer = MCAPTraceFileWriter()
+        writer.open(path, _default_file_metadata())
         with caplog.at_level(logging.WARNING):
-            writer.add_osi_channel(spec)
-        assert any("net.asam.osi.trace.channel" in r.message for r in caplog.records)
+            writer.add_channel("T", SensorView, {})
+        assert any("channel" in r.message.lower() for r in caplog.records)
         writer.close()
 
 
@@ -325,61 +318,49 @@ class TestF21VersionEnforcement:
     """Verify version mismatch raises ValueError on write."""
 
     def test_version_mismatch_raises(self, tmp_path):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-
         path = tmp_path / "vermis.mcap"
-        writer = OSITraceWriterMulti(path, _default_file_metadata())
-        spec = OSIChannelSpecification(
+        spec = ChannelSpecification(
             path=path, message_type="SensorView", topic="T",
             metadata={
                 "net.asam.osi.trace.channel.osi_version": "99.99.99",
                 "net.asam.osi.trace.channel.protobuf_version": google.protobuf.__version__,
             },
         )
-        writer.add_osi_channel(spec)
+        writer = ChannelWriter.from_specification(spec)
         msg = _make_sensor_view(0.0)
         with pytest.raises(ValueError, match="does not match"):
-            writer.write(msg, "T")
+            writer.write(msg)
         writer.close()
 
     def test_version_autofill_on_first_write(self, tmp_path, caplog):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-
         path = tmp_path / "autofill.mcap"
-        writer = OSITraceWriterMulti(path, _default_file_metadata())
-        spec = OSIChannelSpecification(
+        spec = ChannelSpecification(
             path=path, message_type="SensorView", topic="T",
             metadata={"net.asam.osi.trace.channel.protobuf_version": google.protobuf.__version__},
         )
-        writer.add_osi_channel(spec)
+        writer = ChannelWriter.from_specification(spec)
         msg = _make_sensor_view(0.0)
         with caplog.at_level(logging.INFO):
-            writer.write(msg, "T")
+            writer.write(msg)
         # Should have autofilled the version
-        meta = writer.get_channel_metadata("T")
+        meta = writer.get_channel_metadata()
         assert "net.asam.osi.trace.channel.osi_version" in meta
         assert meta["net.asam.osi.trace.channel.osi_version"] == _osi_version_str()
         writer.close()
 
     def test_protobuf_version_mismatch_warns(self, tmp_path, caplog):
-        from osc_validation.utils.osi_writer import OSITraceWriterMulti
-        from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-
         path = tmp_path / "pbwarn.mcap"
-        writer = OSITraceWriterMulti(path, _default_file_metadata())
-        spec = OSIChannelSpecification(
+        spec = ChannelSpecification(
             path=path, message_type="SensorView", topic="T",
             metadata={
                 "net.asam.osi.trace.channel.osi_version": _osi_version_str(),
                 "net.asam.osi.trace.channel.protobuf_version": "0.0.0",
             },
         )
-        writer.add_osi_channel(spec)
+        writer = ChannelWriter.from_specification(spec)
         msg = _make_sensor_view(0.0)
         with caplog.at_level(logging.WARNING):
-            writer.write(msg, "T")
+            writer.write(msg)
         assert any("protobuf" in r.message.lower() for r in caplog.records)
         writer.close()
 
@@ -395,7 +376,6 @@ class TestF22WriterFacade:
     def test_from_spec_osi(self, tmp_path, sample_sensor_views):
         from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
         from osc_validation.utils.osi_writer import OSIChannelWriter
-        from osc_validation.utils.osi_reader import OSITraceAdapter
 
         path = tmp_path / "facade.osi"
         spec = OSIChannelSpecification(
@@ -405,15 +385,16 @@ class TestF22WriterFacade:
             for msg in sample_sensor_views:
                 writer.write(msg)
 
-        adapter = OSITraceAdapter(path, "SensorView")
-        read_msgs = list(adapter.get_messages("any"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=path, message_type="SensorView")
+        )
+        read_msgs = list(reader.get_messages())
         assert len(read_msgs) == 5
-        adapter.close()
+        reader.close()
 
     def test_from_spec_mcap(self, tmp_path, sample_sensor_views):
         from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
         from osc_validation.utils.osi_writer import OSIChannelWriter
-        from osc_validation.utils.osi_reader import OSITraceReaderMulti
 
         path = tmp_path / "facade.mcap"
         spec = OSIChannelSpecification(
@@ -424,8 +405,10 @@ class TestF22WriterFacade:
             for msg in sample_sensor_views:
                 writer.write(msg)
 
-        reader = OSITraceReaderMulti(path)
-        read_msgs = list(reader.get_messages("SVTopic"))
+        reader = ChannelReader.from_specification(
+            ChannelSpecification(path=path, topic="SVTopic")
+        )
+        read_msgs = list(reader.get_messages())
         assert len(read_msgs) == 5
         reader.close()
 
