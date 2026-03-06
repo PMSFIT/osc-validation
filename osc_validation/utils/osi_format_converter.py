@@ -46,7 +46,9 @@ def main():
     parser = create_argparser()
     args = parser.parse_args()
     input_trace_spec = OSIChannelSpecification(
-        path=Path(args.input), message_type=args.type
+        path=Path(args.input),
+        message_type=args.type,
+        topic=(args.input_topic if args.input_topic else None),
     )
     sensorview_trace_spec = OSIChannelSpecification(
         path=Path(args.output),

@@ -9,8 +9,6 @@ import lzma
 from pathlib import Path
 import struct
 
-import google.protobuf
-
 from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
 
 from osi_utilities.tracefile.channel_writer import ChannelWriter
@@ -75,13 +73,16 @@ class OSIChannelWriter(ChannelWriter):
         suffixes = "".join(osi_channel_spec.path.suffixes)
         if suffixes == ".osi.xz":
             lzma_writer = _LZMABinaryWriter(osi_channel_spec.path)
-            topic = osi_channel_spec.topic or osi_channel_spec.path.stem
+            # For .osi.xz, stem gives "trace.osi" — strip both suffixes
+            stem = Path(osi_channel_spec.path.stem).stem
+            topic = osi_channel_spec.topic or stem
             message_type = osi_channel_spec.message_type or "Unknown"
             writer = cls.__new__(cls)
             writer._writer = lzma_writer
             writer._topic = topic
             writer._message_type = message_type
             writer._written_count = 0
+            writer._path = osi_channel_spec.path
             writer._channel_metadata = None
             return writer
 
