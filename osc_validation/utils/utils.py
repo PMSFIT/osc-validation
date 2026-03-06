@@ -3,22 +3,11 @@ import math
 
 import pandas as pd
 
-from osi3 import osi_common_pb2
-
 from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
 
-from osi_utilities.tracefile.timestamp import timestamp_to_seconds, seconds_to_timestamp
+from osi_utilities.tracefile.timestamp import timestamp_to_seconds
 from osi_utilities.converters.crop import crop_trace as _sdk_crop_trace
-
-
-def timestamp_osi_to_float(osi_timestamp: osi_common_pb2.Timestamp) -> float:
-    return (osi_timestamp.seconds * 1000000000 + osi_timestamp.nanos) / 1000000000
-
-
-def timestamp_float_to_osi(float_timestamp: float) -> osi_common_pb2.Timestamp:
-    return seconds_to_timestamp(float_timestamp)
 
 
 def get_all_moving_object_ids(osi_trace: OSIChannelSpecification) -> list[int]:
@@ -68,7 +57,7 @@ def get_trajectory_by_moving_object_id(
             if osi_trace.message_type == "SensorView"
             else message.moving_object
         )
-        current_timestamp = timestamp_osi_to_float(message.timestamp)
+        current_timestamp = timestamp_to_seconds(message)
         if start_time is not None and current_timestamp < start_time:
             continue
         if end_time is not None and current_timestamp > end_time:

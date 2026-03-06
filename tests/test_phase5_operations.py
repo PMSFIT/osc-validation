@@ -467,51 +467,51 @@ class TestF25StripSensorView:
 class TestF26UtilsDomain:
     """Verify domain-specific utility functions."""
 
-    def test_timestamp_osi_to_float(self):
-        from osi3 import osi_common_pb2
-        from osc_validation.utils.utils import timestamp_osi_to_float
+    def test_timestamp_to_seconds(self):
+        from osi3 import osi_sensorview_pb2
+        from osi_utilities.tracefile.timestamp import timestamp_to_seconds
 
-        ts = osi_common_pb2.Timestamp()
-        ts.seconds = 10
-        ts.nanos = 500000000
-        assert timestamp_osi_to_float(ts) == pytest.approx(10.5)
+        sv = osi_sensorview_pb2.SensorView()
+        sv.timestamp.seconds = 10
+        sv.timestamp.nanos = 500000000
+        assert timestamp_to_seconds(sv) == pytest.approx(10.5)
 
-    def test_timestamp_osi_to_float_zero(self):
-        from osi3 import osi_common_pb2
-        from osc_validation.utils.utils import timestamp_osi_to_float
+    def test_timestamp_to_seconds_zero(self):
+        from osi3 import osi_sensorview_pb2
+        from osi_utilities.tracefile.timestamp import timestamp_to_seconds
 
-        ts = osi_common_pb2.Timestamp()
-        assert timestamp_osi_to_float(ts) == 0.0
+        sv = osi_sensorview_pb2.SensorView()
+        assert timestamp_to_seconds(sv) == 0.0
 
-    def test_timestamp_float_to_osi(self):
-        from osc_validation.utils.utils import timestamp_float_to_osi
+    def test_seconds_to_timestamp(self):
+        from osi_utilities.tracefile.timestamp import seconds_to_timestamp
 
-        ts = timestamp_float_to_osi(10.5)
+        ts = seconds_to_timestamp(10.5)
         assert ts.seconds == 10
         assert ts.nanos == 500000000
 
-    def test_timestamp_float_to_osi_zero(self):
-        from osc_validation.utils.utils import timestamp_float_to_osi
+    def test_seconds_to_timestamp_zero(self):
+        from osi_utilities.tracefile.timestamp import seconds_to_timestamp
 
-        ts = timestamp_float_to_osi(0.0)
+        ts = seconds_to_timestamp(0.0)
         assert ts.seconds == 0
         assert ts.nanos == 0
 
     def test_timestamp_roundtrip(self):
-        from osi3 import osi_common_pb2
-        from osc_validation.utils.utils import (
-            timestamp_osi_to_float,
-            timestamp_float_to_osi,
+        from osi3 import osi_sensorview_pb2
+        from osi_utilities.tracefile.timestamp import (
+            timestamp_to_seconds,
+            seconds_to_timestamp,
         )
 
-        original = osi_common_pb2.Timestamp()
-        original.seconds = 42
-        original.nanos = 123456789
+        sv = osi_sensorview_pb2.SensorView()
+        sv.timestamp.seconds = 42
+        sv.timestamp.nanos = 123456789
 
-        float_val = timestamp_osi_to_float(original)
-        roundtrip = timestamp_float_to_osi(float_val)
-        assert roundtrip.seconds == original.seconds
-        assert roundtrip.nanos == pytest.approx(original.nanos, abs=1)
+        float_val = timestamp_to_seconds(sv)
+        roundtrip = seconds_to_timestamp(float_val)
+        assert roundtrip.seconds == sv.timestamp.seconds
+        assert roundtrip.nanos == pytest.approx(sv.timestamp.nanos, abs=1)
 
     def test_get_all_moving_object_ids(self, tmp_path):
         from osc_validation.utils.osi_channel_specification import (
