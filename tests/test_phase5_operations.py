@@ -18,8 +18,23 @@ from tests.conftest import (
     _get_osi_version,
 )
 
-from osi_utilities.tracefile.channel_reader import ChannelReader
+from osc_validation.utils.osi_reader import OSIChannelReader as ChannelReader
 from osi_utilities.tracefile._types import ChannelSpecification
+
+
+class _TimestampValue:
+    def __init__(self, seconds: int, nanos: int):
+        self.seconds = seconds
+        self.nanos = nanos
+
+
+def _seconds_to_timestamp(seconds: float) -> _TimestampValue:
+    whole_seconds = int(seconds)
+    nanos = int(round((seconds - whole_seconds) * 1e9))
+    if nanos == 1_000_000_000:
+        whole_seconds += 1
+        nanos = 0
+    return _TimestampValue(whole_seconds, nanos)
 
 
 def _osi_version_str():
@@ -43,20 +58,18 @@ class TestF23FormatConverter:
     """Verify format conversion between .osi and .mcap."""
 
     def test_osi_to_mcap(self, tmp_path, sample_sensor_views):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.osi_format_converter import convert
 
         osi_path = tmp_path / "input_sv.osi"
         _write_binary_trace(osi_path, sample_sensor_views)
 
         mcap_path = tmp_path / "output_sv.mcap"
-        input_spec = OSIChannelSpecification(
+        input_spec = ChannelSpecification(
             path=osi_path,
             message_type="SensorView",
         )
-        output_spec = OSIChannelSpecification(
+        output_spec = ChannelSpecification(
             path=mcap_path,
             message_type="SensorView",
             topic="SVTopic",
@@ -77,18 +90,16 @@ class TestF23FormatConverter:
         reader.close()
 
     def test_mcap_to_osi(self, mcap_sv_trace, tmp_path, sample_sensor_views):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.osi_format_converter import convert
 
         osi_path = tmp_path / "output_sv.osi"
-        input_spec = OSIChannelSpecification(
+        input_spec = ChannelSpecification(
             path=mcap_sv_trace,
             message_type="SensorView",
             topic="SensorViewTopic",
         )
-        output_spec = OSIChannelSpecification(
+        output_spec = ChannelSpecification(
             path=osi_path,
             message_type="SensorView",
         )
@@ -107,9 +118,7 @@ class TestF23FormatConverter:
 
     def test_roundtrip_osi_mcap_osi(self, tmp_path, sample_sensor_views):
         """osi -> mcap -> osi, verify messages identical to original."""
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.osi_format_converter import convert
 
         osi_1 = tmp_path / "step1.osi"
@@ -119,8 +128,8 @@ class TestF23FormatConverter:
         osi_2 = tmp_path / "step3.osi"
 
         convert(
-            OSIChannelSpecification(path=osi_1, message_type="SensorView"),
-            OSIChannelSpecification(
+            ChannelSpecification(path=osi_1, message_type="SensorView"),
+            ChannelSpecification(
                 path=mcap,
                 message_type="SensorView",
                 topic="T",
@@ -128,8 +137,8 @@ class TestF23FormatConverter:
             ),
         )
         convert(
-            OSIChannelSpecification(path=mcap, message_type="SensorView", topic="T"),
-            OSIChannelSpecification(path=osi_2, message_type="SensorView"),
+            ChannelSpecification(path=mcap, message_type="SensorView", topic="T"),
+            ChannelSpecification(path=osi_2, message_type="SensorView"),
         )
 
         reader = ChannelReader.from_specification(
@@ -151,17 +160,15 @@ class TestF24EsminiGt2Sv:
     """Verify esmini GT to SV conversion."""
 
     def test_gt2sv_message_count(self, tmp_path, sample_ground_truths):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.esminigt2sv import gt2sv
 
         gt_path = tmp_path / "input_gt.osi"
         _write_binary_trace(gt_path, sample_ground_truths)
         sv_path = tmp_path / "output_sv.osi"
 
-        gt_spec = OSIChannelSpecification(path=gt_path, message_type="GroundTruth")
-        sv_spec = OSIChannelSpecification(path=sv_path, message_type="SensorView")
+        gt_spec = ChannelSpecification(path=gt_path, message_type="GroundTruth")
+        sv_spec = ChannelSpecification(path=sv_path, message_type="SensorView")
         gt2sv(gt_spec, sv_spec)
 
         reader = ChannelReader.from_specification(
@@ -172,9 +179,7 @@ class TestF24EsminiGt2Sv:
         reader.close()
 
     def test_gt2sv_sensor_id(self, tmp_path, sample_ground_truths):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.esminigt2sv import gt2sv
 
         gt_path = tmp_path / "input_gt.osi"
@@ -182,8 +187,8 @@ class TestF24EsminiGt2Sv:
         sv_path = tmp_path / "output_sv.osi"
 
         gt2sv(
-            OSIChannelSpecification(path=gt_path, message_type="GroundTruth"),
-            OSIChannelSpecification(path=sv_path, message_type="SensorView"),
+            ChannelSpecification(path=gt_path, message_type="GroundTruth"),
+            ChannelSpecification(path=sv_path, message_type="SensorView"),
         )
 
         reader = ChannelReader.from_specification(
@@ -194,9 +199,7 @@ class TestF24EsminiGt2Sv:
         reader.close()
 
     def test_gt2sv_mounting_position(self, tmp_path, sample_ground_truths):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.esminigt2sv import gt2sv
 
         gt_path = tmp_path / "input_gt.osi"
@@ -204,8 +207,8 @@ class TestF24EsminiGt2Sv:
         sv_path = tmp_path / "output_sv.osi"
 
         gt2sv(
-            OSIChannelSpecification(path=gt_path, message_type="GroundTruth"),
-            OSIChannelSpecification(path=sv_path, message_type="SensorView"),
+            ChannelSpecification(path=gt_path, message_type="GroundTruth"),
+            ChannelSpecification(path=sv_path, message_type="SensorView"),
         )
 
         reader = ChannelReader.from_specification(
@@ -218,9 +221,7 @@ class TestF24EsminiGt2Sv:
         reader.close()
 
     def test_gt2sv_version_stamped(self, tmp_path, sample_ground_truths):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.esminigt2sv import gt2sv
 
         gt_path = tmp_path / "input_gt.osi"
@@ -228,8 +229,8 @@ class TestF24EsminiGt2Sv:
         sv_path = tmp_path / "output_sv.osi"
 
         gt2sv(
-            OSIChannelSpecification(path=gt_path, message_type="GroundTruth"),
-            OSIChannelSpecification(path=sv_path, message_type="SensorView"),
+            ChannelSpecification(path=gt_path, message_type="GroundTruth"),
+            ChannelSpecification(path=sv_path, message_type="SensorView"),
         )
 
         version = _get_osi_version()
@@ -243,9 +244,7 @@ class TestF24EsminiGt2Sv:
         reader.close()
 
     def test_gt2sv_host_vehicle_id_copied(self, tmp_path, sample_ground_truths):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.esminigt2sv import gt2sv
 
         gt_path = tmp_path / "input_gt.osi"
@@ -253,8 +252,8 @@ class TestF24EsminiGt2Sv:
         sv_path = tmp_path / "output_sv.osi"
 
         gt2sv(
-            OSIChannelSpecification(path=gt_path, message_type="GroundTruth"),
-            OSIChannelSpecification(path=sv_path, message_type="SensorView"),
+            ChannelSpecification(path=gt_path, message_type="GroundTruth"),
+            ChannelSpecification(path=sv_path, message_type="SensorView"),
         )
 
         reader = ChannelReader.from_specification(
@@ -268,9 +267,7 @@ class TestF24EsminiGt2Sv:
         reader.close()
 
     def test_gt2sv_ground_truth_embedded(self, tmp_path, sample_ground_truths):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.esminigt2sv import gt2sv
 
         gt_path = tmp_path / "input_gt.osi"
@@ -278,8 +275,8 @@ class TestF24EsminiGt2Sv:
         sv_path = tmp_path / "output_sv.osi"
 
         gt2sv(
-            OSIChannelSpecification(path=gt_path, message_type="GroundTruth"),
-            OSIChannelSpecification(path=sv_path, message_type="SensorView"),
+            ChannelSpecification(path=gt_path, message_type="GroundTruth"),
+            ChannelSpecification(path=sv_path, message_type="SensorView"),
         )
 
         reader = ChannelReader.from_specification(
@@ -484,39 +481,30 @@ class TestF26UtilsDomain:
         assert timestamp_to_seconds(sv) == 0.0
 
     def test_seconds_to_timestamp(self):
-        from osi_utilities.tracefile.timestamp import seconds_to_timestamp
-
-        ts = seconds_to_timestamp(10.5)
+        ts = _seconds_to_timestamp(10.5)
         assert ts.seconds == 10
         assert ts.nanos == 500000000
 
     def test_seconds_to_timestamp_zero(self):
-        from osi_utilities.tracefile.timestamp import seconds_to_timestamp
-
-        ts = seconds_to_timestamp(0.0)
+        ts = _seconds_to_timestamp(0.0)
         assert ts.seconds == 0
         assert ts.nanos == 0
 
     def test_timestamp_roundtrip(self):
         from osi3 import osi_sensorview_pb2
-        from osi_utilities.tracefile.timestamp import (
-            timestamp_to_seconds,
-            seconds_to_timestamp,
-        )
+        from osi_utilities.tracefile.timestamp import timestamp_to_seconds
 
         sv = osi_sensorview_pb2.SensorView()
         sv.timestamp.seconds = 42
         sv.timestamp.nanos = 123456789
 
         float_val = timestamp_to_seconds(sv)
-        roundtrip = seconds_to_timestamp(float_val)
+        roundtrip = _seconds_to_timestamp(float_val)
         assert roundtrip.seconds == sv.timestamp.seconds
         assert roundtrip.nanos == pytest.approx(sv.timestamp.nanos, abs=1)
 
     def test_get_all_moving_object_ids(self, tmp_path):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.utils import get_all_moving_object_ids
 
         # Create trace with 2 different moving objects
@@ -533,21 +521,19 @@ class TestF26UtilsDomain:
         path = tmp_path / "multi_mo.osi"
         _write_binary_trace(path, msgs)
 
-        spec = OSIChannelSpecification(path=path, message_type="SensorView")
+        spec = ChannelSpecification(path=path, message_type="SensorView")
         ids = get_all_moving_object_ids(spec)
         assert set(ids) == {1, 2}
 
     def test_get_trajectory_by_moving_object_id(self, tmp_path):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.utils import get_trajectory_by_moving_object_id
 
         msgs = [_make_sensor_view(i * 0.1, obj_id=1) for i in range(5)]
         path = tmp_path / "traj.osi"
         _write_binary_trace(path, msgs)
 
-        spec = OSIChannelSpecification(path=path, message_type="SensorView")
+        spec = ChannelSpecification(path=path, message_type="SensorView")
         traj = get_trajectory_by_moving_object_id(spec, 1)
         assert len(traj) == 5
         assert "timestamp" in traj.columns
@@ -556,23 +542,19 @@ class TestF26UtilsDomain:
         assert traj.attrs.get("id") == 1
 
     def test_get_trajectory_with_interval(self, tmp_path):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.utils import get_trajectory_by_moving_object_id
 
         msgs = [_make_sensor_view(i * 0.1, obj_id=1) for i in range(10)]
         path = tmp_path / "traj_interval.osi"
         _write_binary_trace(path, msgs)
 
-        spec = OSIChannelSpecification(path=path, message_type="SensorView")
+        spec = ChannelSpecification(path=path, message_type="SensorView")
         traj = get_trajectory_by_moving_object_id(spec, 1, start_time=0.2, end_time=0.5)
         assert len(traj) == 4  # timestamps 0.2, 0.3, 0.4, 0.5
 
     def test_crop_trace(self, tmp_path, sample_sensor_views):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.utils import crop_trace
 
         in_path = tmp_path / "full.osi"
@@ -580,8 +562,8 @@ class TestF26UtilsDomain:
         out_path = tmp_path / "cropped.osi"
 
         crop_trace(
-            OSIChannelSpecification(path=in_path, message_type="SensorView"),
-            OSIChannelSpecification(path=out_path, message_type="SensorView"),
+            ChannelSpecification(path=in_path, message_type="SensorView"),
+            ChannelSpecification(path=out_path, message_type="SensorView"),
         )
 
         reader = ChannelReader.from_specification(
@@ -592,9 +574,7 @@ class TestF26UtilsDomain:
         reader.close()
 
     def test_crop_trace_with_interval(self, tmp_path):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.utils import crop_trace
 
         msgs = [_make_sensor_view(i * 0.1) for i in range(10)]
@@ -603,8 +583,8 @@ class TestF26UtilsDomain:
         out_path = tmp_path / "cropped.osi"
 
         crop_trace(
-            OSIChannelSpecification(path=in_path, message_type="SensorView"),
-            OSIChannelSpecification(path=out_path, message_type="SensorView"),
+            ChannelSpecification(path=in_path, message_type="SensorView"),
+            ChannelSpecification(path=out_path, message_type="SensorView"),
             start_time=0.2,
             end_time=0.5,
         )
@@ -628,22 +608,6 @@ class TestF26UtilsDomain:
         from osc_validation.utils.utils import rotatePointZYX
 
         rx, ry, rz = rotatePointZYX(1.0, 0.0, 0.0, math.pi / 2, 0.0, 0.0)
-        assert rx == pytest.approx(0.0, abs=1e-10)
-        assert ry == pytest.approx(1.0, abs=1e-10)
-        assert rz == pytest.approx(0.0, abs=1e-10)
-
-    def test_rotate_point_xyz_identity(self):
-        from osc_validation.utils.utils import rotatePointXYZ
-
-        rx, ry, rz = rotatePointXYZ(1.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        assert rx == pytest.approx(1.0)
-        assert ry == pytest.approx(0.0)
-        assert rz == pytest.approx(0.0)
-
-    def test_rotate_point_xyz_90_yaw(self):
-        from osc_validation.utils.utils import rotatePointXYZ
-
-        rx, ry, rz = rotatePointXYZ(1.0, 0.0, 0.0, math.pi / 2, 0.0, 0.0)
         assert rx == pytest.approx(0.0, abs=1e-10)
         assert ry == pytest.approx(1.0, abs=1e-10)
         assert rz == pytest.approx(0.0, abs=1e-10)

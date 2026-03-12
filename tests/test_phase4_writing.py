@@ -14,8 +14,8 @@ import google.protobuf
 
 from tests.conftest import _make_sensor_view, _get_osi_version
 
-from osi_utilities.tracefile.channel_reader import ChannelReader
-from osi_utilities.tracefile.channel_writer import ChannelWriter
+from osc_validation.utils.osi_reader import OSIChannelReader as ChannelReader
+from osc_validation.utils.osi_writer import OSIChannelWriter as ChannelWriter
 from osi_utilities.tracefile._types import (
     ChannelSpecification,
     MESSAGE_TYPE_TO_CLASS_NAME,
@@ -144,18 +144,29 @@ class TestF18BinaryCompression:
     """Verify .osi.xz compressed writing."""
 
     def test_compress_creates_file(self, tmp_path):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.osi_writer import OSIChannelWriter
 
         path = tmp_path / "output.osi.xz"
-        spec = OSIChannelSpecification(path=path, message_type="SensorView")
+        spec = ChannelSpecification(path=path, message_type="SensorView")
         writer = OSIChannelWriter.from_osi_channel_specification(spec)
         msg = _make_sensor_view(0.0)
         writer.write(msg)
         writer.close()
         assert path.exists()
+
+    def test_compress_stores_lzma_payload(self, tmp_path):
+        path = tmp_path / "output.osi.xz"
+        msg = _make_sensor_view(0.0)
+        with ChannelWriter.from_specification(
+            ChannelSpecification(path=path, message_type="SensorView")
+        ) as writer:
+            writer.write(msg)
+
+        data = path.read_bytes()
+        (payload_size,) = struct.unpack("<L", data[:4])
+        payload = data[4 : 4 + payload_size]
+        assert lzma.decompress(payload) == msg.SerializeToString()
 
     def test_compress_bad_extension_raises(self, tmp_path):
         """Verify unsupported file extension raises ValueError."""
@@ -403,13 +414,11 @@ class TestF22WriterFacade:
     """Verify OSIChannelWriter facade for both .osi and .mcap."""
 
     def test_from_spec_osi(self, tmp_path, sample_sensor_views):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.osi_writer import OSIChannelWriter
 
         path = tmp_path / "facade.osi"
-        spec = OSIChannelSpecification(
+        spec = ChannelSpecification(
             path=path,
             message_type="SensorView",
         )
@@ -425,13 +434,11 @@ class TestF22WriterFacade:
         reader.close()
 
     def test_from_spec_mcap(self, tmp_path, sample_sensor_views):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.osi_writer import OSIChannelWriter
 
         path = tmp_path / "facade.mcap"
-        spec = OSIChannelSpecification(
+        spec = ChannelSpecification(
             path=path,
             message_type="SensorView",
             topic="SVTopic",
@@ -449,26 +456,22 @@ class TestF22WriterFacade:
         reader.close()
 
     def test_facade_write_delegates(self, tmp_path):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.osi_writer import OSIChannelWriter
 
         path = tmp_path / "delegate.osi"
-        spec = OSIChannelSpecification(path=path, message_type="SensorView")
+        spec = ChannelSpecification(path=path, message_type="SensorView")
         writer = OSIChannelWriter.from_osi_channel_specification(spec)
         writer.write(_make_sensor_view(0.0))
         writer.close()
         assert path.stat().st_size > 0
 
     def test_facade_get_channel_specification(self, tmp_path):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.osi_writer import OSIChannelWriter
 
         path = tmp_path / "spec_out.osi"
-        spec = OSIChannelSpecification(path=path, message_type="SensorView")
+        spec = ChannelSpecification(path=path, message_type="SensorView")
         writer = OSIChannelWriter.from_osi_channel_specification(spec)
         writer.write(_make_sensor_view(0.0))
         out_spec = writer.get_channel_specification()
@@ -477,13 +480,11 @@ class TestF22WriterFacade:
         writer.close()
 
     def test_facade_context_manager(self, tmp_path):
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
         from osc_validation.utils.osi_writer import OSIChannelWriter
 
         path = tmp_path / "ctx.osi"
-        spec = OSIChannelSpecification(path=path, message_type="SensorView")
+        spec = ChannelSpecification(path=path, message_type="SensorView")
         with OSIChannelWriter.from_osi_channel_specification(spec) as writer:
             writer.write(_make_sensor_view(0.0))
         assert path.exists()

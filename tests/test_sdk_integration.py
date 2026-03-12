@@ -1,12 +1,4 @@
-"""Integration tests verifying osc_validation features backed by SDK.
-
-These tests exercise the code paths where osc_validation delegates to
-asam-osi-utilities SDK, ensuring the replacement is solid:
-- timestamp_float_to_osi → SDK seconds_to_timestamp
-- compute_channel_info → SDK compute_channel_info
-- crop_trace → SDK crop_trace
-- format converter → SDK convert_format
-"""
+"""Integration tests verifying osc_validation features backed by the SDK."""
 
 import tempfile
 from pathlib import Path
@@ -14,6 +6,23 @@ from pathlib import Path
 import pytest
 from osi3.osi_sensorview_pb2 import SensorView
 from osi3.osi_groundtruth_pb2 import GroundTruth
+
+from osc_validation.utils.osi_reader import OSIChannelReader as ChannelReader
+
+
+class _TimestampValue:
+    def __init__(self, seconds: int, nanos: int):
+        self.seconds = seconds
+        self.nanos = nanos
+
+
+def _seconds_to_timestamp(seconds: float) -> _TimestampValue:
+    whole_seconds = int(seconds)
+    nanos = int(round((seconds - whole_seconds) * 1e9))
+    if nanos == 1_000_000_000:
+        whole_seconds += 1
+        nanos = 0
+    return _TimestampValue(whole_seconds, nanos)
 
 
 def _make_sv(seconds: int, nanos: int = 0) -> SensorView:
@@ -64,35 +73,28 @@ def _write_mcap(path, msgs, topic="sv"):
 
 
 # ===========================================================================
-# timestamp_float_to_osi now uses SDK seconds_to_timestamp
+# timestamp conversion interoperability
 # ===========================================================================
 
 
 class TestTimestampIntegration:
-    """Test SDK timestamp functions that replace osc_validation equivalents."""
+    """Test timestamp helpers used alongside the SDK."""
 
     def test_seconds_to_timestamp_basic(self):
-        from osi_utilities.tracefile.timestamp import seconds_to_timestamp
-
-        ts = seconds_to_timestamp(1.5)
+        ts = _seconds_to_timestamp(1.5)
         assert ts.seconds == 1
         assert ts.nanos == 500_000_000
 
     def test_seconds_to_timestamp_zero(self):
-        from osi_utilities.tracefile.timestamp import seconds_to_timestamp
-
-        ts = seconds_to_timestamp(0.0)
+        ts = _seconds_to_timestamp(0.0)
         assert ts.seconds == 0
         assert ts.nanos == 0
 
     def test_roundtrip(self):
-        from osi_utilities.tracefile.timestamp import (
-            seconds_to_timestamp,
-            timestamp_to_seconds,
-        )
+        from osi_utilities.tracefile.timestamp import timestamp_to_seconds
 
         original = 3.14159
-        ts = seconds_to_timestamp(original)
+        ts = _seconds_to_timestamp(original)
         msg = SensorView()
         msg.timestamp.seconds = ts.seconds
         msg.timestamp.nanos = ts.nanos
@@ -101,7 +103,7 @@ class TestTimestampIntegration:
 
 
 # ===========================================================================
-# compute_channel_info via OSITraceAdapter / OSITraceReaderMulti
+# compute_channel_info via compatibility reader
 # ===========================================================================
 
 
@@ -110,7 +112,6 @@ class TestChannelInfoIntegration:
         path = tmp_dir / "trace.osi"
         _write_binary(path, [_make_sv(i) for i in range(5)])
 
-        from osi_utilities.tracefile.channel_reader import ChannelReader
         from osi_utilities.tracefile._types import ChannelSpecification
 
         reader = ChannelReader.from_specification(
@@ -127,7 +128,6 @@ class TestChannelInfoIntegration:
         path = tmp_dir / "trace.mcap"
         _write_mcap(path, [_make_sv(i) for i in range(3)], topic="sv")
 
-        from osi_utilities.tracefile.channel_reader import ChannelReader
         from osi_utilities.tracefile._types import ChannelSpecification
 
         reader = ChannelReader.from_specification(
@@ -145,18 +145,32 @@ class TestChannelInfoIntegration:
         _write_binary(path, [_make_sv(i) for i in range(4)])
 
         from osc_validation.utils.osi_reader import OSIChannelReader
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
 
-        spec = OSIChannelSpecification(path=path, message_type="SensorView")
+        spec = ChannelSpecification(path=path, message_type="SensorView")
         with OSIChannelReader.from_osi_channel_specification(spec) as reader:
             info = reader.get_channel_info()
         assert info["total_steps"] == 4
 
+    def test_compressed_binary_channel_info(self, tmp_dir):
+        from osi_utilities import ChannelSpecification
+        from osc_validation.utils.osi_writer import OSIChannelWriter
+
+        path = tmp_dir / "trace.osi.xz"
+        spec = ChannelSpecification(path=path, message_type="SensorView")
+        with OSIChannelWriter.from_osi_channel_specification(spec) as writer:
+            for i in range(4):
+                writer.write(_make_sv(i))
+
+        with ChannelReader.from_specification(spec) as reader:
+            info = reader.get_channel_info()
+        assert info["start"] == 0.0
+        assert info["stop"] == 3.0
+        assert info["total_steps"] == 4
+
 
 # ===========================================================================
-# Format converter (delegates to SDK convert_format)
+# Format converter compatibility wrapper
 # ===========================================================================
 
 
@@ -166,21 +180,17 @@ class TestFormatConverterIntegration:
         _write_binary(src, [_make_sv(i) for i in range(3)])
 
         from osc_validation.utils.osi_format_converter import convert
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
 
-        in_spec = OSIChannelSpecification(path=src, message_type="SensorView")
+        in_spec = ChannelSpecification(path=src, message_type="SensorView")
         dst = tmp_dir / "dest.mcap"
-        out_spec = OSIChannelSpecification(
-            path=dst, message_type="SensorView", topic="sv"
-        )
+        out_spec = ChannelSpecification(path=dst, message_type="SensorView", topic="sv")
         result = convert(in_spec, out_spec)
         assert result.path.exists()
 
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        with OSIChannelReader.from_osi_channel_specification(result) as reader:
+        with ChannelReader.from_osi_channel_specification(result) as reader:
             msgs = list(reader)
         assert len(msgs) == 3
 
@@ -189,27 +199,43 @@ class TestFormatConverterIntegration:
         _write_mcap(src, [_make_sv(i) for i in range(3)], topic="sv")
 
         from osc_validation.utils.osi_format_converter import convert
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
 
-        in_spec = OSIChannelSpecification(
-            path=src, message_type="SensorView", topic="sv"
-        )
+        in_spec = ChannelSpecification(path=src, message_type="SensorView", topic="sv")
         dst = tmp_dir / "dest.osi"
-        out_spec = OSIChannelSpecification(path=dst, message_type="SensorView")
+        out_spec = ChannelSpecification(path=dst, message_type="SensorView")
         result = convert(in_spec, out_spec)
         assert result.path.exists()
 
         from osc_validation.utils.osi_reader import OSIChannelReader
 
-        with OSIChannelReader.from_osi_channel_specification(result) as reader:
+        with ChannelReader.from_osi_channel_specification(result) as reader:
+            msgs = list(reader)
+        assert len(msgs) == 3
+
+    def test_compressed_binary_to_mcap(self, tmp_dir):
+        from osi_utilities import ChannelSpecification
+        from osc_validation.utils.osi_format_converter import convert
+        from osc_validation.utils.osi_writer import OSIChannelWriter
+
+        src = tmp_dir / "source.osi.xz"
+        in_spec = ChannelSpecification(path=src, message_type="SensorView")
+        with OSIChannelWriter.from_osi_channel_specification(in_spec) as writer:
+            for i in range(3):
+                writer.write(_make_sv(i))
+
+        dst = tmp_dir / "dest.mcap"
+        out_spec = ChannelSpecification(path=dst, message_type="SensorView", topic="sv")
+        result = convert(in_spec, out_spec)
+        assert result.path.exists()
+
+        with ChannelReader.from_osi_channel_specification(result) as reader:
             msgs = list(reader)
         assert len(msgs) == 3
 
 
 # ===========================================================================
-# crop_trace (delegates to SDK crop_trace)
+# crop_trace compatibility wrapper
 # ===========================================================================
 
 
@@ -220,20 +246,18 @@ class TestCropTraceIntegration:
         src = tmp_dir / "source.osi"
         _write_binary(src, [_make_sv(i) for i in range(10)])
 
-        from osi_utilities.converters.crop import crop_trace
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
+        from osc_validation.utils.utils import crop_trace
 
-        in_spec = OSIChannelSpecification(path=src, message_type="SensorView")
+        in_spec = ChannelSpecification(path=src, message_type="SensorView")
         dst = tmp_dir / "cropped.osi"
-        out_spec = OSIChannelSpecification(path=dst, message_type="SensorView")
+        out_spec = ChannelSpecification(path=dst, message_type="SensorView")
         result = crop_trace(in_spec, out_spec, start_time=3.0, end_time=7.0)
 
         from osc_validation.utils.osi_reader import OSIChannelReader
 
         with OSIChannelReader.from_osi_channel_specification(
-            OSIChannelSpecification(path=result.path, message_type="SensorView")
+            ChannelSpecification(path=result.path, message_type="SensorView")
         ) as reader:
             msgs = list(reader)
         assert len(msgs) == 5  # seconds 3, 4, 5, 6, 7
@@ -242,20 +266,18 @@ class TestCropTraceIntegration:
         src = tmp_dir / "source.osi"
         _write_binary(src, [_make_sv(i) for i in range(5)])
 
-        from osi_utilities.converters.crop import crop_trace
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
+        from osc_validation.utils.utils import crop_trace
 
-        in_spec = OSIChannelSpecification(path=src, message_type="SensorView")
+        in_spec = ChannelSpecification(path=src, message_type="SensorView")
         dst = tmp_dir / "cropped.osi"
-        out_spec = OSIChannelSpecification(path=dst, message_type="SensorView")
+        out_spec = ChannelSpecification(path=dst, message_type="SensorView")
         crop_trace(in_spec, out_spec)
 
         from osc_validation.utils.osi_reader import OSIChannelReader
 
         with OSIChannelReader.from_osi_channel_specification(
-            OSIChannelSpecification(path=dst, message_type="SensorView")
+            ChannelSpecification(path=dst, message_type="SensorView")
         ) as reader:
             msgs = list(reader)
         assert len(msgs) == 5
@@ -264,23 +286,40 @@ class TestCropTraceIntegration:
         src = tmp_dir / "source.osi"
         _write_binary(src, [_make_sv(i) for i in range(5)])
 
-        from osi_utilities.converters.crop import crop_trace
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
+        from osc_validation.utils.utils import crop_trace
 
-        in_spec = OSIChannelSpecification(path=src, message_type="SensorView")
+        in_spec = ChannelSpecification(path=src, message_type="SensorView")
         dst = tmp_dir / "cropped.osi"
-        out_spec = OSIChannelSpecification(path=dst, message_type="SensorView")
+        out_spec = ChannelSpecification(path=dst, message_type="SensorView")
         crop_trace(in_spec, out_spec, start_time=2.0)
 
         from osc_validation.utils.osi_reader import OSIChannelReader
 
         with OSIChannelReader.from_osi_channel_specification(
-            OSIChannelSpecification(path=dst, message_type="SensorView")
+            ChannelSpecification(path=dst, message_type="SensorView")
         ) as reader:
             msgs = list(reader)
         assert len(msgs) == 3  # seconds 2, 3, 4
+
+    def test_crop_compressed_binary(self, tmp_dir):
+        from osi_utilities import ChannelSpecification
+        from osc_validation.utils.osi_writer import OSIChannelWriter
+        from osc_validation.utils.utils import crop_trace
+
+        src = tmp_dir / "source.osi.xz"
+        in_spec = ChannelSpecification(path=src, message_type="SensorView")
+        with OSIChannelWriter.from_osi_channel_specification(in_spec) as writer:
+            for i in range(10):
+                writer.write(_make_sv(i))
+
+        dst = tmp_dir / "cropped.osi"
+        out_spec = ChannelSpecification(path=dst, message_type="SensorView")
+        crop_trace(in_spec, out_spec, start_time=3.0, end_time=7.0)
+
+        with ChannelReader.from_osi_channel_specification(out_spec) as reader:
+            msgs = list(reader)
+        assert len(msgs) == 5
 
 
 # ===========================================================================
@@ -293,12 +332,10 @@ class TestReaderWriterIntegration:
         """Write via OSIChannelWriter, read via OSIChannelReader."""
         from osc_validation.utils.osi_reader import OSIChannelReader
         from osc_validation.utils.osi_writer import OSIChannelWriter
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
 
         path = tmp_dir / "trace.osi"
-        spec = OSIChannelSpecification(path=path, message_type="SensorView")
+        spec = ChannelSpecification(path=path, message_type="SensorView")
         with OSIChannelWriter.from_osi_channel_specification(spec) as writer:
             for i in range(5):
                 writer.write(_make_sv(i))
@@ -312,12 +349,10 @@ class TestReaderWriterIntegration:
     def test_mcap_roundtrip_via_channel_api(self, tmp_dir):
         from osc_validation.utils.osi_reader import OSIChannelReader
         from osc_validation.utils.osi_writer import OSIChannelWriter
-        from osc_validation.utils.osi_channel_specification import (
-            OSIChannelSpecification,
-        )
+        from osi_utilities import ChannelSpecification
 
         path = tmp_dir / "trace.mcap"
-        spec = OSIChannelSpecification(path=path, message_type="SensorView", topic="sv")
+        spec = ChannelSpecification(path=path, message_type="SensorView", topic="sv")
         with OSIChannelWriter.from_osi_channel_specification(spec) as writer:
             for i in range(5):
                 writer.write(_make_sv(i))

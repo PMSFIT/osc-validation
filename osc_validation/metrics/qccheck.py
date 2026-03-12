@@ -8,9 +8,7 @@ from qc_ositrace.main import run_checker_bundle
 from qc_ositrace.checks.osirules import osirules_constants
 from qc_ositrace.checks.deserialization import deserialization_constants
 
-from osc_validation.utils.osi_channel_specification import (
-    OSIChannelSpecification,
-)
+from osi_utilities import ChannelSpecification
 
 
 class TraceChecker:
@@ -21,7 +19,7 @@ class TraceChecker:
     def __init__(self, osi_version: str):
         self.osi_version = osi_version
 
-    def check(self, channel_spec: OSIChannelSpecification):
+    def check(self, channel_spec: ChannelSpecification):
         return NotImplementedError("Subclasses should implement this method.")
 
 
@@ -41,7 +39,7 @@ class QCOSITraceChecker(TraceChecker):
 
     def check(
         self,
-        channel_spec: OSIChannelSpecification,
+        channel_spec: ChannelSpecification,
         result_file: Path = None,
         output_config: Path = None,
     ) -> bool:
@@ -49,7 +47,7 @@ class QCOSITraceChecker(TraceChecker):
         Executes the configured OSI trace checker bundle on the provided OSI trace file.
 
         Args:
-            trace (OSIChannelSpecification): Path to the OSI trace file to be checked.
+            trace (ChannelSpecification): Path to the OSI trace file to be checked.
             result_file (Path, optional): Path to the xqar output file where results will be written. If None, results will not be written to a file.
             output_config (Path, optional): Path to the output configuration xml file where the configuration will be written. If None, configuration will not be written to a file.
 

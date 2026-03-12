@@ -3,14 +3,14 @@ import math
 
 import pandas as pd
 
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+from osi_utilities import ChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
+from osc_validation.utils.osi_writer import OSIChannelWriter
 
 from osi_utilities.tracefile.timestamp import timestamp_to_seconds
-from osi_utilities.converters.crop import crop_trace as _sdk_crop_trace
 
 
-def get_all_moving_object_ids(osi_trace: OSIChannelSpecification) -> list[int]:
+def get_all_moving_object_ids(osi_trace: ChannelSpecification) -> list[int]:
     """
     Extracts all moving object ids from the input OSI SensorView or GroundTruth trace.
     """
@@ -30,7 +30,7 @@ def get_all_moving_object_ids(osi_trace: OSIChannelSpecification) -> list[int]:
 
 
 def get_trajectory_by_moving_object_id(
-    osi_trace: OSIChannelSpecification,
+    osi_trace: ChannelSpecification,
     moving_object_id: str,
     start_time: float = None,
     end_time: float = None,
@@ -91,7 +91,7 @@ def get_trajectory_by_moving_object_id(
 
 def get_closest_trajectory(
     ref_trajectory: pd.DataFrame,
-    tool_channel_spec: OSIChannelSpecification,
+    tool_channel_spec: ChannelSpecification,
     start_time: float = None,
     end_time: float = None,
 ) -> pd.DataFrame:
@@ -99,7 +99,7 @@ def get_closest_trajectory(
     Finds the tool trajectory that is closest to the reference trajectory based on the starting position.
     Args:
         ref_trajectory (pd.DataFrame): Reference trajectory DataFrame containing columns ['timestamp', 'x', 'y', 'z', 'h', 'p', 'r'].
-        tool_channel_spec (OSIChannelSpecification): OSI channel specification for the tool trace.
+        tool_channel_spec (ChannelSpecification): OSI channel specification for the tool trace.
         start_time (float, optional): Start time of the inclusive interval. Defaults to None.
         end_time (float, optional): End time of the inclusive interval. Defaults to None.
     Returns:
@@ -167,67 +167,34 @@ def rotatePointZYX(x, y, z, yaw, pitch, roll):
     return (rx, ry, rz)
 
 
-def rotatePointXYZ(x, y, z, yaw, pitch, roll):
-    """Performs a rotation of the given coordinate based on given euler rotation angles.
-    Rotation order:
-    1. roll (around x-axis)
-    2. pitch (around y-axis)
-    3. yaw (around z-axis)
-
-    Parameters:
-    * x,y,z             input coordinate
-    * yaw,pitch,roll    rotation angle
-
-    Returns:
-    * rx,ry,rz          rotated coordinate
-    """
-    cos_yaw = math.cos(yaw)
-    cos_pitch = math.cos(pitch)
-    cos_roll = math.cos(roll)
-    sin_yaw = math.sin(yaw)
-    sin_pitch = math.sin(pitch)
-    sin_roll = math.sin(roll)
-
-    # rotation order x-y-z
-    rx = (cos_pitch * cos_yaw) * x + (-cos_pitch * sin_yaw) * y + (sin_pitch) * z
-    ry = (
-        (sin_roll * sin_pitch * cos_yaw + cos_roll * sin_yaw) * x
-        + (-sin_roll * sin_pitch * sin_yaw + cos_roll * cos_yaw) * y
-        + (-sin_roll * cos_pitch) * z
-    )
-    rz = (
-        (-cos_roll * sin_pitch * cos_yaw + sin_roll * sin_yaw) * x
-        + (cos_roll * sin_pitch * sin_yaw + sin_roll * cos_yaw) * y
-        + (cos_roll * cos_pitch) * z
-    )
-
-    return (rx, ry, rz)
-
-
 def crop_trace(
-    input_channel_spec: OSIChannelSpecification,
-    output_channel_spec: OSIChannelSpecification,
+    input_channel_spec: ChannelSpecification,
+    output_channel_spec: ChannelSpecification,
     start_time: float = None,
     end_time: float = None,
-) -> OSIChannelSpecification:
+) -> ChannelSpecification:
     """
     Crops the content of an input OSI trace based on the given inclusive interval and stores it
     at the given output path.
 
     Args:
-        input_channel_spec (OSIChannelSpecification): OSI channel specification for the input OSI trace
-        output_channel_spec (OSIChannelSpecification): OSI channel specification for the output OSI trace
+        input_channel_spec (ChannelSpecification): OSI channel specification for the input OSI trace
+        output_channel_spec (ChannelSpecification): OSI channel specification for the output OSI trace
         start_time (float, optional): Start time of the inclusive interval
         end_time (float, optional): End time of the inclusive interval
     Returns:
         Specification of the output OSI channel.
     """
-    result = _sdk_crop_trace(
-        input_channel_spec, output_channel_spec, start_time, end_time
-    )
-    return OSIChannelSpecification(
-        path=result.path,
-        message_type=result.message_type,
-        topic=result.topic,
-        metadata=result.metadata,
-    )
+    writer = OSIChannelWriter.from_osi_channel_specification(output_channel_spec)
+    with (
+        OSIChannelReader.from_osi_channel_specification(input_channel_spec) as reader,
+        writer as channel_writer,
+    ):
+        for message in reader:
+            timestamp = timestamp_to_seconds(message)
+            if start_time is not None and timestamp < start_time:
+                continue
+            if end_time is not None and timestamp > end_time:
+                continue
+            channel_writer.write(message)
+    return writer.get_channel_specification()

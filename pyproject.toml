@@ -30,7 +30,6 @@ python = "^3.10"
 lxml = "^5.2.2"
 matplotlib = "^3.8.2"
 osi-python = { git = "https://github.com/OpenSimulationInterface/osi-python.git", branch = "main" }
-asam-osi-utilities = { path = "submodules/asam-osi-utilities/python", develop = true }
 pandas = "2.2.3"
 similaritymeasures = "1.2.0"
 requests = "^2.32.3"
@@ -38,6 +37,7 @@ mcap = "^1.2.2"
 mcap-protobuf-support = "^0.5.3"
 qc-osi-trace = { git = "https://github.com/OpenSimulationInterface/qc-osi-trace.git", branch = "main" }
 pytest = "^8.2.2"
+asam-osi-utilities = {path = "submodules/asam-osi-utilities/python", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"

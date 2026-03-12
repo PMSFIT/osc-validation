@@ -8,7 +8,7 @@ import pytest
 from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
 from osc_validation.generation import osi2osc
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+from osi_utilities import ChannelSpecification
 
 
 @pytest.fixture(
@@ -65,7 +65,7 @@ def test_trajectory_remote(
     logger.setLevel(logging.INFO)
 
     # Generate the OpenSCENARIO file from the reference OSI trace
-    reference_trace_channel_spec = OSIChannelSpecification(
+    reference_trace_channel_spec = ChannelSpecification(
         osi_trace, message_type="SensorView"
     )
     osc_path = osi2osc(
@@ -78,7 +78,7 @@ def test_trajectory_remote(
     tool_trace_channel_spec = generate_tool_trace(
         osc_path=osc_path,
         odr_path=odr_file,
-        osi_output_spec=OSIChannelSpecification(
+        osi_output_spec=ChannelSpecification(
             path=tmp_path / "tool_trace.mcap",
             message_type="SensorView",
             metadata={

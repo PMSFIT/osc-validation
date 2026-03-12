@@ -9,21 +9,23 @@ Examples:
 import argparse
 from pathlib import Path
 
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-from osi_utilities.converters.format_converter import convert_format
+from osi_utilities import ChannelSpecification
+from osc_validation.utils.osi_reader import OSIChannelReader
+from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
 def convert(
-    input_channel_spec: OSIChannelSpecification,
-    output_channel_spec: OSIChannelSpecification,
-) -> OSIChannelSpecification:
-    result = convert_format(input_channel_spec, output_channel_spec)
-    return OSIChannelSpecification(
-        path=result.path,
-        message_type=result.message_type,
-        topic=result.topic,
-        metadata=result.metadata,
-    )
+    input_channel_spec: ChannelSpecification,
+    output_channel_spec: ChannelSpecification,
+) -> ChannelSpecification:
+    writer = OSIChannelWriter.from_osi_channel_specification(output_channel_spec)
+    with (
+        OSIChannelReader.from_osi_channel_specification(input_channel_spec) as reader,
+        writer as channel_writer,
+    ):
+        for message in reader:
+            channel_writer.write(message)
+    return writer.get_channel_specification()
 
 
 def create_argparser():
@@ -45,12 +47,12 @@ def create_argparser():
 def main():
     parser = create_argparser()
     args = parser.parse_args()
-    input_trace_spec = OSIChannelSpecification(
+    input_trace_spec = ChannelSpecification(
         path=Path(args.input),
         message_type=args.type,
         topic=(args.input_topic if args.input_topic else None),
     )
-    sensorview_trace_spec = OSIChannelSpecification(
+    sensorview_trace_spec = ChannelSpecification(
         path=Path(args.output),
         message_type=args.type,
         topic=(args.output_topic if args.output_topic else None),
