@@ -1,4 +1,3 @@
-import subprocess
 from pathlib import Path
 from typing import Collection
 
@@ -43,11 +42,3 @@ def rename_trace(
         topic=source_spec.topic,
         metadata=dict(source_spec.metadata),
     )
-
-
-def get_tool_version(tool_path: Path) -> list[str]:
-    cmd = [str(tool_path), "--version"]
-    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    stdout = (res.stdout or "").strip()
-    text_out = stdout if stdout else "unknown version"
-    return [line.strip() for line in text_out.splitlines() if line.strip()]

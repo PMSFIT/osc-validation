@@ -112,7 +112,7 @@ class TestChannelInfoIntegration:
         path = tmp_dir / "trace.osi"
         _write_binary(path, [_make_sv(i) for i in range(5)])
 
-        from osi_utilities.tracefile._types import ChannelSpecification
+        from osi_utilities import ChannelSpecification
 
         reader = ChannelReader.from_specification(
             ChannelSpecification(path=path, message_type="SensorView")
@@ -128,7 +128,7 @@ class TestChannelInfoIntegration:
         path = tmp_dir / "trace.mcap"
         _write_mcap(path, [_make_sv(i) for i in range(3)], topic="sv")
 
-        from osi_utilities.tracefile._types import ChannelSpecification
+        from osi_utilities import ChannelSpecification
 
         reader = ChannelReader.from_specification(
             ChannelSpecification(path=path, topic="sv")

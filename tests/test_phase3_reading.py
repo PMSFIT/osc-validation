@@ -11,10 +11,8 @@ from pathlib import Path
 from tests.conftest import _make_sensor_view, _make_ground_truth, _write_binary_trace
 
 from osc_validation.utils.osi_reader import OSIChannelReader as ChannelReader
-from osi_utilities.tracefile._types import (
-    ChannelSpecification,
-    MESSAGE_TYPE_TO_CLASS_NAME,
-)
+from osi_utilities import ChannelSpecification
+from osi_utilities.tracefile._types import MESSAGE_TYPE_TO_CLASS_NAME
 
 
 # ===========================================================================

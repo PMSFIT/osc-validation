@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 from pathlib import Path
 
 from osi_utilities import ChannelSpecification
@@ -8,7 +9,6 @@ from osc_validation.tools.osctool import OSCTool
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
 from osc_validation.utils.tool_helpers import (
-    get_tool_version,
     single_channel_temp_spec,
     validate_output_spec,
 )
@@ -27,7 +27,11 @@ class GTGen_Simulator(OSCTool):
         super().__init__(tool_path)
 
     def get_version(self) -> list[str]:
-        return get_tool_version(self.tool_path)
+        cmd = [str(self.tool_path), "--version"]
+        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        stdout = (res.stdout or "").strip()
+        text_out = stdout if stdout else "unknown version"
+        return [line.strip() for line in text_out.splitlines() if line.strip()]
 
     def run(
         self,

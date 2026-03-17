@@ -12,12 +12,12 @@ from pathlib import Path
 import struct
 
 import google.protobuf
-from osi_utilities.tracefile._types import ChannelSpecification
-from osi_utilities.tracefile.binary_writer import BinaryTraceFileWriter
-from osi_utilities.tracefile.mcap_writer import (
+from osi_utilities import ChannelSpecification
+from osi_utilities.tracefile import (
+    BinaryTraceFileWriter,
     MCAPTraceFileWriter,
-    prepare_required_file_metadata,
 )
+from osi_utilities.tracefile.mcap_writer import prepare_required_file_metadata
 
 logger = logging.getLogger(__name__)
 

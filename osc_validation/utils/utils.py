@@ -7,7 +7,48 @@ from osi_utilities import ChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
 
+from osi3 import osi_common_pb2
 from osi_utilities.tracefile.timestamp import timestamp_to_seconds
+
+
+def timestamp_osi_to_float(osi_timestamp: osi_common_pb2.Timestamp) -> float:
+    """Convert an OSI Timestamp protobuf to float seconds.
+
+    .. deprecated::
+        Use ``osi_utilities.tracefile.timestamp.timestamp_to_seconds`` for
+        top-level OSI messages instead.
+    """
+    return (osi_timestamp.seconds * 1000000000 + osi_timestamp.nanos) / 1000000000
+
+
+def timestamp_float_to_osi(float_timestamp: float) -> osi_common_pb2.Timestamp:
+    """Convert a float timestamp (seconds) back to an OSI Timestamp protobuf."""
+    osi_timestamp = osi_common_pb2.Timestamp()
+    osi_timestamp.seconds = math.floor(float_timestamp)
+    osi_timestamp.nanos = int(
+        (float_timestamp - math.floor(float_timestamp)) * 1000000000
+    )
+    return osi_timestamp
+
+
+def trajectory_df_info(trajectory_df):
+    """Print summary information about a trajectory DataFrame."""
+    print(trajectory_df)
+    print("number of frames:    " + str(len(trajectory_df)))
+    print(
+        "start/end:           "
+        + str(trajectory_df["timestamp"].iloc[0])
+        + "/"
+        + str(trajectory_df["timestamp"].iloc[-1])
+    )
+    print(
+        "avg step size:       "
+        + str(
+            (trajectory_df["timestamp"].iloc[-1] - trajectory_df["timestamp"].iloc[0])
+            / len(trajectory_df)
+        )
+    )
+    print("-------------------------------------------------------")
 
 
 def get_all_moving_object_ids(osi_trace: ChannelSpecification) -> list[int]:
@@ -163,6 +204,43 @@ def rotatePointZYX(x, y, z, yaw, pitch, roll):
         + (sin_yaw * sin_pitch * cos_roll - cos_yaw * sin_roll) * z
     )
     rz = (-sin_pitch) * x + (cos_pitch * sin_roll) * y + (cos_pitch * cos_roll) * z
+
+    return (rx, ry, rz)
+
+
+def rotatePointXYZ(x, y, z, yaw, pitch, roll):
+    """Performs a rotation of the given coordinate based on given euler rotation angles.
+    Rotation order:
+    1. roll (around x-axis)
+    2. pitch (around y-axis)
+    3. yaw (around z-axis)
+
+    Parameters:
+    * x,y,z             input coordinate
+    * yaw,pitch,roll    rotation angle
+
+    Returns:
+    * rx,ry,rz          rotated coordinate
+    """
+    cos_yaw = math.cos(yaw)
+    cos_pitch = math.cos(pitch)
+    cos_roll = math.cos(roll)
+    sin_yaw = math.sin(yaw)
+    sin_pitch = math.sin(pitch)
+    sin_roll = math.sin(roll)
+
+    # rotation order x-y-z
+    rx = (cos_pitch * cos_yaw) * x + (-cos_pitch * sin_yaw) * y + (sin_pitch) * z
+    ry = (
+        (sin_roll * sin_pitch * cos_yaw + cos_roll * sin_yaw) * x
+        + (-sin_roll * sin_pitch * sin_yaw + cos_roll * cos_yaw) * y
+        + (-sin_roll * cos_pitch) * z
+    )
+    rz = (
+        (-cos_roll * sin_pitch * cos_yaw + sin_roll * sin_yaw) * x
+        + (cos_roll * sin_pitch * sin_yaw + sin_roll * cos_yaw) * y
+        + (cos_roll * cos_pitch) * z
+    )
 
     return (rx, ry, rz)
 

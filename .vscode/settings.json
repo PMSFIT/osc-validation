@@ -1,4 +1,0 @@
-{
-  "cmake.sourceDirectory": "${workspaceFolder}/submodules/asam-osi-utilities",
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv"
-}

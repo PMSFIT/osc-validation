@@ -19,7 +19,7 @@ from tests.conftest import (
 )
 
 from osc_validation.utils.osi_reader import OSIChannelReader as ChannelReader
-from osi_utilities.tracefile._types import ChannelSpecification
+from osi_utilities import ChannelSpecification
 
 
 class _TimestampValue:

@@ -8,21 +8,26 @@ from pathlib import Path
 import struct
 from typing import IO
 
+from osi_utilities import (
+    ChannelSpecification,
+    MessageType,
+    ReadResult,
+    TraceFileFormat,
+)
+from osi_utilities.tracefile import (
+    MCAPTraceFileReader,
+    TraceFileReader,
+    TraceFileReaderFactory,
+    timestamp_to_seconds,
+)
+from osi_utilities.tracefile._types import (
+    MESSAGE_TYPE_TO_CLASS_NAME,
+    _get_message_class,
+)
 from osi_utilities.tracefile._config import (
     BINARY_MESSAGE_LENGTH_PREFIX_SIZE,
     MAX_EXPECTED_MESSAGE_SIZE,
 )
-from osi_utilities.tracefile._types import (
-    ChannelSpecification,
-    MESSAGE_TYPE_TO_CLASS_NAME,
-    MessageType,
-    ReadResult,
-    TraceFileFormat,
-    _get_message_class,
-)
-from osi_utilities.tracefile.mcap_reader import MCAPTraceFileReader
-from osi_utilities.tracefile.reader import TraceFileReader, TraceFileReaderFactory
-from osi_utilities.tracefile.timestamp import timestamp_to_seconds
 
 logger = logging.getLogger(__name__)
 

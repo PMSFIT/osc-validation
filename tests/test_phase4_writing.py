@@ -16,10 +16,8 @@ from tests.conftest import _make_sensor_view, _get_osi_version
 
 from osc_validation.utils.osi_reader import OSIChannelReader as ChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter as ChannelWriter
-from osi_utilities.tracefile._types import (
-    ChannelSpecification,
-    MESSAGE_TYPE_TO_CLASS_NAME,
-)
+from osi_utilities import ChannelSpecification
+from osi_utilities.tracefile._types import MESSAGE_TYPE_TO_CLASS_NAME
 
 
 def _osi_version_str():

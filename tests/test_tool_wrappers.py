@@ -24,7 +24,8 @@ def _write_trace_from_command(command: str, output_flag: str, messages) -> Path:
 
 def test_esmini_get_version_uses_helper(monkeypatch):
     monkeypatch.setattr(
-        esmini_module, "get_tool_version", lambda path: ["esmini 1.2.3"]
+        "subprocess.run",
+        lambda *a, **kw: type("R", (), {"stdout": "esmini 1.2.3", "stderr": ""})(),
     )
 
     tool = ESMini("/usr/bin/true")
@@ -161,7 +162,10 @@ def test_esmini_run_raises_when_temp_trace_missing(tmp_path, monkeypatch):
 
 
 def test_gtgen_get_version_uses_helper(monkeypatch):
-    monkeypatch.setattr(gtgen_module, "get_tool_version", lambda path: ["gtgen 4.5.6"])
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *a, **kw: type("R", (), {"stdout": "gtgen 4.5.6", "stderr": ""})(),
+    )
 
     tool = GTGen_Simulator("/usr/bin/true")
     assert tool.get_version() == ["gtgen 4.5.6"]

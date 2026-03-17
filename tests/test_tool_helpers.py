@@ -1,11 +1,9 @@
-import sys
 from pathlib import Path
 
 import pytest
 from osi_utilities import ChannelSpecification
 
 from osc_validation.utils.tool_helpers import (
-    get_tool_version,
     rename_trace,
     single_channel_temp_spec,
     validate_output_spec,
@@ -54,10 +52,3 @@ def test_rename_trace_moves_file_and_preserves_spec(tmp_path):
     assert renamed_spec.message_type == "GroundTruth"
     assert renamed_spec.topic == "gt"
     assert renamed_spec.metadata == {"source": "test"}
-
-
-def test_get_tool_version_returns_output_lines(tmp_path):
-    version_lines = get_tool_version(Path(sys.executable))
-
-    assert version_lines
-    assert version_lines[0].startswith("Python")
