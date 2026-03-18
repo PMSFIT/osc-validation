@@ -1,87 +1,347 @@
+"""OSI channel reader compatibility wrapper over the current SDK readers."""
+
+from __future__ import annotations
+
 import logging
+import lzma
 from pathlib import Path
-from osi3trace.osi_trace import OSITrace
+import struct
+from typing import IO
 
-from mcap_protobuf.decoder import DecoderFactory
-from mcap.reader import make_reader
-
-from osc_validation.utils.osi_channel_specification import (
-    OSIChannelSpecification,
+from osi_utilities import (
+    ChannelSpecification,
+    MessageType,
+    ReadResult,
     TraceFileFormat,
 )
+from osi_utilities.tracefile import (
+    MCAPTraceFileReader,
+    TraceFileReader,
+    TraceFileReaderFactory,
+    timestamp_to_seconds,
+)
+from osi_utilities.tracefile._types import (
+    MESSAGE_TYPE_TO_CLASS_NAME,
+    _get_message_class,
+)
+from osi_utilities.tracefile._config import (
+    BINARY_MESSAGE_LENGTH_PREFIX_SIZE,
+    MAX_EXPECTED_MESSAGE_SIZE,
+)
+
+logger = logging.getLogger(__name__)
+
+_MESSAGE_NAME_TO_TYPE = {
+    message_name: message_type
+    for message_type, message_name in MESSAGE_TYPE_TO_CLASS_NAME.items()
+}
 
 
-class OSITraceReaderBase:
-    def __init__(self, path):
-        """
-        Args:
-            path (str): The file path to the OSI trace file.
-        """
-        self.path = path
+def _normalize_specification(
+    channel_spec: ChannelSpecification,
+) -> ChannelSpecification:
+    return ChannelSpecification(
+        path=Path(channel_spec.path),
+        message_type=channel_spec.message_type,
+        topic=channel_spec.topic,
+        metadata=dict(getattr(channel_spec, "metadata", {}) or {}),
+    )
+
+
+def _single_channel_topic_name(path: Path) -> str:
+    if "".join(path.suffixes).lower().endswith(".osi.xz"):
+        return Path(path.stem).stem
+    return path.stem
+
+
+def _is_lzma_binary_path(path: Path) -> bool:
+    return "".join(path.suffixes).lower() == ".osi.xz"
+
+
+def _message_type_enum(message_type_name: str) -> MessageType:
+    try:
+        return _MESSAGE_NAME_TO_TYPE[message_type_name]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported OSI message type: {message_type_name}") from exc
+
+
+def _message_type_name(message_type: MessageType | None) -> str | None:
+    if message_type is None:
+        return None
+    return MESSAGE_TYPE_TO_CLASS_NAME.get(message_type)
+
+
+class _LZMABinaryReader(TraceFileReader):
+    """Compressed binary reader for .osi.xz files written by the local wrapper."""
+
+    def __init__(self, message_type: MessageType) -> None:
+        self._message_type = message_type
+        self._message_class: type | None = None
+        self._file: IO[bytes] | None = None
+        self._has_next = False
+
+    def open(self, path: Path) -> bool:
+        if not _is_lzma_binary_path(path):
+            logger.error(
+                "Compressed binary trace files must have .osi.xz extension, got '%s'",
+                "".join(path.suffixes),
+            )
+            return False
+
+        try:
+            self._message_class = _get_message_class(self._message_type)
+        except ValueError as exc:
+            logger.error("Failed to get message class: %s", exc)
+            return False
+
+        try:
+            self._file = open(path, "rb")  # noqa: SIM115
+        except OSError as exc:
+            logger.error("Failed to open compressed trace file '%s': %s", path, exc)
+            return False
+
+        self._has_next = self._peek_has_data()
+        return True
+
+    def read_message(self) -> ReadResult | None:
+        if self._file is None or self._message_class is None:
+            return None
+
+        length_bytes = self._file.read(BINARY_MESSAGE_LENGTH_PREFIX_SIZE)
+        if not length_bytes:
+            self._has_next = False
+            return None
+        if len(length_bytes) < BINARY_MESSAGE_LENGTH_PREFIX_SIZE:
+            raise RuntimeError(
+                "Truncated length header in compressed binary trace file."
+            )
+
+        (msg_len,) = struct.unpack("<I", length_bytes)
+        if msg_len > MAX_EXPECTED_MESSAGE_SIZE:
+            raise RuntimeError(
+                f"Compressed message size {msg_len} exceeds maximum expected size "
+                f"{MAX_EXPECTED_MESSAGE_SIZE}."
+            )
+
+        compressed = self._file.read(msg_len)
+        if len(compressed) < msg_len:
+            raise RuntimeError(
+                f"Truncated compressed message body: expected {msg_len} bytes, "
+                f"got {len(compressed)}."
+            )
+
+        try:
+            data = lzma.decompress(compressed)
+        except lzma.LZMAError as exc:
+            raise RuntimeError(
+                f"Failed to decompress LZMA message ({msg_len} bytes): {exc}"
+            ) from exc
+
+        message = self._message_class()
+        try:
+            message.ParseFromString(data)
+        except Exception as exc:  # protobuf parsing raises broad exceptions
+            raise RuntimeError(
+                f"Failed to deserialize protobuf message ({len(data)} bytes): {exc}"
+            ) from exc
+
+        self._has_next = self._peek_has_data()
+        return ReadResult(message=message, message_type=self._message_type)
+
+    def has_next(self) -> bool:
+        return self._has_next
+
+    def close(self) -> None:
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+        self._has_next = False
+
+    def _peek_has_data(self) -> bool:
+        if self._file is None:
+            return False
+        pos = self._file.tell()
+        data = self._file.read(1)
+        if data:
+            self._file.seek(pos)
+            return True
+        return False
+
+
+class OSIChannelReader:
+    """Project-specific reader facade with the historic ChannelReader API."""
+
+    def __init__(
+        self,
+        reader: TraceFileReader,
+        channel_spec: ChannelSpecification,
+    ) -> None:
+        self._reader = reader
+        self._channel_spec = channel_spec
+
+    @classmethod
+    def from_specification(
+        cls, channel_spec: ChannelSpecification
+    ) -> "OSIChannelReader":
+        spec = _normalize_specification(channel_spec)
+        suffixes = "".join(spec.path.suffixes).lower()
+        if not spec.exists():
+            raise FileNotFoundError(f"OSI trace file '{spec.path}' does not exist.")
+
+        if spec.trace_file_format == TraceFileFormat.SINGLE_CHANNEL:
+            if spec.message_type is None:
+                raise ValueError(
+                    "OSI message type must be specified for single-channel traces."
+                )
+            if suffixes == ".osi.xz":
+                reader = _LZMABinaryReader(_message_type_enum(spec.message_type))
+                if not reader.open(spec.path):
+                    raise RuntimeError(
+                        f"Failed to open compressed binary OSI reader for '{spec.path}'."
+                    )
+            else:
+                reader = TraceFileReaderFactory.create_reader(
+                    spec.path,
+                    message_type=_message_type_enum(spec.message_type),
+                )
+            topic = spec.topic or _single_channel_topic_name(spec.path)
+            resolved_spec = ChannelSpecification(
+                path=spec.path,
+                message_type=spec.message_type,
+                topic=topic,
+                metadata=dict(spec.metadata),
+            )
+            return cls(reader=reader, channel_spec=resolved_spec)
+
+        reader = TraceFileReaderFactory.create_reader(spec.path)
+        assert isinstance(reader, MCAPTraceFileReader)
+
+        available_topics = reader.get_available_topics()
+        if not available_topics:
+            reader.close()
+            raise ValueError(f"No topics found in MCAP file '{spec.path}'.")
+
+        topic = spec.topic or available_topics[0]
+        if topic not in available_topics:
+            reader.close()
+            raise ValueError(
+                f"Topic '{topic}' not found in MCAP file '{spec.path}'. "
+                f"Available topics: {available_topics}"
+            )
+
+        detected_message_type = _message_type_name(
+            reader.get_message_type_for_topic(topic)
+        )
+        if spec.message_type is not None and spec.message_type != detected_message_type:
+            reader.close()
+            raise ValueError(
+                f"Specified message type '{spec.message_type}' does not match "
+                f"detected message type '{detected_message_type}'."
+            )
+
+        reader.set_topics([topic])
+        resolved_spec = ChannelSpecification(
+            path=spec.path,
+            message_type=detected_message_type,
+            topic=topic,
+            metadata=dict(reader.get_channel_metadata(topic) or spec.metadata),
+        )
+        return cls(reader=reader, channel_spec=resolved_spec)
+
+    @classmethod
+    def from_osi_channel_specification(
+        cls, osi_channel_spec: ChannelSpecification
+    ) -> "OSIChannelReader":
+        return cls.from_specification(osi_channel_spec)
+
+    def __enter__(self) -> "OSIChannelReader":
+        return self
+
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        self.close()
+
+    def __iter__(self) -> "OSIChannelReader":
+        return self
+
+    def __next__(self):
+        result = self._reader.read_message()
+        if result is None:
+            raise StopIteration
+        return result.message
+
+    def get_messages(self):
+        return iter(self)
+
+    def get_source_path(self) -> Path:
+        return self._channel_spec.path
+
+    def get_topic_name(self) -> str:
+        return self._channel_spec.topic
+
+    def get_message_type(self) -> str | None:
+        return self._channel_spec.message_type
+
+    def get_available_topics(self) -> list[str]:
+        if isinstance(self._reader, MCAPTraceFileReader):
+            return self._reader.get_available_topics()
+        return [self.get_topic_name()]
 
     def get_file_metadata(self):
-        """Returns the file metadata of the trace."""
-        raise NotImplementedError()
+        if isinstance(self._reader, MCAPTraceFileReader):
+            return self._reader.get_file_metadata()
+        return {}
 
-    def get_available_topics(self):
-        """Returns a list of available topics in the trace."""
-        raise NotImplementedError()
+    def get_channel_metadata(self):
+        if isinstance(self._reader, MCAPTraceFileReader):
+            return self._reader.get_channel_metadata(self.get_topic_name()) or {}
+        return {}
 
-    def get_channel_metadata(self, topic: str):
-        """Returns the channel metadata for a given topic."""
-        raise NotImplementedError()
+    def get_channel_specification(self) -> ChannelSpecification:
+        return ChannelSpecification(
+            path=self._channel_spec.path,
+            message_type=self._channel_spec.message_type,
+            topic=self._channel_spec.topic,
+            metadata=dict(self.get_channel_metadata() or self._channel_spec.metadata),
+        )
 
-    def _retrieve_channel_info_from_data(self, topic: str):
-        channel_info = {}
+    def get_channel_info(self) -> dict:
         start = None
         stop = None
         total_steps = 0
-        step_acc = 0
+        step_acc = 0.0
         prev_timestamp = None
-        for message in self.get_messages(topic):
-            if hasattr(message, "version"):
-                osi_version = f"{message.version.version_major}.{message.version.version_minor}.{message.version.version_patch}"
-            timestamp = message.timestamp.seconds + message.timestamp.nanos / 1e9
-            step = timestamp - prev_timestamp if prev_timestamp is not None else None
-            step_acc = step_acc + step if step is not None else step_acc
-            if start is None:
-                start = timestamp
-            stop = timestamp
-            total_steps += 1
-            prev_timestamp = timestamp
-        step_size_avg = step_acc / (total_steps - 1) if total_steps > 1 else 0
-        channel_info["start"] = start
-        channel_info["stop"] = stop
-        channel_info["step_size_avg"] = step_size_avg
-        channel_info["total_steps"] = total_steps
-        channel_info["osi_version"] = osi_version
-        return channel_info
+        osi_version = None
 
-    def get_channel_info(self, topic: str):
-        """Returns channel information as a dictionary containing start
-        timestamp, stop timestamp, average step size, total number of steps, OSI
-        version and OSI top-level message type."""
-        raise NotImplementedError()
+        with type(self).from_specification(self.get_channel_specification()) as reader:
+            for message in reader.get_messages():
+                if hasattr(message, "version"):
+                    osi_version = (
+                        f"{message.version.version_major}."
+                        f"{message.version.version_minor}."
+                        f"{message.version.version_patch}"
+                    )
+                timestamp = timestamp_to_seconds(message)
+                if start is None:
+                    start = timestamp
+                stop = timestamp
+                if prev_timestamp is not None:
+                    step_acc += timestamp - prev_timestamp
+                prev_timestamp = timestamp
+                total_steps += 1
 
-    def get_message_type(self, topic: str):
-        """Returns the OSI message type for a given topic."""
-        raise NotImplementedError()
+        return {
+            "start": start,
+            "stop": stop,
+            "step_size_avg": step_acc / (total_steps - 1) if total_steps > 1 else 0,
+            "total_steps": total_steps,
+            "osi_version": osi_version,
+            "message_type": self.get_message_type(),
+        }
 
-    def get_messages(self, topic: str):
-        """Returns an iterator over messages contained in the trace."""
-        raise NotImplementedError()
-
-    def close(self):
-        """Closes the trace reader."""
-        raise NotImplementedError()
-
-    def print_summary(self, topic: str):
-        """Prints various information about a channel."""
-
-        channel_info = self.get_channel_info(topic)
-
+    def print_summary(self) -> None:
+        channel_info = self.get_channel_info()
         summary_lines = [
-            ("File path", self.path),
+            ("File path", self.get_source_path()),
             ("OSI version", channel_info["osi_version"]),
             ("OSI trace type", channel_info["message_type"]),
             ("Start timestamp", f"{channel_info['start']}s"),
@@ -94,243 +354,5 @@ class OSITraceReaderBase:
         for label, value in summary_lines:
             print(f"{label + ':':<{max_label_len + 2}} {value}")
 
-
-class OSITraceReaderMulti(OSITraceReaderBase):
-    """OSI multi-trace reader."""
-
-    def __init__(self, path):
-        super().__init__(path)
-        self._file = open(self.path, "rb")
-        self.mcap_reader = make_reader(self._file, decoder_factories=[DecoderFactory()])
-        self._summary = self.mcap_reader.get_summary()
-
-    def get_file_metadata(self):
-        metadata = []
-        for metadata_entry in self.mcap_reader.iter_metadata():
-            metadata.append(metadata_entry)
-        return metadata
-
-    def get_available_topics(self):
-        return [channel.topic for channel in self._summary.channels.values()]
-
-    def get_channel_metadata(self, topic):
-        for channel in self._summary.channels.values():
-            if channel.topic == topic:
-                return channel.metadata
-        return None
-
-    def get_channel_info(self, topic):
-        channel_info = self._retrieve_channel_info_from_data(topic=topic)
-        for channel in self._summary.channels.values():
-            if channel.topic == topic:
-                schema = self._summary.schemas[channel.schema_id]
-                if schema.name.startswith("osi3."):
-                    channel_info["message_type"] = schema.name[len("osi3.") :]
-                else:
-                    raise ValueError(
-                        f"Schema name '{schema.name}' does not start with 'osi3.'"
-                    )
-                break
-        return channel_info
-
-    def get_message_type(self, topic: str):
-        for channel in self._summary.channels.values():
-            if channel.topic == topic:
-                schema = self._summary.schemas[channel.schema_id]
-                if schema.name.startswith("osi3."):
-                    return schema.name[len("osi3.") :]
-                else:
-                    raise ValueError(
-                        f"Schema name '{schema.name}' does not start with 'osi3.'"
-                    )
-        return None
-
-    def get_messages(self, topic):
-        if topic not in self.get_available_topics():
-            raise ValueError(
-                "Topic '"
-                + topic
-                + "' not found in MCAP file '"
-                + self.path
-                + "'. Available topics: "
-                + str(self.get_available_topics())
-            )
-        for message in self.mcap_reader.iter_decoded_messages(topics=[topic]):
-            yield message.decoded_message
-
-    def close(self):
-        """Closes the MCAP file reader."""
-        self._file.close()
-        logging.info(
-            f"{self.__class__.__name__}: Closed OSI MCAP trace file '{self.path}'."
-        )
-
-
-class OSITraceAdapter(OSITraceReaderBase):
-    """Adapter that wraps an OSITrace and mimics a multi-channel interface while ignoring topic input."""
-
-    def __init__(self, path: Path, message_type: str, cache_messages=False):
-        super().__init__(path)
-        self.trace = OSITrace(
-            path=str(path), type_name=message_type, cache_messages=cache_messages
-        )
-        self.topic_placeholder = self.path.stem
-        self.message_type = message_type  # OSITrace is single-channel, so only one message type is possible.
-
-    def get_file_metadata(self):
-        return {}
-
-    def get_available_topics(self):
-        return [self.topic_placeholder]
-
-    def get_channel_metadata(self, topic):
-        return {}
-
-    def get_channel_info(self, topic):
-        """Traverse the trace to get trace information (start timestamp, stop
-        timestamp, average step size, total steps)."""
-        channel_info = self._retrieve_channel_info_from_data(topic=topic)
-        return channel_info
-
-    def get_message_type(self, topic: str):
-        return self.message_type
-
-    def get_messages(self, topic: str):
-        self.trace.restart()
-        for msg in self.trace:
-            yield msg
-
-    def close(self):
-        """Closes the OSITrace instance."""
-        self.trace.close()
-        logging.info(
-            f"{self.__class__.__name__}: Closed OSI binary trace file '{self.path}'."
-        )
-
-
-class OSIChannelReader:
-    """
-    OSI channel reader wrapper for accessing a channel from single- or
-    multi-channel trace files in a unified way. Passes through applicable
-    methods of the underlying trace reader.
-    """
-
-    def __init__(self, source: OSITraceReaderBase, topic: str):
-        self.source = source
-        self.topic = topic
-
-    @classmethod
-    def from_osi_single_trace(cls, path, message_type, cache_messages=False):
-        fake_multi = OSITraceAdapter(
-            path=path, message_type=message_type, cache_messages=cache_messages
-        )
-        return cls(source=fake_multi, topic=fake_multi.get_available_topics()[0])
-
-    @classmethod
-    def from_osi_multi_trace(cls, trace_reader_multi, topic):
-        if topic not in trace_reader_multi.get_available_topics():
-            raise ValueError("Topic '" + topic + "' not found in MCAP file.")
-        return cls(source=trace_reader_multi, topic=topic)
-
-    @classmethod
-    def from_osi_channel_specification(cls, osi_channel_spec: OSIChannelSpecification):
-        if not osi_channel_spec.path.exists():
-            raise FileNotFoundError(
-                f"OSI trace file '{osi_channel_spec.path}' does not exist."
-            )
-
-        source = None
-        message_type = None
-        topic = None
-
-        trace_file_format = osi_channel_spec.trace_file_format
-
-        if trace_file_format == TraceFileFormat.SINGLE_CHANNEL:
-            if osi_channel_spec.message_type is None:
-                raise ValueError(
-                    f"Could not automatically detect message type from '{osi_channel_spec.path}'. Please specify the message type explicitly."
-                )
-            else:
-                message_type = osi_channel_spec.message_type
-            return cls.from_osi_single_trace(
-                path=osi_channel_spec.path,
-                message_type=message_type,
-                cache_messages=True,
-            )
-
-        elif trace_file_format == TraceFileFormat.MULTI_CHANNEL:
-            source = OSITraceReaderMulti(osi_channel_spec.path)
-            if osi_channel_spec.topic is None:
-                available_topics = source.get_available_topics()
-                if not available_topics:
-                    raise ValueError(
-                        f"No topics found in MCAP file '{osi_channel_spec.path}'."
-                    )
-                topic = available_topics[0]
-                logging.info(
-                    f"No topic specified, using first available topic '{topic}' from MCAP file '{osi_channel_spec.path}'."
-                )
-            else:
-                if osi_channel_spec.topic not in source.get_available_topics():
-                    raise ValueError(
-                        f"Topic '{osi_channel_spec.topic}' not found in MCAP file '{osi_channel_spec.path}'. Available topics: {source.get_available_topics()}"
-                    )
-                topic = osi_channel_spec.topic
-                pass
-            if osi_channel_spec.message_type is None:
-                pass  # infer the message type from the channel metadata automatically
-            else:
-                source_message_type = source.get_message_type(topic)
-                if source_message_type != osi_channel_spec.message_type:
-                    raise ValueError(
-                        f"Channel '{topic}' in MCAP file '{osi_channel_spec.path}' has message type '{source_message_type}', but '{osi_channel_spec.message_type}' was requested."
-                    )
-            return cls.from_osi_multi_trace(source, topic)
-
-        else:
-            raise ValueError(f"Unsupported trace file format: {trace_file_format}")
-
-    def get_source_path(self):
-        return self.source.path
-
-    def get_channel_specification(self):
-        return OSIChannelSpecification(
-            path=Path(self.get_source_path()),
-            message_type=self.source.get_channel_metadata(self.topic).get(
-                "message_type", {}
-            ),
-            topic=self.topic,
-        )
-
-    def get_topic_name(self):
-        return self.topic
-
-    def get_file_metadata(self):
-        return self.source.get_file_metadata()
-
-    def get_channel_metadata(self):
-        return self.source.get_channel_metadata(topic=self.topic)
-
-    def get_channel_info(self):
-        return self.source.get_channel_info(topic=self.topic)
-
-    def get_message_type(self):
-        return self.source.get_message_type(topic=self.topic)
-
-    def print_summary(self):
-        return self.source.print_summary(topic=self.topic)
-
-    def get_messages(self):
-        return self.source.get_messages(topic=self.topic)
-
-    def close(self):
-        return self.source.close()
-
-    def __iter__(self):
-        return self.get_messages()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+    def close(self) -> None:
+        self._reader.close()

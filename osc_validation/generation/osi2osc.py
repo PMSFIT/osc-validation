@@ -10,9 +10,10 @@ from lxml import etree
 
 from osi3 import osi_object_pb2
 
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+from osi_utilities import ChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointZYX
+from osc_validation.utils.utils import rotatePointZYX
+from osi_utilities.tracefile.timestamp import timestamp_to_seconds
 
 XOSC_VERSION_MAJOR = 1
 XOSC_VERSION_MINOR = 3
@@ -311,76 +312,76 @@ class OSI2OSCMovingObject:
 
 
 def parse_moving_objects(
-    osi_trace_spec: OSIChannelSpecification, host_vehicle_id: str
+    osi_trace_spec: ChannelSpecification, host_vehicle_id: str
 ) -> list[OSI2OSCMovingObject]:
     """
     Extracts all moving objects from an OSI SensorView or GroundTruth trace.
     """
-    reader = OSIChannelReader.from_osi_channel_specification(osi_trace_spec)
-    assert reader.get_message_type() in ("SensorView", "GroundTruth")
-    my_moving_objects = []
-    for osi_message in reader:
-        current_timestamp = timestamp_osi_to_float(osi_message.timestamp)
-        osi_moving_object_list = (
-            osi_message.global_ground_truth.moving_object
-            if reader.get_message_type() == "SensorView"
-            else osi_message.moving_object
-        )
-        for osi_moving_object in osi_moving_object_list:
-            current_moving_object_id = osi_moving_object.id.value
-            if not any(obj.id == current_moving_object_id for obj in my_moving_objects):
-                object_to_add = OSI2OSCMovingObject(
-                    id=current_moving_object_id,
-                    length_static=osi_moving_object.base.dimension.length,  # use first occurrence
-                    width_static=osi_moving_object.base.dimension.width,  # use first occurrence
-                    height_static=osi_moving_object.base.dimension.height,  # use first occurrence
-                    type=osi_moving_object.type,
-                    vehicle_type=osi_moving_object.vehicle_classification.type,
-                    bbcenter_to_rear_x=osi_moving_object.vehicle_attributes.bbcenter_to_rear.x,
-                    bbcenter_to_rear_y=osi_moving_object.vehicle_attributes.bbcenter_to_rear.y,
-                    bbcenter_to_rear_z=osi_moving_object.vehicle_attributes.bbcenter_to_rear.z,
-                    host_vehicle=(osi_moving_object.id.value == host_vehicle_id),
-                )
-                object_to_add.append_trajectory_row(
-                    current_timestamp,
-                    osi_moving_object.base.position.x,
-                    osi_moving_object.base.position.y,
-                    osi_moving_object.base.position.z,
-                    osi_moving_object.base.orientation.yaw,
-                    osi_moving_object.base.orientation.pitch,
-                    osi_moving_object.base.orientation.roll,
-                )
-                my_moving_objects.append(object_to_add)
-            else:
-                object_to_modify = next(
-                    (
-                        obj
-                        for obj in my_moving_objects
-                        if obj.id == current_moving_object_id
-                    ),
-                    None,
-                )
-                object_to_modify.append_trajectory_row(
-                    current_timestamp,
-                    osi_moving_object.base.position.x,
-                    osi_moving_object.base.position.y,
-                    osi_moving_object.base.position.z,
-                    osi_moving_object.base.orientation.yaw,
-                    osi_moving_object.base.orientation.pitch,
-                    osi_moving_object.base.orientation.roll,
-                )
+    with OSIChannelReader.from_osi_channel_specification(osi_trace_spec) as reader:
+        assert reader.get_message_type() in ("SensorView", "GroundTruth")
+        my_moving_objects = []
+        for osi_message in reader:
+            current_timestamp = timestamp_to_seconds(osi_message)
+            osi_moving_object_list = (
+                osi_message.global_ground_truth.moving_object
+                if reader.get_message_type() == "SensorView"
+                else osi_message.moving_object
+            )
+            for osi_moving_object in osi_moving_object_list:
+                current_moving_object_id = osi_moving_object.id.value
+                if not any(obj.id == current_moving_object_id for obj in my_moving_objects):
+                    object_to_add = OSI2OSCMovingObject(
+                        id=current_moving_object_id,
+                        length_static=osi_moving_object.base.dimension.length,  # use first occurrence
+                        width_static=osi_moving_object.base.dimension.width,  # use first occurrence
+                        height_static=osi_moving_object.base.dimension.height,  # use first occurrence
+                        type=osi_moving_object.type,
+                        vehicle_type=osi_moving_object.vehicle_classification.type,
+                        bbcenter_to_rear_x=osi_moving_object.vehicle_attributes.bbcenter_to_rear.x,
+                        bbcenter_to_rear_y=osi_moving_object.vehicle_attributes.bbcenter_to_rear.y,
+                        bbcenter_to_rear_z=osi_moving_object.vehicle_attributes.bbcenter_to_rear.z,
+                        host_vehicle=(osi_moving_object.id.value == host_vehicle_id),
+                    )
+                    object_to_add.append_trajectory_row(
+                        current_timestamp,
+                        osi_moving_object.base.position.x,
+                        osi_moving_object.base.position.y,
+                        osi_moving_object.base.position.z,
+                        osi_moving_object.base.orientation.yaw,
+                        osi_moving_object.base.orientation.pitch,
+                        osi_moving_object.base.orientation.roll,
+                    )
+                    my_moving_objects.append(object_to_add)
+                else:
+                    object_to_modify = next(
+                        (
+                            obj
+                            for obj in my_moving_objects
+                            if obj.id == current_moving_object_id
+                        ),
+                        None,
+                    )
+                    object_to_modify.append_trajectory_row(
+                        current_timestamp,
+                        osi_moving_object.base.position.x,
+                        osi_moving_object.base.position.y,
+                        osi_moving_object.base.position.z,
+                        osi_moving_object.base.orientation.yaw,
+                        osi_moving_object.base.orientation.pitch,
+                        osi_moving_object.base.orientation.roll,
+                    )
     return my_moving_objects
 
 
 def osi2osc(
-    osi_trace_spec: OSIChannelSpecification, path_xosc: Path, path_xodr: Path = None
+    osi_trace_spec: ChannelSpecification, path_xosc: Path, path_xodr: Path = None
 ) -> Path:
     """
     Converts an OSI GroundTruth or SensorView trace to an OpenSCENARIO XML file
     at the specified path.
 
     Args:
-        osi_trace_spec (OSIChannelSpecification): Input OSI trace file.
+        osi_trace_spec (ChannelSpecification): Input OSI trace file.
         path_xosc (Path): Output OpenSCENARIO file path.
         path_xodr (Path, optional): Optional OpenDRIVE map path to be integrated in the output OpenSCENARIO file.
     Returns:
@@ -389,17 +390,17 @@ def osi2osc(
         AssertionError: If the input OSI trace is not of type SensorView or GroundTruth.
     """
 
-    osi_trace_channel_reader = OSIChannelReader.from_osi_channel_specification(
+    with OSIChannelReader.from_osi_channel_specification(
         osi_trace_spec
-    )
-    assert osi_trace_channel_reader.get_message_type() in ("SensorView", "GroundTruth")
-    stop_timestamp = osi_trace_channel_reader.get_channel_info().get("stop")
-    msg = next(osi_trace_channel_reader.get_messages())
-    host_vehicle_id = msg.host_vehicle_id.value if msg else None
-    if host_vehicle_id == None:
-        logging.warning(
-            f"Input OSI trace ({osi_trace_channel_reader.get_source_path()}) has no specified host_vehicle_id. The output OpenSCENARIO file will not have a specified ego vehicle."
-        )
+    ) as osi_trace_channel_reader:
+        assert osi_trace_channel_reader.get_message_type() in ("SensorView", "GroundTruth")
+        stop_timestamp = osi_trace_channel_reader.get_channel_info().get("stop")
+        msg = next(osi_trace_channel_reader.get_messages())
+        host_vehicle_id = msg.host_vehicle_id.value if msg else None
+        if host_vehicle_id is None:
+            logging.warning(
+                f"Input OSI trace ({osi_trace_channel_reader.get_source_path()}) has no specified host_vehicle_id. The output OpenSCENARIO file will not have a specified ego vehicle."
+            )
 
     my_moving_objects = parse_moving_objects(osi_trace_spec, host_vehicle_id)
     # Order objects so that Ego is always added first (in entities and init actions)
@@ -524,7 +525,7 @@ def main():
                 f"Input OSI trace file '{path_ositrace}' does not exist."
             )
 
-        osi_trace_spec = OSIChannelSpecification(
+        osi_trace_spec = ChannelSpecification(
             path=path_ositrace, message_type=args.ositype
         )
         path_xosc = Path(args.xosc)

@@ -9,21 +9,22 @@ Examples:
 import argparse
 from pathlib import Path
 
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+from osi_utilities import ChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
 def convert(
-    input_channel_spec: OSIChannelSpecification,
-    output_channel_spec: OSIChannelSpecification,
-) -> OSIChannelSpecification:
-    with OSIChannelReader.from_osi_channel_specification(input_channel_spec) as reader:
-        with OSIChannelWriter.from_osi_channel_specification(
-            output_channel_spec
-        ) as writer:
-            for msg in reader:
-                writer.write(msg)
+    input_channel_spec: ChannelSpecification,
+    output_channel_spec: ChannelSpecification,
+) -> ChannelSpecification:
+    writer = OSIChannelWriter.from_osi_channel_specification(output_channel_spec)
+    with (
+        OSIChannelReader.from_osi_channel_specification(input_channel_spec) as reader,
+        writer as channel_writer,
+    ):
+        for message in reader:
+            channel_writer.write(message)
     return writer.get_channel_specification()
 
 
@@ -46,15 +47,17 @@ def create_argparser():
 def main():
     parser = create_argparser()
     args = parser.parse_args()
-    input_trace_spec = OSIChannelSpecification(
-        path=Path(args.input), message_type=args.type
+    input_trace_spec = ChannelSpecification(
+        path=Path(args.input),
+        message_type=args.type,
+        topic=(args.input_topic if args.input_topic else None),
     )
-    sensorview_trace_spec = OSIChannelSpecification(
+    output_trace_spec = ChannelSpecification(
         path=Path(args.output),
         message_type=args.type,
         topic=(args.output_topic if args.output_topic else None),
     )
-    output_spec = convert(input_trace_spec, sensorview_trace_spec)
+    output_spec = convert(input_trace_spec, output_trace_spec)
     print(f"Wrote {output_spec}")
 
 

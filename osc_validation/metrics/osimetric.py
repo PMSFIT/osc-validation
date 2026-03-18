@@ -1,4 +1,4 @@
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+from osi_utilities import ChannelSpecification
 
 
 class OSIMetric:
@@ -12,8 +12,8 @@ class OSIMetric:
 
     def compute(
         self,
-        reference_channel_spec: OSIChannelSpecification,
-        tool_channel_spec: OSIChannelSpecification,
+        reference_channel_spec: ChannelSpecification,
+        tool_channel_spec: ChannelSpecification,
     ):
         raise NotImplementedError("Subclasses should implement this method.")
 

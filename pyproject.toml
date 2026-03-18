@@ -37,6 +37,7 @@ mcap = "^1.2.2"
 mcap-protobuf-support = "^0.5.3"
 qc-osi-trace = { git = "https://github.com/OpenSimulationInterface/qc-osi-trace.git", branch = "main" }
 pytest = "^8.2.2"
+asam-osi-utilities = {path = "submodules/asam-osi-utilities/python", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"

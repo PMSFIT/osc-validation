@@ -7,7 +7,7 @@ import pytest
 from osc_validation.dataproviders import BuiltinDataProvider, DownloadZIPDataProvider
 from osc_validation.generation import osi2osc
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+from osi_utilities import ChannelSpecification
 from osc_validation.utils.utils import get_all_moving_object_ids
 
 
@@ -93,7 +93,7 @@ def test_trajectory_remote_zip(
     osi_trace, moving_object_id = osi_trace_with_ids
 
     # Generate the OpenSCENARIO file from the reference OSI trace
-    reference_trace_channel_spec = OSIChannelSpecification(
+    reference_trace_channel_spec = ChannelSpecification(
         osi_trace, message_type="SensorView"
     )
 
@@ -113,7 +113,7 @@ def test_trajectory_remote_zip(
     tool_trace_channel_spec = generate_tool_trace(
         osc_path=osc_path,
         odr_path=odr_file,
-        osi_output_spec=OSIChannelSpecification(
+        osi_output_spec=ChannelSpecification(
             path=tmp_path / "tool_trace.mcap",
             message_type="SensorView",
             metadata={

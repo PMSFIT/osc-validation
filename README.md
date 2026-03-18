@@ -14,6 +14,7 @@ It derives from this subset a validation suite of representative test cases and 
 Use [poetry](https://python-poetry.org/) to install the validation suite into a new virtual environment:
 
 ```bash
+git submodule update --init --recursive
 poetry install
 ```
 
@@ -57,7 +58,7 @@ Each tool wrapper must be derived from the base class `OSCTool`:
 This wrapper should:
 
 - Launch the tool with the given input files (and desired parameters)
-- Return the `OSIChannelSpecification` to the tool-generated OSI output
+- Return the `ChannelSpecification` to the tool-generated OSI output
 - Optionally internally post-process traces (e.g., converting formats, fix tool-specific issues)
 
 Tools already integrated:
