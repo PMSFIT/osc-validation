@@ -20,7 +20,7 @@ class TraceChecker:
         self.osi_version = osi_version
 
     def check(self, channel_spec: ChannelSpecification):
-        return NotImplementedError("Subclasses should implement this method.")
+        raise NotImplementedError("Subclasses should implement this method.")
 
 
 class QCOSITraceChecker(TraceChecker):

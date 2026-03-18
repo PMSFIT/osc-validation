@@ -51,9 +51,9 @@ Reference OSI trace → osi2osc → OpenSCENARIO XML → Tool under test → Too
 ## Key Conventions
 
 - **Test file naming**: Validation test files are prefixed `val_` (not the standard `test_`). This is configured in `validation/scenario/pytest.ini` via `python_files = val_*.py`.
-- **`OSIChannelSpecification`** is the central data class for referring to OSI trace files. It wraps a file path with message type, topic, and metadata. Use its builder-style methods (`with_name_suffix`, `with_trace_file_format`, `with_message_type`) to derive variants.
-- **Tool wrappers** must subclass `OSCTool` and implement `run()`, which accepts an OpenSCENARIO path, OpenDRIVE path, and `OSIChannelSpecification` for the desired output, and returns the resulting `OSIChannelSpecification`.
-- **Metrics** must subclass `OSIMetric` and implement `compute()`, taking reference and tool `OSIChannelSpecification` instances.
+- **`ChannelSpecification`** (from `osi_utilities`) is the central data class for referring to OSI trace files. It wraps a file path with message type, topic, and metadata. Use its builder-style methods (`with_trace_file_format`, `with_message_type`) to derive variants.
+- **Tool wrappers** must subclass `OSCTool` and implement `run()`, which accepts an OpenSCENARIO path, OpenDRIVE path, and `ChannelSpecification` for the desired output, and returns the resulting `ChannelSpecification`.
+- **Metrics** must subclass `OSIMetric` and implement `compute()`, taking reference and tool `ChannelSpecification` instances.
 - **Data providers** must subclass `DataProvider`. Use `BuiltinDataProvider` for files in `data/builtin/`. Use `DownloadDataProvider` or `DownloadZIPDataProvider` for remote resources; these handle download, caching, and cleanup.
 - **Formatter**: The project uses `black` for code formatting.
 - **Python**: Requires Python 3.10+.

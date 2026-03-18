@@ -52,12 +52,12 @@ def main():
         message_type=args.type,
         topic=(args.input_topic if args.input_topic else None),
     )
-    sensorview_trace_spec = ChannelSpecification(
+    output_trace_spec = ChannelSpecification(
         path=Path(args.output),
         message_type=args.type,
         topic=(args.output_topic if args.output_topic else None),
     )
-    output_spec = convert(input_trace_spec, sensorview_trace_spec)
+    output_spec = convert(input_trace_spec, output_trace_spec)
     print(f"Wrote {output_spec}")
 
 
