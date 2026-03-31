@@ -24,7 +24,7 @@ def convert(
         ) as writer:
             for msg in reader:
                 writer.write(msg)
-    return writer.get_channel_specification()
+            return writer.get_channel_specification()
 
 
 def create_argparser():
