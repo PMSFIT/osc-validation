@@ -19,9 +19,25 @@ def _make_tool(config):
 
 
 def pytest_configure(config):
-    tool = _make_tool(config)
+    try:
+        tool = _make_tool(config)
+    except FileNotFoundError as exc:
+        config._osc_tool = None
+        config._osc_tool_version = "unavailable"
+        config._osc_tool_skip_reason = str(exc)
+        return
     config._osc_tool = tool
     config._osc_tool_version = tool.get_version()
+
+
+def pytest_collection_modifyitems(config, items):
+    skip_reason = getattr(config, "_osc_tool_skip_reason", None)
+    if skip_reason is None:
+        return
+
+    skip_marker = pytest.mark.skip(reason=skip_reason)
+    for item in items:
+        item.add_marker(skip_marker)
 
 
 def pytest_report_header(config):
@@ -58,4 +74,6 @@ def generate_tool_trace(request):
     options ``--tool`` and ``--toolpath``.
     The run method returns the path to the tool-generated OSI trace file.
     """
+    if request.config._osc_tool is None:
+        pytest.skip(request.config._osc_tool_skip_reason)
     yield request.config._osc_tool.run
