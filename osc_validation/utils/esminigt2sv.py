@@ -15,31 +15,32 @@ from osc_validation.utils.osi_writer import OSIChannelWriter
 def gt2sv(
     gt_channel_spec: OSIChannelSpecification, sv_channel_spec: OSIChannelSpecification
 ) -> OSIChannelSpecification:
-    writer = OSIChannelWriter.from_osi_channel_specification(sv_channel_spec)
-    with OSIChannelReader.from_osi_channel_specification(gt_channel_spec) as gt_reader:
-        with writer as sv_writer:
-            for gt_msg in gt_reader:
-                gt_msg.version.CopyFrom(
-                    osi_version_pb2.DESCRIPTOR.GetOptions().Extensions[
-                        osi_version_pb2.current_interface_version
-                    ]
-                )
-                sv_msg = osi_sensorview_pb2.SensorView()
-                sv_msg.sensor_id.value = 10000
-                sv_msg.mounting_position.position.x = 0
-                sv_msg.mounting_position.position.y = 0
-                sv_msg.mounting_position.position.z = 0
-                sv_msg.timestamp.CopyFrom(gt_msg.timestamp)
-                sv_msg.version.CopyFrom(
-                    osi_version_pb2.DESCRIPTOR.GetOptions().Extensions[
-                        osi_version_pb2.current_interface_version
-                    ]
-                )
-                sv_msg.host_vehicle_id.CopyFrom(gt_msg.host_vehicle_id)
-                sv_msg.global_ground_truth.CopyFrom(gt_msg)
-                sv_writer.write(sv_msg)
+    with (
+        OSIChannelReader.from_osi_channel_specification(gt_channel_spec) as gt_reader,
+        OSIChannelWriter.from_osi_channel_specification(sv_channel_spec) as sv_writer,
+    ):
+        for gt_msg in gt_reader:
+            gt_msg.version.CopyFrom(
+                osi_version_pb2.DESCRIPTOR.GetOptions().Extensions[
+                    osi_version_pb2.current_interface_version
+                ]
+            )
+            sv_msg = osi_sensorview_pb2.SensorView()
+            sv_msg.sensor_id.value = 10000
+            sv_msg.mounting_position.position.x = 0
+            sv_msg.mounting_position.position.y = 0
+            sv_msg.mounting_position.position.z = 0
+            sv_msg.timestamp.CopyFrom(gt_msg.timestamp)
+            sv_msg.version.CopyFrom(
+                osi_version_pb2.DESCRIPTOR.GetOptions().Extensions[
+                    osi_version_pb2.current_interface_version
+                ]
+            )
+            sv_msg.host_vehicle_id.CopyFrom(gt_msg.host_vehicle_id)
+            sv_msg.global_ground_truth.CopyFrom(gt_msg)
+            sv_writer.write(sv_msg)
 
-    return writer.get_channel_specification()
+    return sv_writer.get_channel_specification()
 
 
 def create_argparser():

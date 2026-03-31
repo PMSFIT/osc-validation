@@ -112,16 +112,17 @@ class ESMini(OSCTool):
                 osi_output_spec.trace_file_format
                 != osi_esmini_gt_spec.trace_file_format
             ):
-                reader = OSIChannelReader.from_osi_channel_specification(
-                    osi_esmini_gt_spec
-                )
-                writer = OSIChannelWriter.from_osi_channel_specification(
-                    osi_output_spec
-                )
-                with reader as channel_reader, writer as channel_writer:
+                with (
+                    OSIChannelReader.from_osi_channel_specification(
+                        osi_esmini_gt_spec
+                    ) as channel_reader,
+                    OSIChannelWriter.from_osi_channel_specification(
+                        osi_output_spec
+                    ) as channel_writer,
+                ):
                     for msg in channel_reader:
                         channel_writer.write(msg)
-                output_spec = writer.get_channel_specification()
+                output_spec = channel_writer.get_channel_specification()
             else:
                 output_spec = osi_esmini_gt_spec.rename_to(
                     osi_output_spec.path

@@ -97,9 +97,12 @@ class GTGen_Simulator(OSCTool):
 
         # Adapt output trace file format according to the requested specification
         output_spec = None
-        writer = OSIChannelWriter.from_osi_channel_specification(osi_output_spec)
-        reader = OSIChannelReader.from_osi_channel_specification(osi_gtgen_sv_spec)
-        with writer as writer, reader as reader:
+        with (
+            OSIChannelWriter.from_osi_channel_specification(osi_output_spec) as writer,
+            OSIChannelReader.from_osi_channel_specification(
+                osi_gtgen_sv_spec
+            ) as reader,
+        ):
             for message in reader:
                 writer.write(message)
         output_spec = writer.get_channel_specification()
