@@ -12,8 +12,7 @@ from osi3 import osi_object_pb2
 
 from osi_utilities import ChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.utils import rotatePointZYX
-from osi_utilities.tracefile.timestamp import timestamp_to_seconds
+from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointZYX
 
 XOSC_VERSION_MAJOR = 1
 XOSC_VERSION_MINOR = 3
@@ -324,7 +323,7 @@ def parse_moving_objects(
         message_type = channel_reader.get_message_type()
         assert message_type in ("SensorView", "GroundTruth")
         for osi_message in channel_reader:
-            current_timestamp = timestamp_to_seconds(osi_message)
+            current_timestamp = timestamp_osi_to_float(osi_message.timestamp)
             osi_moving_object_list = (
                 osi_message.global_ground_truth.moving_object
                 if message_type == "SensorView"
