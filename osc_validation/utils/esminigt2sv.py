@@ -7,14 +7,14 @@ from pathlib import Path
 
 from osi3 import osi_version_pb2, osi_sensorview_pb2
 
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+from osi_utilities import ChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
 def gt2sv(
-    gt_channel_spec: OSIChannelSpecification, sv_channel_spec: OSIChannelSpecification
-) -> OSIChannelSpecification:
+    gt_channel_spec: ChannelSpecification, sv_channel_spec: ChannelSpecification
+) -> ChannelSpecification:
     with (
         OSIChannelReader.from_osi_channel_specification(gt_channel_spec) as gt_reader,
         OSIChannelWriter.from_osi_channel_specification(sv_channel_spec) as sv_writer,
@@ -61,11 +61,11 @@ def main():
     args = parser.parse_args()
     path_groundtruth = Path(args.groundtruth)
     path_sensorview = Path(args.sensorview)
-    gt_trace_spec = OSIChannelSpecification(
+    gt_trace_spec = ChannelSpecification(
         path=path_groundtruth,
         message_type="GroundTruth",
     )
-    sv_trace_spec = OSIChannelSpecification(
+    sv_trace_spec = ChannelSpecification(
         path=path_sensorview,
         message_type="SensorView",
     )

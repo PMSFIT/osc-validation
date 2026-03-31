@@ -5,16 +5,14 @@ should be removed."""
 import argparse
 from pathlib import Path
 
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+from osi_utilities import ChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
 def strip(sv_in: Path, sv_out: Path, args):
-    input_channel_spec = OSIChannelSpecification(path=sv_in, message_type="SensorView")
-    output_channel_spec = OSIChannelSpecification(
-        path=sv_out, message_type="SensorView"
-    )
+    input_channel_spec = ChannelSpecification(path=sv_in, message_type="SensorView")
+    output_channel_spec = ChannelSpecification(path=sv_out, message_type="SensorView")
     with (
         OSIChannelReader.from_osi_channel_specification(
             input_channel_spec

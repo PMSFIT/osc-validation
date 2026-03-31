@@ -10,9 +10,10 @@ from lxml import etree
 
 from osi3 import osi_object_pb2
 
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+from osi_utilities import ChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointZYX
+from osc_validation.utils.utils import rotatePointZYX
+from osi_utilities.tracefile.timestamp import timestamp_to_seconds
 
 XOSC_VERSION_MAJOR = 1
 XOSC_VERSION_MINOR = 3
@@ -311,7 +312,7 @@ class OSI2OSCMovingObject:
 
 
 def parse_moving_objects(
-    osi_trace_spec: OSIChannelSpecification, host_vehicle_id: str
+    osi_trace_spec: ChannelSpecification, host_vehicle_id: str
 ) -> list[OSI2OSCMovingObject]:
     """
     Extracts all moving objects from an OSI SensorView or GroundTruth trace.
@@ -323,7 +324,7 @@ def parse_moving_objects(
         message_type = channel_reader.get_message_type()
         assert message_type in ("SensorView", "GroundTruth")
         for osi_message in channel_reader:
-            current_timestamp = timestamp_osi_to_float(osi_message.timestamp)
+            current_timestamp = timestamp_to_seconds(osi_message)
             osi_moving_object_list = (
                 osi_message.global_ground_truth.moving_object
                 if message_type == "SensorView"
@@ -378,14 +379,14 @@ def parse_moving_objects(
 
 
 def osi2osc(
-    osi_trace_spec: OSIChannelSpecification, path_xosc: Path, path_xodr: Path = None
+    osi_trace_spec: ChannelSpecification, path_xosc: Path, path_xodr: Path = None
 ) -> Path:
     """
     Converts an OSI GroundTruth or SensorView trace to an OpenSCENARIO XML file
     at the specified path.
 
     Args:
-        osi_trace_spec (OSIChannelSpecification): Input OSI trace file.
+        osi_trace_spec (ChannelSpecification): Input OSI trace file.
         path_xosc (Path): Output OpenSCENARIO file path.
         path_xodr (Path, optional): Optional OpenDRIVE map path to be integrated in the output OpenSCENARIO file.
     Returns:
@@ -532,7 +533,7 @@ def main():
                 f"Input OSI trace file '{path_ositrace}' does not exist."
             )
 
-        osi_trace_spec = OSIChannelSpecification(
+        osi_trace_spec = ChannelSpecification(
             path=path_ositrace, message_type=args.ositype
         )
         path_xosc = Path(args.xosc)
