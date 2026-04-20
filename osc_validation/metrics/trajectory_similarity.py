@@ -21,6 +21,18 @@ from osc_validation.utils.utils import (
 
 
 class TrajectorySimilarityMetric(OSIMetric):
+    # TODO(trajectory-similarity):
+    # - Remove fragile length assumptions:
+    #   align on timestamps first, then compute metrics on overlap windows.
+    # - Add explicit window policy:
+    #   support window_mode in {"intersection", "reference", "tool"}.
+    # - Improve outputs:
+    #   return a structured result object (area/cl/mae + alignment info,
+    #   sample counts, overlap start/end, optional pass/fail thresholds).
+    # - Add robustness controls:
+    #   optional smoothing for sparse/noisy trajectories, stricter min-point
+    #   checks, and clearer failure reasons.
+
     def __init__(self, name: str = "TrajectorySimilarity", plot_path: Path = None):
         """
         Initializes the TrajectorySimilarityMetric with a name.

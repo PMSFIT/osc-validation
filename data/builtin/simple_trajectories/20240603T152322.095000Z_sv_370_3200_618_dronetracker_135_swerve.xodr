@@ -4,7 +4,7 @@
     <road rule="RHT" id="0" junction="-1" length="1000">
         <link/>
         <planView>
-            <geometry s="0" x="-308.36837038224206" y="-62.72132151160449" hdg="0.29" length="1000">
+            <geometry s="0" x="-341.23937407885754" y="-72.86269393425576" hdg="0.29" length="1000">
                 <line/>
             </geometry>
         </planView>
