@@ -6,9 +6,14 @@ from urllib.parse import urlparse
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
-from osc_validation.generation import osi2osc
+from osc_validation.generation import (
+    SimulationTimeTriggerSpec,
+    TriggerTransformRequest,
+    apply_trigger_transform,
+    osi2osc,
+)
 from osc_validation.metrics.qccheck import QCOSITraceChecker
-from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
+from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
 
 
@@ -46,82 +51,89 @@ def odr_file(request):
 
 @pytest.mark.trajectory
 @pytest.mark.parametrize("moving_object_id", [1, 2])
-def test_trajectory_and_osi_compliance(
+@pytest.mark.parametrize("trigger_delay", [10.0])
+@pytest.mark.parametrize("rate", [0.05])
+@pytest.mark.parametrize("tolerance", [1e-1])
+def test_simulation_time_start_trigger_delays_actor_trajectory(
     osi_trace: Path,
     odr_file: Path,
     yaml_ruleset: Path,
     generate_tool_trace: Callable,
     tmp_path: Path,
     moving_object_id: int,
-    tolerance=1e-1,
+    trigger_delay: float,
+    rate: float,
+    tolerance: float,
 ):
     """
-    Validates that a tool-generated trajectory closely matches the original OSI trace
-    for a given moving object, using similarity metrics within a specified tolerance.
-
-    Also runs qc_osi_trace on the tool-generated trace and checks if it complies with
-    the OSI 3.7.0 ruleset.
-
-    Args:
-        osi_trace (Path): Path to the original OSI trace file (pytest module fixture).
-        odr_file (Path): Path to the OpenDRIVE (.odr) file (pytest module fixture).
-        yaml_ruleset (Path): Path to the YAML ruleset for OSITrace quality checks (pytest module fixture).
-        generate_tool_trace (Callable): Function to generate an OSI trace from an OpenSCENARIO file (pytest session fixture).
-        tmp_path (Path): Temporary directory for intermediate files (built-in pytest fixture).
-        moving_object_id (int): ID of the moving object (in the reference trace) selected for trajectory comparison (pytest parameter).
-        tolerance (float, optional): Maximum allowed value for similarity metrics. Defaults to 1e-6.
-    Raises:
-        AssertionError: If any similarity metric exceeds the specified tolerance.
+    Validates delayed Event StartTrigger (SimulationTimeCondition) behavior
+    using trajectory alignment similarity.
     """
 
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    # Generate the OpenSCENARIO file from the reference OSI trace
     reference_trace_channel_spec = OSIChannelSpecification(
         osi_trace, message_type="SensorView"
     )
     osc_path = osi2osc(
         osi_trace_spec=reference_trace_channel_spec,
-        path_xosc=tmp_path / "osi2osc.xosc",
+        path_xosc=tmp_path / "osi2osc_simulation_time_start_trigger.xosc",
         path_xodr=odr_file,
     )
+    transform_result = apply_trigger_transform(
+        TriggerTransformRequest(
+            source_xosc_path=osc_path,
+            source_reference_channel_spec=reference_trace_channel_spec,
+            output_xosc_path=osc_path,
+            output_reference_channel_spec=OSIChannelSpecification(
+                path=tmp_path / f"reference_delayed_comparison_{moving_object_id}.mcap",
+                message_type="SensorView",
+                metadata={
+                    "net.asam.osi.trace.channel.description": "Delayed reference trace for trigger delay validation"
+                },
+            ),
+            spec=SimulationTimeTriggerSpec(
+                trigger_delay=trigger_delay,
+                trigger_rule="greaterOrEqual",
+                activation_frame_offset=1,
+            ),
+        )
+    )
+    osc_path = transform_result.xosc_path
 
-    # Use the OpenSCENARIO and OpenDRIVE file fixtures to generate the tool trace with the specified format and rate
     tool_trace_channel_spec = generate_tool_trace(
         osc_path=osc_path,
         odr_path=odr_file,
         osi_output_spec=OSIChannelSpecification(
-            path=tmp_path / "tool_trace.mcap",
+            path=tmp_path / "tool_trace_simulation_time_start_trigger.mcap",
             message_type="SensorView",
             metadata={
-                "net.asam.osi.trace.channel.description": "Tool-generated trace for validation"
+                "net.asam.osi.trace.channel.description": "Tool-generated trace for simulation-time start trigger validation"
             },
         ),
         log_path=tmp_path,
-        rate=0.05,
+        rate=rate,
     )
 
-    # Check compliance of tool trace OSI ruleset
     """ qc_check = QCOSITraceChecker(ruleset=yaml_ruleset)
     result = qc_check.check(
         channel_spec=tool_trace_channel_spec,
-        result_file=tmp_path / "qc_result.xqar",
-        output_config=tmp_path / "qc_config.xml",
+        result_file=tmp_path / "qc_result_trigger_delay.xqar",
+        output_config=tmp_path / "qc_config_trigger_delay.xml",
     )
-    assert result == True, "QC check failed for the tool-generated OSI trace." """
+    assert result == True, "QC check failed for the trigger-delay tool trace." """
 
-    # Calculate trajectory similarity metrics
-    trajectory_similarity_metric = TrajectorySimilarityMetric(
-        name="TrajectorySimilarityMetric", plot_path=tmp_path
-    )
-    (area, cl, mae) = trajectory_similarity_metric.compute(
-        reference_channel_spec=reference_trace_channel_spec,
+    metric = TrajectoryAlignmentSimilarityMetric()
+    delayed_reference_channel_spec = transform_result.reference_channel_spec
+
+    # Evaluate whole trajectory including pre-trigger portion
+    area, cl, mae, _best_lag_frames = metric.compute(
+        reference_channel_spec=delayed_reference_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
-        start_time=0.0,
-        end_time=19.95,
-        result_file=tmp_path / f"trajectory_similarity_report.txt",
+        result_file=tmp_path
+        / f"trajectory_alignment_similarity_report_{moving_object_id}.txt",
         time_tolerance=0.01,
     )
 

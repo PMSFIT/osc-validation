@@ -6,3 +6,4 @@ from .qccheck import (
     TraceChecker,
     QCOSITraceChecker,
 )
+from .trajectory_alignment_similarity import TrajectoryAlignmentSimilarityMetric
