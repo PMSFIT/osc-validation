@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
+from typing import Literal, Union
 
 from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
+from ..init_transforms.models import InitPoseOverride
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,12 @@ class TriggerTransformRequest:
     output_xosc_path: Path
     output_reference_channel_spec: OSIChannelSpecification
     spec: TriggerTransformSpec
+    init_pose_policy: Literal[
+        "keep", "from_trajectory_start", "explicit_overrides"
+    ] = "keep"
+    init_pose_overrides: list[InitPoseOverride] | None = None
+    init_pose_entity_refs: list[str] | None = None
+    pre_trigger_hold_overrides: list[InitPoseOverride] | None = None
 
 
 @dataclass(frozen=True)

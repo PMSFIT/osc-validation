@@ -6,6 +6,7 @@ from lxml import etree
 from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
+from ..init_transforms.models import InitPoseOverride
 
 from .common import evaluate_rule, find_moving_object
 from .models import (
@@ -100,6 +101,7 @@ def build_distance_position_triggered_comparison_trace(
     target_position_y: float,
     relative_distance_type: str = "euclidianDistance",
     activation_frame_offset: int = 1,
+    pre_trigger_hold_overrides: list[InitPoseOverride] | None = None,
 ) -> OSIChannelSpecification:
     if trigger_distance_m < 0:
         raise ValueError("trigger_distance_m must be >= 0.")
@@ -150,6 +152,16 @@ def build_distance_position_triggered_comparison_trace(
         triggered_source_states.append(trg_obj)
 
     initial_state = triggered_source_states[0]
+    hold_override = None
+    if pre_trigger_hold_overrides:
+        hold_override = next(
+            (
+                override
+                for override in pre_trigger_hold_overrides
+                if override.object_id == triggered_object_id
+            ),
+            None,
+        )
     with OSIChannelWriter.from_osi_channel_specification(output_channel_spec) as writer:
         for output_index, src_msg in enumerate(input_messages):
             msg_copy = type(src_msg)()
@@ -160,20 +172,28 @@ def build_distance_position_triggered_comparison_trace(
                     f"Triggered object ID {triggered_object_id} not found in output frame."
                 )
 
-            if output_index < shifted_start_index:
-                state_src = initial_state
+            if output_index < shifted_start_index and hold_override is not None:
+                out_trg_obj.base.position.x = hold_override.x
+                out_trg_obj.base.position.y = hold_override.y
+                out_trg_obj.base.position.z = hold_override.z
+                out_trg_obj.base.orientation.yaw = hold_override.yaw
+                out_trg_obj.base.orientation.pitch = hold_override.pitch
+                out_trg_obj.base.orientation.roll = hold_override.roll
             else:
-                state_index = output_index - shifted_start_index + 1
-                if state_index >= len(triggered_source_states):
-                    state_index = len(triggered_source_states) - 1
-                state_src = triggered_source_states[state_index]
+                if output_index < shifted_start_index:
+                    state_src = initial_state
+                else:
+                    state_index = output_index - shifted_start_index + 1
+                    if state_index >= len(triggered_source_states):
+                        state_index = len(triggered_source_states) - 1
+                    state_src = triggered_source_states[state_index]
 
-            out_trg_obj.base.position.x = state_src.base.position.x
-            out_trg_obj.base.position.y = state_src.base.position.y
-            out_trg_obj.base.position.z = state_src.base.position.z
-            out_trg_obj.base.orientation.yaw = state_src.base.orientation.yaw
-            out_trg_obj.base.orientation.pitch = state_src.base.orientation.pitch
-            out_trg_obj.base.orientation.roll = state_src.base.orientation.roll
+                out_trg_obj.base.position.x = state_src.base.position.x
+                out_trg_obj.base.position.y = state_src.base.position.y
+                out_trg_obj.base.position.z = state_src.base.position.z
+                out_trg_obj.base.orientation.yaw = state_src.base.orientation.yaw
+                out_trg_obj.base.orientation.pitch = state_src.base.orientation.pitch
+                out_trg_obj.base.orientation.roll = state_src.base.orientation.roll
             writer.write(msg_copy)
 
         return writer.get_channel_specification()
@@ -211,6 +231,7 @@ class DistancePositionTriggerTransformer:
             target_position_y=request.spec.target_position_y,
             relative_distance_type=request.spec.relative_distance_type,
             activation_frame_offset=request.spec.activation_frame_offset,
+            pre_trigger_hold_overrides=request.pre_trigger_hold_overrides,
         )
         return TriggerTransformResult(
             xosc_path=xosc_path,

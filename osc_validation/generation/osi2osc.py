@@ -300,31 +300,6 @@ class OSI2OSCMovingObject:
         return xml_act
 
     def build_init_action(self):
-        if self.trajectory.empty:
-            raise RuntimeError(
-                f"Cannot build init action for '{self.entity_ref}' without trajectory data."
-            )
-
-        first = self.trajectory.iloc[0]
-        x = first["x"]
-        y = first["y"]
-        z = first["z"]
-        h = first["h"]
-        p = first["p"]
-        r = first["r"]
-
-        rx, ry, rz = rotatePointZYX(
-            self.bbcenter_to_rear_x,
-            self.bbcenter_to_rear_y,
-            -self.height_static / 2,  # projection onto ground plane of bounding box
-            h,
-            p,
-            r,
-        )
-        x = x + rx
-        y = y + ry
-        z = z + rz
-
         xml_private = etree.Element("Private", entityRef=self.entity_ref)
         xml_private_action = etree.SubElement(xml_private, "PrivateAction")
         xml_teleport_action = etree.SubElement(xml_private_action, "TeleportAction")
@@ -332,12 +307,12 @@ class OSI2OSCMovingObject:
         xml_world_position = etree.SubElement(
             xml_position,
             "WorldPosition",
-            x=str(x),
-            y=str(y),
-            z=str(z),
-            h=str(h),
-            p=str(p),
-            r=str(r),
+            x="0",
+            y="0",
+            z="0",
+            h="0",
+            p="0",
+            r="0",
         )
         return xml_private
 

@@ -19,6 +19,48 @@ from osc_validation.utils.osi_channel_specification import OSIChannelSpecificati
 from osc_validation.utils.osi_reader import OSIChannelReader
 
 
+"""
+Lichtblick User Script:
+
+import { Input, Message } from "./types";
+
+type Output = {
+  speed: number;
+  max_speed: number;
+};
+
+export const inputs = ["tool_trace_speed_start_trigger"];
+
+export const output = "tool";
+let maxSpeed = 0;
+
+export default function script(
+  event: Input<"tool_trace_speed_start_trigger">,
+): Output {
+  const obj = event.message.global_ground_truth.moving_object?.[0];
+
+  if (!obj?.base?.velocity) {
+    return { speed: 0, max_speed: maxSpeed };
+  }
+
+  const v = obj.base.velocity;
+
+  const speed = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) * 3.6;
+
+  // update max
+  if (speed > maxSpeed) {
+    maxSpeed = speed;
+  }
+
+  return {
+    speed: speed,
+    max_speed: maxSpeed,
+  };
+}
+
+"""
+
+
 @pytest.fixture(
     scope="module",
     params=[

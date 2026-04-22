@@ -6,6 +6,8 @@ from osc_validation.utils.osi_channel_specification import OSIChannelSpecificati
 from osc_validation.utils.osi_reader import OSIChannelReader
 from osc_validation.utils.osi_writer import OSIChannelWriter
 from osc_validation.utils.utils import timestamp_float_to_osi
+from ..init_transforms.models import InitPoseOverride
+from .common import find_moving_object
 
 from .models import (
     SimulationTimeTriggerSpec,
@@ -57,6 +59,7 @@ def build_delayed_comparison_trace(
     trigger_delay: float,
     trigger_rule: str = "greaterThan",
     activation_frame_offset: int = 0,
+    pre_trigger_hold_overrides: list[InitPoseOverride] | None = None,
 ) -> OSIChannelSpecification:
     if trigger_delay < 0:
         raise ValueError("trigger_delay must be >= 0.")
@@ -126,7 +129,7 @@ def build_delayed_comparison_trace(
             t_rel = output_time - start
             condition_true = _is_condition_true(t_rel)
             if condition_true:
-                source_index = output_index - shifted_start_index + 1
+                source_index = output_index - shifted_start_index
                 if source_index < 0:
                     source_index = 0
                 if source_index >= len(input_messages):
@@ -137,6 +140,19 @@ def build_delayed_comparison_trace(
             else:
                 msg_copy = type(first_msg)()
                 msg_copy.CopyFrom(first_msg)
+                if pre_trigger_hold_overrides:
+                    for override in pre_trigger_hold_overrides:
+                        moving_object = find_moving_object(msg_copy, override.object_id)
+                        if moving_object is None:
+                            raise KeyError(
+                                f"Moving object ID {override.object_id} not found while applying pre-trigger hold override."
+                            )
+                        moving_object.base.position.x = override.x
+                        moving_object.base.position.y = override.y
+                        moving_object.base.position.z = override.z
+                        moving_object.base.orientation.yaw = override.yaw
+                        moving_object.base.orientation.pitch = override.pitch
+                        moving_object.base.orientation.roll = override.roll
 
             ts = timestamp_float_to_osi(output_time)
             msg_copy.timestamp.seconds = ts.seconds
@@ -166,6 +182,7 @@ class SimulationTimeTriggerTransformer:
             trigger_delay=request.spec.trigger_delay,
             trigger_rule=request.spec.trigger_rule,
             activation_frame_offset=request.spec.activation_frame_offset,
+            pre_trigger_hold_overrides=request.pre_trigger_hold_overrides,
         )
         return TriggerTransformResult(
             xosc_path=xosc_path,
