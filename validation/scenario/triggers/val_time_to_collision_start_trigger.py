@@ -13,6 +13,7 @@ from osc_validation.generation import (
     build_trace_with_calculated_kinematics,
     osi2osc,
 )
+from osc_validation.generation.init_transforms.models import InitPoseOverride
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification, open_channel
 
@@ -142,6 +143,29 @@ def test_time_to_collision_start_trigger_activates_target_actor(
                 trigger_rule="lessOrEqual",
                 activation_frame_offset=activation_frame_offset,
             ),
+            init_pose_policy="explicit_overrides", # need explicit override because osi2osc default init position (0,0,0) is not on road (gtgen doesn't support placing objects outside of road)
+            init_pose_overrides=[
+                InitPoseOverride(
+                    entity_ref="Ego",
+                    object_id=trigger_object_id,
+                    x=-290.0,
+                    y=-60.0,
+                    z=0.7015,
+                    yaw=0.0,
+                    pitch=0.0,
+                    roll=0.0,
+                ),
+                InitPoseOverride(
+                    entity_ref=f"osi_moving_object_{moving_object_id}",
+                    object_id=moving_object_id,
+                    x=-280.0,
+                    y=-55.0,
+                    z=0.7015,
+                    yaw=0.0,
+                    pitch=0.0,
+                    roll=0.0,
+                ),
+            ],
         )
     )
     osc_path = transform_result.xosc_path

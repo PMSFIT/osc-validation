@@ -1,3 +1,12 @@
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class ActivationPoint:
+    index: int
+    time_s: float
+
+
 def evaluate_rule(lhs: float, rhs: float, rule: str) -> bool:
     if rule == "greaterThan":
         return lhs > rhs

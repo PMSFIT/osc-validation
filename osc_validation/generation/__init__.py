@@ -6,6 +6,7 @@ from .init_transforms import (
     InitPoseTransformRequest,
     InitPoseTransformResult,
     InitPoseTransformSpec,
+    apply_init_pose_close_to_trajectory_start_to_xosc,
     apply_init_pose_from_trajectory_start_transform,
     apply_init_pose_from_trajectory_start_to_xosc,
     apply_init_pose_overrides_to_xosc,
@@ -29,7 +30,10 @@ from .trigger_transforms import (
     build_delayed_comparison_trace,
     build_distance_position_triggered_comparison_trace,
     build_speed_triggered_comparison_trace,
+    find_speed_activation_point,
     build_ttc_position_triggered_comparison_trace,
     build_trace_with_calculated_kinematics,
     build_traveled_distance_triggered_comparison_trace,
+    ActivationPoint,
+    find_distance_position_activation_point,
 )
