@@ -7,10 +7,12 @@ from .models import (
     TriggerTransformRequest,
     TriggerTransformResult,
 )
+from .common import ActivationPoint
 from .distance_to_position import (
     DistancePositionTriggerTransformer,
     apply_distance_position_start_trigger,
     build_distance_position_triggered_comparison_trace,
+    find_distance_position_activation_point,
 )
 from .simulation_time import (
     SimulationTimeTriggerTransformer,
@@ -22,6 +24,7 @@ from .speed import (
     SpeedTriggerTransformer,
     apply_speed_start_trigger,
     build_speed_triggered_comparison_trace,
+    find_speed_activation_point,
 )
 from .time_to_collision import (
     TimeToCollisionPositionTriggerTransformer,
@@ -149,6 +152,9 @@ __all__ = [
     "build_distance_position_triggered_comparison_trace",
     "build_speed_triggered_comparison_trace",
     "build_ttc_position_triggered_comparison_trace",
+    "find_speed_activation_point",
     "build_trace_with_calculated_kinematics",
     "build_traveled_distance_triggered_comparison_trace",
+    "ActivationPoint",
+    "find_distance_position_activation_point",
 ]
