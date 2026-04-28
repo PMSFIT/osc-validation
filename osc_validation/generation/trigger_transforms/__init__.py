@@ -66,16 +66,15 @@ def apply_trigger_transform(request: TriggerTransformRequest) -> TriggerTransfor
       trigger transform:
       - `keep`: no init-pose changes (default)
       - `from_trajectory_start`: set init poses to trajectory start points
+      - `close_to_trajectory_start`: set init poses near trajectory start points
       - `explicit_overrides`: apply `request.init_pose_overrides`
     """
     source_xosc_path = request.source_xosc_path
     source_reference_channel_spec = request.source_reference_channel_spec
-    pre_trigger_hold_overrides = request.pre_trigger_hold_overrides
-
     if request.init_pose_policy != "keep":
         from ..init_transforms import (
-            apply_init_pose_from_trajectory_start_to_xosc,
             apply_init_pose_overrides_to_xosc,
+            build_init_pose_overrides_from_close_to_trajectory_start,
             build_init_pose_overrides_from_trajectory_start,
         )
 
@@ -83,16 +82,36 @@ def apply_trigger_transform(request: TriggerTransformRequest) -> TriggerTransfor
             f"{request.output_xosc_path.stem}_init_stage{request.output_xosc_path.suffix}"
         )
 
+        # Optional XOSC init staging. The resolved init pose is passed as hold
+        # metadata to the trigger-specific trace builder; the trajectory source
+        # trace itself must remain unchanged.
         if request.init_pose_policy == "from_trajectory_start":
             pre_trigger_hold_overrides = build_init_pose_overrides_from_trajectory_start(
                 source_xosc_path=request.source_xosc_path,
                 input_channel_spec=request.source_reference_channel_spec,
                 entity_refs=request.init_pose_entity_refs,
             )
-            source_xosc_path = apply_init_pose_from_trajectory_start_to_xosc(
+            source_xosc_path = apply_init_pose_overrides_to_xosc(
                 source_xosc_path=request.source_xosc_path,
                 output_xosc_path=staged_xosc_path,
-                entity_refs=request.init_pose_entity_refs,
+                overrides=pre_trigger_hold_overrides,
+            )
+        elif request.init_pose_policy == "close_to_trajectory_start":
+            init_pose_close_threshold_m = request.init_pose_close_threshold_m
+            if init_pose_close_threshold_m is None:
+                init_pose_close_threshold_m = 0.5
+            pre_trigger_hold_overrides = (
+                build_init_pose_overrides_from_close_to_trajectory_start(
+                    source_xosc_path=request.source_xosc_path,
+                    input_channel_spec=request.source_reference_channel_spec,
+                    threshold_m=init_pose_close_threshold_m,
+                    entity_refs=request.init_pose_entity_refs,
+                )
+            )
+            source_xosc_path = apply_init_pose_overrides_to_xosc(
+                source_xosc_path=request.source_xosc_path,
+                output_xosc_path=staged_xosc_path,
+                overrides=pre_trigger_hold_overrides,
             )
         elif request.init_pose_policy == "explicit_overrides":
             if not request.init_pose_overrides:
@@ -110,13 +129,15 @@ def apply_trigger_transform(request: TriggerTransformRequest) -> TriggerTransfor
                 f"Unsupported init_pose_policy '{request.init_pose_policy}'."
             )
 
-    if pre_trigger_hold_overrides is None:
-        from ..init_transforms import build_init_pose_overrides_from_xosc_init
+    from ..init_transforms import build_init_pose_overrides_from_xosc_init
 
-        pre_trigger_hold_overrides = build_init_pose_overrides_from_xosc_init(
-            source_xosc_path=source_xosc_path,
-            input_channel_spec=source_reference_channel_spec,
-        )
+    # Always derive hold overrides from the effective XOSC init. These are used
+    # only for pre-trigger hold frames; the original trace remains the trajectory
+    # source for trigger-specific shifting logic.
+    pre_trigger_hold_overrides = build_init_pose_overrides_from_xosc_init(
+        source_xosc_path=source_xosc_path,
+        input_channel_spec=source_reference_channel_spec,
+    )
 
     transformer = TRANSFORMER_BY_SPEC_TYPE.get(type(request.spec))
     if transformer is None:
@@ -129,7 +150,8 @@ def apply_trigger_transform(request: TriggerTransformRequest) -> TriggerTransfor
             output_reference_channel_spec=request.output_reference_channel_spec,
             spec=request.spec,
             init_pose_policy="keep",
-            pre_trigger_hold_overrides=pre_trigger_hold_overrides,
+            init_pose_overrides=pre_trigger_hold_overrides,
+            init_pose_close_threshold_m=request.init_pose_close_threshold_m,
         )
     )
 

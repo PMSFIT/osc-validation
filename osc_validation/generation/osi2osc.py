@@ -1,7 +1,7 @@
 import argparse
 from datetime import datetime
 from pathlib import Path
-from typing import Union
+from typing import Literal, Union
 import logging
 import sys
 
@@ -12,6 +12,8 @@ from osi3 import osi_object_pb2
 
 from osi_utilities import ChannelSpecification, MessageType, open_channel
 from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointZYX
+from .init_transforms import compute_close_to_trajectory_start_xy
+from .init_transforms.models import InitPoseOverride
 
 XOSC_VERSION_MAJOR = 1
 XOSC_VERSION_MINOR = 3
@@ -195,23 +197,7 @@ class OSI2OSCMovingObject:
                 xml_polyline, "Vertex", time=str(point["timestamp"])
             )
             xml_position = etree.SubElement(xml_vertex, "Position")
-            x = point["x"]
-            y = point["y"]
-            z = point["z"]
-            h = point["h"]
-            p = point["p"]
-            r = point["r"]
-            rx, ry, rz = rotatePointZYX(
-                self.bbcenter_to_rear_x,
-                self.bbcenter_to_rear_y,
-                -self.height_static / 2,  # projection onto ground plane of bounding box
-                h,
-                p,
-                r,
-            )
-            x = x + rx
-            y = y + ry
-            z = z + rz
+            x, y, z, h, p, r = self._to_world_position(point)
             xml_world_position = etree.SubElement(
                 xml_position,
                 "WorldPosition",
@@ -223,6 +209,44 @@ class OSI2OSCMovingObject:
                 r=str(r),
             )
         return xml_trajectory
+
+    def _to_world_position(self, point):
+        x = point["x"]
+        y = point["y"]
+        z = point["z"]
+        h = point["h"]
+        p = point["p"]
+        r = point["r"]
+        rx, ry, rz = rotatePointZYX(
+            self.bbcenter_to_rear_x,
+            self.bbcenter_to_rear_y,
+            -self.height_static / 2,  # projection onto ground plane of bounding box
+            h,
+            p,
+            r,
+        )
+        x = x + rx
+        y = y + ry
+        z = z + rz
+        return x, y, z, h, p, r
+
+    def build_trajectory_start_override(self) -> InitPoseOverride:
+        if self.trajectory.empty:
+            raise RuntimeError(
+                f"Object '{self.entity_ref}' has no trajectory samples."
+            )
+        first_point = self.trajectory.iloc[0]
+        x, y, z, h, p, r = self._to_world_position(first_point)
+        return InitPoseOverride(
+            entity_ref=self.entity_ref,
+            object_id=int(self.id),
+            x=float(x),
+            y=float(y),
+            z=float(z),
+            yaw=float(h),
+            pitch=float(p),
+            roll=float(r),
+        )
 
     def build_act(self):
         """
@@ -298,7 +322,7 @@ class OSI2OSCMovingObject:
         xml_trajectory_ref.append(xml_trajectory)
         return xml_act
 
-    def build_init_action(self):
+    def build_init_action(self, init_pose: InitPoseOverride):
         xml_private = etree.Element("Private", entityRef=self.entity_ref)
         xml_private_action = etree.SubElement(xml_private, "PrivateAction")
         xml_teleport_action = etree.SubElement(xml_private_action, "TeleportAction")
@@ -306,12 +330,12 @@ class OSI2OSCMovingObject:
         xml_world_position = etree.SubElement(
             xml_position,
             "WorldPosition",
-            x="0",
-            y="0",
-            z="0",
-            h="0",
-            p="0",
-            r="0",
+            x=str(init_pose.x),
+            y=str(init_pose.y),
+            z=str(init_pose.z),
+            h=str(init_pose.yaw),
+            p=str(init_pose.pitch),
+            r=str(init_pose.roll),
         )
         return xml_private
 
@@ -382,7 +406,15 @@ def parse_moving_objects(
 
 
 def osi2osc(
-    osi_trace_spec: ChannelSpecification, path_xosc: Path, path_xodr: Path = None
+    osi_trace_spec: ChannelSpecification,
+    path_xosc: Path,
+    path_xodr: Path = None,
+    init_pose_policy: Literal[
+        "origin",
+        "from_trajectory_start",
+        "close_to_trajectory_start",
+    ] = "origin",
+    init_pose_close_threshold_m: float | None = None,
 ) -> Path:
     """
     Converts an OSI GroundTruth or SensorView trace to an OpenSCENARIO XML file
@@ -392,6 +424,9 @@ def osi2osc(
         osi_trace_spec (ChannelSpecification): Input OSI trace file.
         path_xosc (Path): Output OpenSCENARIO file path.
         path_xodr (Path, optional): Optional OpenDRIVE map path to be integrated in the output OpenSCENARIO file.
+        init_pose_policy: Optional init pose policy. Default "origin" preserves
+            converter defaults (`0,0,0` teleport init).
+        init_pose_close_threshold_m: Threshold distance in meters for the "close_to_trajectory_start" init pose policy. Default is 0.5 meters.
     Returns:
         Path: Valid path to the output OpenSCENARIO file if the conversion was successful.
     Raises:
@@ -454,7 +489,56 @@ def osi2osc(
     xml_init_actions = etree.SubElement(xml_init, "Actions")
     if INITACTIONS:
         for obj in my_moving_objects:
-            xml_init_actions.append(obj.build_init_action())
+            origin_override = InitPoseOverride(
+                entity_ref=obj.entity_ref,
+                object_id=int(obj.id),
+                x=0.0,
+                y=0.0,
+                z=0.0,
+                yaw=0.0,
+                pitch=0.0,
+                roll=0.0,
+            )
+            if init_pose_policy == "origin":
+                resolved_override = origin_override
+            elif init_pose_policy == "from_trajectory_start":
+                trajectory_start_override = obj.build_trajectory_start_override()
+                resolved_override = InitPoseOverride(
+                    entity_ref=origin_override.entity_ref,
+                    object_id=origin_override.object_id,
+                    x=trajectory_start_override.x,
+                    y=trajectory_start_override.y,
+                    z=trajectory_start_override.z,
+                    yaw=trajectory_start_override.yaw,
+                    pitch=trajectory_start_override.pitch,
+                    roll=trajectory_start_override.roll,
+                )
+            elif init_pose_policy == "close_to_trajectory_start":
+                if init_pose_close_threshold_m is None:
+                    init_pose_close_threshold_m = 0.5
+                trajectory_start_override = obj.build_trajectory_start_override()
+                target_x, target_y = compute_close_to_trajectory_start_xy(
+                    init_x=origin_override.x,
+                    init_y=origin_override.y,
+                    start_x=trajectory_start_override.x,
+                    start_y=trajectory_start_override.y,
+                    threshold_m=init_pose_close_threshold_m,
+                )
+                resolved_override = InitPoseOverride(
+                    entity_ref=origin_override.entity_ref,
+                    object_id=origin_override.object_id,
+                    x=target_x,
+                    y=target_y,
+                    z=trajectory_start_override.z,
+                    yaw=trajectory_start_override.yaw,
+                    pitch=trajectory_start_override.pitch,
+                    roll=trajectory_start_override.roll,
+                )
+            else:
+                raise ValueError(f"Unsupported init_pose_policy '{init_pose_policy}'.")
+            xml_init_actions.append(
+                obj.build_init_action(resolved_override)
+            )
     story_name = "Story1"
     xml_story = etree.SubElement(xml_storyboard, "Story", name=story_name)
     for xml_act in xml_acts:
@@ -527,6 +611,24 @@ def create_argparser():
         choices=["SensorView", "GroundTruth"],
     )
     parser.add_argument("xosc", help="Path to the output OpenScenario XML file.")
+    parser.add_argument(
+        "--init-pose-policy",
+        choices=["origin", "from_trajectory_start", "close_to_trajectory_start"],
+        default="origin",
+        help=(
+            "Optional init pose policy. "
+            "'origin' preserves default converter init positions (0,0,0)."
+        ),
+    )
+    parser.add_argument(
+        "--init-pose-close-threshold-m",
+        type=float,
+        default=None,
+        help=(
+            "Maximum XY distance from trajectory start when using "
+            "--init-pose-policy close_to_trajectory_start."
+        ),
+    )
     return parser
 
 
@@ -549,7 +651,12 @@ def main():
             ),
         )
         path_xosc = Path(args.xosc)
-        osi2osc(osi_trace_spec, path_xosc)
+        osi2osc(
+            osi_trace_spec=osi_trace_spec,
+            path_xosc=path_xosc,
+            init_pose_policy=args.init_pose_policy,
+            init_pose_close_threshold_m=args.init_pose_close_threshold_m,
+        )
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
