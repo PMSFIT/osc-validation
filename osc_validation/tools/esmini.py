@@ -20,11 +20,7 @@ class ESMini(OSCTool):
     """
 
     def __init__(self, tool_path=None):
-        if not tool_path:
-            tool_path = "esmini"
-        if not os.path.exists(tool_path):
-            raise FileNotFoundError(f"esmini not found at path: {tool_path}")
-        super().__init__(tool_path)
+        super().__init__(self.resolve_tool_path(tool_path, "esmini"))
 
     def get_version(self) -> list[str]:
         cmd = [str(self.tool_path), "--version"]
