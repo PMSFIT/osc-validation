@@ -14,7 +14,6 @@ It derives from this subset a validation suite of representative test cases and 
 Use [poetry](https://python-poetry.org/) to install the validation suite into a new virtual environment:
 
 ```bash
-git submodule update --init --recursive
 poetry install
 ```
 
