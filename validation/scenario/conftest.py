@@ -7,6 +7,10 @@ from osc_validation.tools.esmini import ESMini
 from osc_validation.tools.gtgen_cli import GTGen_Simulator
 
 
+class UnknownToolError(ValueError):
+    pass
+
+
 def _make_tool(config):
     tool_name = config.getoption("--tool")
     toolpath = config.getoption("--toolpath")
@@ -15,11 +19,14 @@ def _make_tool(config):
         return ESMini(toolpath)
     elif tool_name == "GTGen":
         return GTGen_Simulator(toolpath)
-    raise ValueError("Tool not found")
+    raise UnknownToolError(f"Unknown tool: {tool_name}")
 
 
 def pytest_configure(config):
-    tool = _make_tool(config)
+    try:
+        tool = _make_tool(config)
+    except (UnknownToolError, FileNotFoundError) as exc:
+        raise pytest.UsageError(str(exc)) from exc
     config._osc_tool = tool
     config._osc_tool_version = tool.get_version()
 
