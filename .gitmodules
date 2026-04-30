@@ -1,4 +1,0 @@
-[submodule "submodules/asam-osi-utilities"]
-	path = submodules/asam-osi-utilities
-	url = https://github.com/lichtblick-suite/asam-osi-utilities.git
-	branch = feat/writer-api-improvements

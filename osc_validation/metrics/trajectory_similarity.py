@@ -9,8 +9,7 @@ import pandas as pd
 import similaritymeasures
 
 from osc_validation.metrics.osimetric import OSIMetric
-from osi_utilities import ChannelSpecification
-from osc_validation.utils.osi_reader import OSIChannelReader
+from osi_utilities import ChannelSpecification, MessageType
 from osc_validation.utils.utils import (
     get_all_moving_object_ids,
     get_closest_trajectory,
@@ -217,11 +216,11 @@ def main():
     args = parser.parse_args()
     path_reference = Path(args.reference_sv)
     reference_spec = ChannelSpecification(
-        path_reference, message_type="SensorView", topic=args.reference_topic
+        path_reference, message_type=MessageType.SENSOR_VIEW, topic=args.reference_topic
     )
     path_tool = Path(args.tool_sv)
     tool_spec = ChannelSpecification(
-        path_tool, message_type="SensorView", topic=args.tool_topic
+        path_tool, message_type=MessageType.SENSOR_VIEW, topic=args.tool_topic
     )
     metric = TrajectorySimilarityMetric(
         "TrajectorySimilarityMetric",

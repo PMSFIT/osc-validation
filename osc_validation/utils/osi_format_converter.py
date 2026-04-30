@@ -9,21 +9,17 @@ Examples:
 import argparse
 from pathlib import Path
 
-from osi_utilities import ChannelSpecification
-from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
+from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
 
 
 def convert(
     input_channel_spec: ChannelSpecification,
     output_channel_spec: ChannelSpecification,
 ) -> ChannelSpecification:
-    with OSIChannelReader.from_osi_channel_specification(input_channel_spec) as reader:
-        with OSIChannelWriter.from_osi_channel_specification(
-            output_channel_spec
-        ) as writer:
+    with open_channel(input_channel_spec) as reader:
+        with open_channel_writer(output_channel_spec) as writer:
             for msg in reader:
-                writer.write(msg)
+                writer.write_message(msg)
             return writer.get_channel_specification()
 
 

@@ -4,9 +4,12 @@ import math
 from osi3 import osi_common_pb2
 import pandas as pd
 
-from osi_utilities import ChannelSpecification
-from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
+from osi_utilities import (
+    ChannelSpecification,
+    MessageType,
+    open_channel,
+    open_channel_writer,
+)
 
 
 def timestamp_osi_to_float(osi_timestamp: osi_common_pb2.Timestamp) -> float:
@@ -26,13 +29,16 @@ def get_all_moving_object_ids(osi_trace: ChannelSpecification) -> list[int]:
     """
     Extracts all moving object ids from the input OSI SensorView or GroundTruth trace.
     """
-    assert osi_trace.message_type in ("SensorView", "GroundTruth")
+    assert osi_trace.message_type in (
+        MessageType.SENSOR_VIEW,
+        MessageType.GROUND_TRUTH,
+    )
     moving_object_ids = []
-    with OSIChannelReader.from_osi_channel_specification(osi_trace) as channel_reader:
+    with open_channel(osi_trace) as channel_reader:
         for message in channel_reader:
             osi_moving_objects = (
                 message.global_ground_truth.moving_object
-                if osi_trace.message_type == "SensorView"
+                if osi_trace.message_type == MessageType.SENSOR_VIEW
                 else message.moving_object
             )
             for mo in osi_moving_objects:
@@ -61,14 +67,17 @@ def get_trajectory_by_moving_object_id(
 
     Returns pandas data frame containing timestamp, x, y, z, h, p, r.
     """
-    assert osi_trace.message_type in ("SensorView", "GroundTruth")
+    assert osi_trace.message_type in (
+        MessageType.SENSOR_VIEW,
+        MessageType.GROUND_TRUTH,
+    )
     trajectory = {"timestamp": [], "x": [], "y": [], "z": [], "h": [], "p": [], "r": []}
     object_metadata = {}
-    with OSIChannelReader.from_osi_channel_specification(osi_trace) as channel_reader:
+    with open_channel(osi_trace) as channel_reader:
         for message in channel_reader:
             osi_moving_objects = (
                 message.global_ground_truth.moving_object
-                if osi_trace.message_type == "SensorView"
+                if osi_trace.message_type == MessageType.SENSOR_VIEW
                 else message.moving_object
             )
             current_timestamp = timestamp_osi_to_float(message.timestamp)
@@ -235,17 +244,13 @@ def crop_trace(
         Specification of the output OSI channel.
     """
     with (
-        OSIChannelReader.from_osi_channel_specification(
-            input_channel_spec
-        ) as channel_reader,
-        OSIChannelWriter.from_osi_channel_specification(
-            output_channel_spec
-        ) as channel_writer,
+        open_channel(input_channel_spec) as channel_reader,
+        open_channel_writer(output_channel_spec) as channel_writer,
     ):
         for message in channel_reader:
             message_time = timestamp_osi_to_float(message.timestamp)
             if (start_time is None or message_time >= start_time) and (
                 end_time is None or message_time <= end_time
             ):
-                channel_writer.write(message)
+                channel_writer.write_message(message)
     return channel_writer.get_channel_specification()

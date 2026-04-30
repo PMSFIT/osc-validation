@@ -2,7 +2,13 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from osi_utilities import ChannelSpecification, TraceFileFormat
+from osi_utilities import (
+    ChannelSpecification,
+    MessageType,
+    TraceFileFormat,
+    open_channel,
+    open_channel_writer,
+)
 
 from osc_validation.tools.osctool import OSCTool
 from osc_validation.utils.esminigt2sv import gt2sv
@@ -11,8 +17,6 @@ from osc_validation.utils.osi_channel_specification import (
     rename_to,
     with_name_suffix,
 )
-from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
 class ESMini(OSCTool):
@@ -61,7 +65,7 @@ class ESMini(OSCTool):
         """
         # Check if the requested output specification is supported
         requested_spec_validator = OSIChannelSpecValidator(
-            allowed_message_types=["GroundTruth", "SensorView"]
+            allowed_message_types=[MessageType.GROUND_TRUTH, MessageType.SENSOR_VIEW]
         )
         requested_spec_validator(osi_output_spec)
 
@@ -69,7 +73,7 @@ class ESMini(OSCTool):
         osi_esmini_gt_spec = (
             with_name_suffix(osi_output_spec, "_esmini_gt")
             .with_trace_file_format(TraceFileFormat.SINGLE_CHANNEL)
-            .with_message_type("GroundTruth")
+            .with_message_type(MessageType.GROUND_TRUTH)
         )
 
         cmd = [
@@ -100,28 +104,24 @@ class ESMini(OSCTool):
         # Convert the ground truth trace to SensorView if requested
         output_spec = None
         if (
-            osi_output_spec.message_type == "SensorView"
+            osi_output_spec.message_type == MessageType.SENSOR_VIEW
             or osi_output_spec.message_type is None
         ):
             output_spec = gt2sv(
                 gt_channel_spec=osi_esmini_gt_spec, sv_channel_spec=osi_output_spec
             )
             logging.info(f"gt2sv output: {output_spec}")
-        elif osi_output_spec.message_type == "GroundTruth":
+        elif osi_output_spec.message_type == MessageType.GROUND_TRUTH:
             if (
                 osi_output_spec.trace_file_format
                 != osi_esmini_gt_spec.trace_file_format
             ):
                 with (
-                    OSIChannelReader.from_osi_channel_specification(
-                        osi_esmini_gt_spec
-                    ) as channel_reader,
-                    OSIChannelWriter.from_osi_channel_specification(
-                        osi_output_spec
-                    ) as channel_writer,
+                    open_channel(osi_esmini_gt_spec) as channel_reader,
+                    open_channel_writer(osi_output_spec) as channel_writer,
                 ):
                     for msg in channel_reader:
-                        channel_writer.write(msg)
+                        channel_writer.write_message(msg)
                 output_spec = channel_writer.get_channel_specification()
             else:
                 output_spec = rename_to(osi_esmini_gt_spec, osi_output_spec.path)

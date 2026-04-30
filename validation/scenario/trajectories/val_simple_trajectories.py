@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 import pytest
 
+from osi_utilities import MessageType
 from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
 from osc_validation.generation import osi2osc
 from osc_validation.metrics.qccheck import QCOSITraceChecker
@@ -79,7 +80,7 @@ def test_trajectory_and_osi_compliance(
 
     # Generate the OpenSCENARIO file from the reference OSI trace
     reference_trace_channel_spec = ChannelSpecification(
-        osi_trace, message_type="SensorView"
+        osi_trace, message_type=MessageType.SENSOR_VIEW
     )
     osc_path = osi2osc(
         osi_trace_spec=reference_trace_channel_spec,
@@ -93,7 +94,7 @@ def test_trajectory_and_osi_compliance(
         odr_path=odr_file,
         osi_output_spec=ChannelSpecification(
             path=tmp_path / "tool_trace.mcap",
-            message_type="SensorView",
+            message_type=MessageType.SENSOR_VIEW,
             metadata={
                 "net.asam.osi.trace.channel.description": "Tool-generated trace for validation"
             },
