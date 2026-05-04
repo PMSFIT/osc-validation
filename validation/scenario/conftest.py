@@ -29,19 +29,51 @@ def pytest_configure(config):
         raise pytest.UsageError(str(exc)) from exc
     config._osc_tool = tool
     config._osc_tool_version = tool.get_version()
+    config._osc_validation_run_start_time = datetime.datetime.now().astimezone()
+
+    metadata_key = _get_pytest_metadata_key()
+    if metadata_key is not None:
+        metadata = config.stash[metadata_key]
+        for key, value in _validation_metadata(config).items():
+            metadata[key] = value
+
+
+def _get_pytest_metadata_key():
+    try:
+        from pytest_metadata.plugin import metadata_key
+    except ImportError:
+        return None
+    return metadata_key
+
+
+def _validation_metadata(config):
+    tool = getattr(config, "_osc_tool", None)
+    resolved_tool_path = getattr(tool, "tool_path", config.getoption("--toolpath"))
+    run_start_time = getattr(
+        config,
+        "_osc_validation_run_start_time",
+        datetime.datetime.now().astimezone(),
+    )
+    return {
+        "Validation Suite": f"OSC Validation Suite {osc_validation_version}",
+        "Validation Suite Path": str(pathlib.Path(__file__).parent),
+        "Validated Tool": config.getoption("--tool"),
+        "Tool Path": str(resolved_tool_path),
+        "Tool Version": getattr(config, "_osc_tool_version", "unknown version"),
+        "Validation Run Start Time": run_start_time.isoformat(),
+    }
 
 
 def pytest_report_header(config):
-    tool = getattr(config, "_osc_tool", None)
-    resolved_tool_path = getattr(tool, "tool_path", config.getoption("--toolpath"))
+    metadata = _validation_metadata(config)
     return [
-        f"Validation Suite: OSC Validation Suite {osc_validation_version}",
-        f"Validation Suite Path: {pathlib.Path(__file__).parent}",
-        f"Validated Tool: {config.getoption('--tool')}",
-        f"Tool Path: {resolved_tool_path}",
-        f"Tool Version: {getattr(config, '_osc_tool_version', 'unknown version')}",
-        f"Validation Run Start Time: {datetime.datetime.now().astimezone().isoformat()}",
+        f"{key}: {value}"
+        for key, value in metadata.items()
     ]
+
+
+def pytest_html_report_title(report):
+    report.title = "OSC Validation Report"
 
 
 def pytest_addoption(parser):

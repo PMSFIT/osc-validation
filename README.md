@@ -43,6 +43,12 @@ Example:
 pytest validation/scenario --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe
 ```
 
+Generate a self-contained HTML validation report with:
+
+```bash
+pytest validation/scenario --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --html=validation-report.html --self-contained-html
+```
+
 For more information on available command-line options, run:
 
 ```bash
