@@ -5,23 +5,24 @@ should be removed."""
 import argparse
 from pathlib import Path
 
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
+from osi_utilities import (
+    ChannelSpecification,
+    MessageType,
+    open_channel,
+    open_channel_writer,
+)
 
 
 def strip(sv_in: Path, sv_out: Path, args):
-    input_channel_spec = OSIChannelSpecification(path=sv_in, message_type="SensorView")
-    output_channel_spec = OSIChannelSpecification(
-        path=sv_out, message_type="SensorView"
+    input_channel_spec = ChannelSpecification(
+        path=sv_in, message_type=MessageType.SENSOR_VIEW
+    )
+    output_channel_spec = ChannelSpecification(
+        path=sv_out, message_type=MessageType.SENSOR_VIEW
     )
     with (
-        OSIChannelReader.from_osi_channel_specification(
-            input_channel_spec
-        ) as channel_reader,
-        OSIChannelWriter.from_osi_channel_specification(
-            output_channel_spec
-        ) as channel_writer,
+        open_channel(input_channel_spec) as channel_reader,
+        open_channel_writer(output_channel_spec) as channel_writer,
     ):
         for message in channel_reader:
             if args.lane_boundary:
@@ -36,7 +37,7 @@ def strip(sv_in: Path, sv_out: Path, args):
                 message.global_ground_truth.ClearField("lane")
             if args.environmental_conditions:
                 message.global_ground_truth.ClearField("environmental_conditions")
-            channel_writer.write(message)
+            channel_writer.write_message(message)
 
 
 def create_argparser():

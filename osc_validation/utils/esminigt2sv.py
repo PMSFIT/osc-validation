@@ -7,17 +7,15 @@ from pathlib import Path
 
 from osi3 import osi_version_pb2, osi_sensorview_pb2
 
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
+from osi_utilities import ChannelSpecification, MessageType, open_channel, open_channel_writer
 
 
 def gt2sv(
-    gt_channel_spec: OSIChannelSpecification, sv_channel_spec: OSIChannelSpecification
-) -> OSIChannelSpecification:
+    gt_channel_spec: ChannelSpecification, sv_channel_spec: ChannelSpecification
+) -> ChannelSpecification:
     with (
-        OSIChannelReader.from_osi_channel_specification(gt_channel_spec) as gt_reader,
-        OSIChannelWriter.from_osi_channel_specification(sv_channel_spec) as sv_writer,
+        open_channel(gt_channel_spec) as gt_reader,
+        open_channel_writer(sv_channel_spec) as sv_writer,
     ):
         for gt_msg in gt_reader:
             gt_msg.version.CopyFrom(
@@ -38,7 +36,7 @@ def gt2sv(
             )
             sv_msg.host_vehicle_id.CopyFrom(gt_msg.host_vehicle_id)
             sv_msg.global_ground_truth.CopyFrom(gt_msg)
-            sv_writer.write(sv_msg)
+            sv_writer.write_message(sv_msg)
 
     return sv_writer.get_channel_specification()
 
@@ -61,13 +59,13 @@ def main():
     args = parser.parse_args()
     path_groundtruth = Path(args.groundtruth)
     path_sensorview = Path(args.sensorview)
-    gt_trace_spec = OSIChannelSpecification(
+    gt_trace_spec = ChannelSpecification(
         path=path_groundtruth,
-        message_type="GroundTruth",
+        message_type=MessageType.GROUND_TRUTH,
     )
-    sv_trace_spec = OSIChannelSpecification(
+    sv_trace_spec = ChannelSpecification(
         path=path_sensorview,
-        message_type="SensorView",
+        message_type=MessageType.SENSOR_VIEW,
     )
     gt2sv(gt_trace_spec, sv_trace_spec)
 

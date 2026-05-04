@@ -1,14 +1,15 @@
 from pathlib import Path
 import math
 
+from osi3 import osi_common_pb2
 import pandas as pd
 
-from osi3 import osi_common_pb2, osi_sensordata_pb2
-from osi3trace.osi_trace import OSITrace
-
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
+from osi_utilities import (
+    ChannelSpecification,
+    MessageType,
+    open_channel,
+    open_channel_writer,
+)
 
 
 def timestamp_osi_to_float(osi_timestamp: osi_common_pb2.Timestamp) -> float:
@@ -24,66 +25,20 @@ def timestamp_float_to_osi(float_timestamp: float) -> osi_common_pb2.Timestamp:
     return osi_timestamp
 
 
-def sensordata_timestamp_osi_to_list(osi_sensordata_trace: OSITrace) -> list[float]:
-    """
-    Extracts all timestamps from OSI SensorData trace.
-
-    Returns list with float timestamps.
-    """
-    assert isinstance(osi_sensordata_trace, osi_sensordata_pb2.SensorData)
-    osi_sensordata_trace.restart()
-    timestamp_list = []
-    for message in osi_sensordata_trace:
-        timestamp_list.append(timestamp_osi_to_float(message.timestamp))
-    return timestamp_list
-
-
-def sensordata_last_measurement_time_osi_to_list(
-    osi_sensordata_trace: OSITrace,
-) -> list[float]:
-    """
-    Extracts all last_measurement_time timestamps from OSI SensorData trace.
-
-    Returns list with float timestamps.
-    """
-    assert isinstance(osi_sensordata_trace, osi_sensordata_pb2.SensorData)
-    osi_sensordata_trace.restart()
-    timestamp_list = []
-    for message in osi_sensordata_trace:
-        timestamp_list.append(timestamp_osi_to_float(message.last_measurement_time))
-    return timestamp_list
-
-
-def trajectory_df_info(trajectory_df):
-    print(trajectory_df)
-    print("number of frames:    " + str(len(trajectory_df)))
-    print(
-        "start/end:           "
-        + str(trajectory_df["timestamp"].iloc[0])
-        + "/"
-        + str(trajectory_df["timestamp"].iloc[-1])
-    )
-    print(
-        "avg step size:       "
-        + str(
-            (trajectory_df["timestamp"].iloc[-1] - trajectory_df["timestamp"].iloc[0])
-            / len(trajectory_df)
-        )
-    )
-    print("-------------------------------------------------------")
-
-
-def get_all_moving_object_ids(osi_trace: OSIChannelSpecification) -> list[int]:
+def get_all_moving_object_ids(osi_trace: ChannelSpecification) -> list[int]:
     """
     Extracts all moving object ids from the input OSI SensorView or GroundTruth trace.
     """
-    assert osi_trace.message_type in ("SensorView", "GroundTruth")
+    assert osi_trace.message_type in (
+        MessageType.SENSOR_VIEW,
+        MessageType.GROUND_TRUTH,
+    )
     moving_object_ids = []
-    with OSIChannelReader.from_osi_channel_specification(osi_trace) as channel_reader:
+    with open_channel(osi_trace) as channel_reader:
         for message in channel_reader:
             osi_moving_objects = (
                 message.global_ground_truth.moving_object
-                if osi_trace.message_type == "SensorView"
+                if osi_trace.message_type == MessageType.SENSOR_VIEW
                 else message.moving_object
             )
             for mo in osi_moving_objects:
@@ -93,7 +48,7 @@ def get_all_moving_object_ids(osi_trace: OSIChannelSpecification) -> list[int]:
 
 
 def get_trajectory_by_moving_object_id(
-    osi_trace: OSIChannelSpecification,
+    osi_trace: ChannelSpecification,
     moving_object_id: str,
     start_time: float = None,
     end_time: float = None,
@@ -112,14 +67,17 @@ def get_trajectory_by_moving_object_id(
 
     Returns pandas data frame containing timestamp, x, y, z, h, p, r.
     """
-    assert osi_trace.message_type in ("SensorView", "GroundTruth")
+    assert osi_trace.message_type in (
+        MessageType.SENSOR_VIEW,
+        MessageType.GROUND_TRUTH,
+    )
     trajectory = {"timestamp": [], "x": [], "y": [], "z": [], "h": [], "p": [], "r": []}
     object_metadata = {}
-    with OSIChannelReader.from_osi_channel_specification(osi_trace) as channel_reader:
+    with open_channel(osi_trace) as channel_reader:
         for message in channel_reader:
             osi_moving_objects = (
                 message.global_ground_truth.moving_object
-                if osi_trace.message_type == "SensorView"
+                if osi_trace.message_type == MessageType.SENSOR_VIEW
                 else message.moving_object
             )
             current_timestamp = timestamp_osi_to_float(message.timestamp)
@@ -154,7 +112,7 @@ def get_trajectory_by_moving_object_id(
 
 def get_closest_trajectory(
     ref_trajectory: pd.DataFrame,
-    tool_channel_spec: OSIChannelSpecification,
+    tool_channel_spec: ChannelSpecification,
     start_time: float = None,
     end_time: float = None,
 ) -> pd.DataFrame:
@@ -162,7 +120,7 @@ def get_closest_trajectory(
     Finds the tool trajectory that is closest to the reference trajectory based on the starting position.
     Args:
         ref_trajectory (pd.DataFrame): Reference trajectory DataFrame containing columns ['timestamp', 'x', 'y', 'z', 'h', 'p', 'r'].
-        tool_channel_spec (OSIChannelSpecification): OSI channel specification for the tool trace.
+        tool_channel_spec (ChannelSpecification): OSI channel specification for the tool trace.
         start_time (float, optional): Start time of the inclusive interval. Defaults to None.
         end_time (float, optional): End time of the inclusive interval. Defaults to None.
     Returns:
@@ -268,35 +226,31 @@ def rotatePointXYZ(x, y, z, yaw, pitch, roll):
 
 
 def crop_trace(
-    input_channel_spec: OSIChannelSpecification,
-    output_channel_spec: OSIChannelSpecification,
+    input_channel_spec: ChannelSpecification,
+    output_channel_spec: ChannelSpecification,
     start_time: float = None,
     end_time: float = None,
-) -> OSIChannelSpecification:
+) -> ChannelSpecification:
     """
     Crops the content of an input OSI trace based on the given inclusive interval and stores it
     at the given output path.
 
     Args:
-        input_channel_spec (OSIChannelSpecification): OSI channel specification for the input OSI trace
-        output_channel_spec (OSIChannelSpecification): OSI channel specification for the output OSI trace
+        input_channel_spec (ChannelSpecification): OSI channel specification for the input OSI trace
+        output_channel_spec (ChannelSpecification): OSI channel specification for the output OSI trace
         start_time (float, optional): Start time of the inclusive interval
         end_time (float, optional): End time of the inclusive interval
     Returns:
         Specification of the output OSI channel.
     """
     with (
-        OSIChannelReader.from_osi_channel_specification(
-            input_channel_spec
-        ) as channel_reader,
-        OSIChannelWriter.from_osi_channel_specification(
-            output_channel_spec
-        ) as channel_writer,
+        open_channel(input_channel_spec) as channel_reader,
+        open_channel_writer(output_channel_spec) as channel_writer,
     ):
         for message in channel_reader:
             message_time = timestamp_osi_to_float(message.timestamp)
             if (start_time is None or message_time >= start_time) and (
                 end_time is None or message_time <= end_time
             ):
-                channel_writer.write(message)
+                channel_writer.write_message(message)
     return channel_writer.get_channel_specification()

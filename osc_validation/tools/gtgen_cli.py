@@ -2,15 +2,19 @@ import logging
 import os
 import subprocess
 from pathlib import Path
+from osi_utilities import (
+    ChannelSpecification,
+    MessageType,
+    TraceFileFormat,
+    open_channel,
+    open_channel_writer,
+)
 
 from osc_validation.tools.osctool import OSCTool
 from osc_validation.utils.osi_channel_specification import (
     OSIChannelSpecValidator,
-    OSIChannelSpecification,
-    TraceFileFormat,
+    with_name_suffix,
 )
-from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
 class GTGen_Simulator(OSCTool):
@@ -32,38 +36,37 @@ class GTGen_Simulator(OSCTool):
         self,
         osc_path: Path,
         odr_path: Path,
-        osi_output_spec: OSIChannelSpecification,
+        osi_output_spec: ChannelSpecification,
         log_path: Path = None,
         rate=None,
-    ) -> OSIChannelSpecification:
+    ) -> ChannelSpecification:
         """
         Executes the gtgen_cli tool with the specified input files and parameters.
 
         Args:
             osc_path (Path): Path to the OpenSCENARIO (.xosc) file.
             odr_path (Path): Path to the OpenDRIVE (.xodr) file.
-            osi_output_spec (OSIChannelSpecification): Requested OSI channel specification of the output trace.
+            osi_output_spec (ChannelSpecification): Requested OSI channel specification of the output trace.
                 Allowed message type is "SensorView"; If none given, it will output a SensorView trace.
             log_path (Path, optional): Path to the directory where logs will be stored. If None, logs will not be saved but printed to stdout.
             rate (float, optional): Step size in seconds.
         Returns:
-            OSIChannelSpecification: The OSI channel specification for the output trace.
+            ChannelSpecification: The OSI channel specification for the output trace.
         Raises:
             InvalidSpecificationError: If the requested OSI output specification is invalid or unsupported.
             FileNotFoundError: If the GTGen tool is not found at the specified path.
             RuntimeError: If the trace could not be generated.
         """
-
         # Check if the requested output specification is supported
         requested_spec_validator = OSIChannelSpecValidator(
-            allowed_message_types=["SensorView"]
+            allowed_message_types=[MessageType.SENSOR_VIEW]
         )
         requested_spec_validator(osi_output_spec)
 
         osi_gtgen_sv_spec = (
-            osi_output_spec.with_name_suffix("_gtgen")
+            with_name_suffix(osi_output_spec, "_gtgen")
             .with_trace_file_format(TraceFileFormat.SINGLE_CHANNEL)
-            .with_message_type("SensorView")
+            .with_message_type(MessageType.SENSOR_VIEW)
         )
 
         cmd = [
@@ -94,13 +97,11 @@ class GTGen_Simulator(OSCTool):
         # Adapt output trace file format according to the requested specification
         output_spec = None
         with (
-            OSIChannelWriter.from_osi_channel_specification(osi_output_spec) as writer,
-            OSIChannelReader.from_osi_channel_specification(
-                osi_gtgen_sv_spec
-            ) as reader,
+            open_channel_writer(osi_output_spec) as writer,
+            open_channel(osi_gtgen_sv_spec) as reader,
         ):
             for message in reader:
-                writer.write(message)
+                writer.write_message(message)
         output_spec = writer.get_channel_specification()
 
         logging.info(f"Output trace specification: {output_spec}")

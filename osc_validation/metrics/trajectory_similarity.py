@@ -3,14 +3,16 @@ import logging
 from pathlib import Path
 import os
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import pandas as pd
 import similaritymeasures
 
 from osc_validation.metrics.osimetric import OSIMetric
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-from osc_validation.utils.osi_reader import OSIChannelReader
+from osi_utilities import ChannelSpecification, MessageType
 from osc_validation.utils.utils import (
     get_all_moving_object_ids,
     get_closest_trajectory,
@@ -33,8 +35,8 @@ class TrajectorySimilarityMetric(OSIMetric):
 
     def compute(
         self,
-        reference_channel_spec: OSIChannelSpecification,
-        tool_channel_spec: OSIChannelSpecification,
+        reference_channel_spec: ChannelSpecification,
+        tool_channel_spec: ChannelSpecification,
         moving_object_id: int,
         start_time: float = None,
         end_time: float = None,
@@ -52,8 +54,8 @@ class TrajectorySimilarityMetric(OSIMetric):
             Reference and tool traces contain the same moving object ids identifying the same objects.
 
         Args:
-            reference_channel_spec (OSIChannelSpecification): Specification of the reference OSI SensorView trace channel.
-            tool_channel_spec (OSIChannelSpecification): Specification of the tool-generated OSI SensorView trace channel.
+            reference_channel_spec (ChannelSpecification): Specification of the reference OSI SensorView trace channel.
+            tool_channel_spec (ChannelSpecification): Specification of the tool-generated OSI SensorView trace channel.
             moving_object_id (int): The ID of the moving object in the reference trace whose trajectory will be compared with the corresponding moving object's trajectory in the tool trace.
             start_time (float, optional): Inclusive start time in seconds for the trajectory comparison. Defaults to None, in which case the trajectory is considered from the first frame.
             end_time (float, optional): Inclusive end time in seconds for the trajectory comparison. Defaults to None, in which case the trajectory is considered to the last frame.
@@ -216,12 +218,12 @@ def main():
     parser = create_argparser()
     args = parser.parse_args()
     path_reference = Path(args.reference_sv)
-    reference_spec = OSIChannelSpecification(
-        path_reference, message_type="SensorView", topic=args.reference_topic
+    reference_spec = ChannelSpecification(
+        path_reference, message_type=MessageType.SENSOR_VIEW, topic=args.reference_topic
     )
     path_tool = Path(args.tool_sv)
-    tool_spec = OSIChannelSpecification(
-        path_tool, message_type="SensorView", topic=args.tool_topic
+    tool_spec = ChannelSpecification(
+        path_tool, message_type=MessageType.SENSOR_VIEW, topic=args.tool_topic
     )
     metric = TrajectorySimilarityMetric(
         "TrajectorySimilarityMetric",

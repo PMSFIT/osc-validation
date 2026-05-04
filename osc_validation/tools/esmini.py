@@ -2,16 +2,21 @@ import logging
 import os
 import subprocess
 from pathlib import Path
+from osi_utilities import (
+    ChannelSpecification,
+    MessageType,
+    TraceFileFormat,
+    open_channel,
+    open_channel_writer,
+)
 
 from osc_validation.tools.osctool import OSCTool
 from osc_validation.utils.esminigt2sv import gt2sv
 from osc_validation.utils.osi_channel_specification import (
     OSIChannelSpecValidator,
-    OSIChannelSpecification,
-    TraceFileFormat,
+    rename_to,
+    with_name_suffix,
 )
-from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
 
 
 class ESMini(OSCTool):
@@ -33,39 +38,38 @@ class ESMini(OSCTool):
         self,
         osc_path: Path,
         odr_path: Path,
-        osi_output_spec: OSIChannelSpecification,
+        osi_output_spec: ChannelSpecification,
         log_path: Path = None,
         rate=0.05,
-    ) -> OSIChannelSpecification:
+    ) -> ChannelSpecification:
         """
         Executes the esmini tool with the provided OpenSCENARIO, OpenDRIVE, and OSI file paths, processes the output, and returns the path to the output OSI trace.
 
         Args:
             osc_path (Path or str): Path to the OpenSCENARIO (.osc) file.
             odr_path (Path or str): Path to the OpenDRIVE (.xodr) file.
-            osi_output_spec (OSIChannelSpecification): Requested OSI channel specification of the output trace.
+            osi_output_spec (ChannelSpecification): Requested OSI channel specification of the output trace.
                 Allowed message types are "GroundTruth" and "SensorView"; If none given, it will output a SensorView trace.
             log_path (Path, optional): Path to the directory where logs will be stored. If None, logs will not be saved but printed to stdout.
             rate (float, optional): Fixed timestep rate for the simulation. Defaults to 0.05.
         Returns:
-            OSIChannelSpecification: Specification of the output OSI channel.
+            ChannelSpecification: Specification of the output OSI channel.
         Raises:
             InvalidSpecificationError: If the requested OSI output specification is invalid or unsupported.
             FileNotFoundError: If the esmini tool is not found at the specified path.
             RuntimeError: If the trace could not be generated.
         """
-
         # Check if the requested output specification is supported
         requested_spec_validator = OSIChannelSpecValidator(
-            allowed_message_types=["GroundTruth", "SensorView"]
+            allowed_message_types=[MessageType.GROUND_TRUTH, MessageType.SENSOR_VIEW]
         )
         requested_spec_validator(osi_output_spec)
 
         # Run esmini and generate the ground truth trace
         osi_esmini_gt_spec = (
-            osi_output_spec.with_name_suffix("_esmini_gt")
+            with_name_suffix(osi_output_spec, "_esmini_gt")
             .with_trace_file_format(TraceFileFormat.SINGLE_CHANNEL)
-            .with_message_type("GroundTruth")
+            .with_message_type(MessageType.GROUND_TRUTH)
         )
 
         cmd = [
@@ -96,33 +100,27 @@ class ESMini(OSCTool):
         # Convert the ground truth trace to SensorView if requested
         output_spec = None
         if (
-            osi_output_spec.message_type == "SensorView"
+            osi_output_spec.message_type == MessageType.SENSOR_VIEW
             or osi_output_spec.message_type is None
         ):
             output_spec = gt2sv(
                 gt_channel_spec=osi_esmini_gt_spec, sv_channel_spec=osi_output_spec
             )
             logging.info(f"gt2sv output: {output_spec}")
-        elif osi_output_spec.message_type == "GroundTruth":
+        elif osi_output_spec.message_type == MessageType.GROUND_TRUTH:
             if (
                 osi_output_spec.trace_file_format
                 != osi_esmini_gt_spec.trace_file_format
             ):
                 with (
-                    OSIChannelReader.from_osi_channel_specification(
-                        osi_esmini_gt_spec
-                    ) as channel_reader,
-                    OSIChannelWriter.from_osi_channel_specification(
-                        osi_output_spec
-                    ) as channel_writer,
+                    open_channel(osi_esmini_gt_spec) as channel_reader,
+                    open_channel_writer(osi_output_spec) as channel_writer,
                 ):
                     for msg in channel_reader:
-                        channel_writer.write(msg)
+                        channel_writer.write_message(msg)
                 output_spec = channel_writer.get_channel_specification()
             else:
-                output_spec = osi_esmini_gt_spec.rename_to(
-                    osi_output_spec.path
-                )  # rename source file to output original esmini ground truth trace without modification
+                output_spec = rename_to(osi_esmini_gt_spec, osi_output_spec.path)
 
         logging.info(f"Output trace specification: {output_spec}")
 

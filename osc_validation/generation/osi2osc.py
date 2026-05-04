@@ -10,8 +10,7 @@ from lxml import etree
 
 from osi3 import osi_object_pb2
 
-from osc_validation.utils.osi_channel_specification import OSIChannelSpecification
-from osc_validation.utils.osi_reader import OSIChannelReader
+from osi_utilities import ChannelSpecification, MessageType, open_channel
 from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointZYX
 
 XOSC_VERSION_MAJOR = 1
@@ -311,22 +310,20 @@ class OSI2OSCMovingObject:
 
 
 def parse_moving_objects(
-    osi_trace_spec: OSIChannelSpecification, host_vehicle_id: str
+    osi_trace_spec: ChannelSpecification, host_vehicle_id: int | None
 ) -> list[OSI2OSCMovingObject]:
     """
     Extracts all moving objects from an OSI SensorView or GroundTruth trace.
     """
     my_moving_objects = []
-    with OSIChannelReader.from_osi_channel_specification(
-        osi_trace_spec
-    ) as channel_reader:
-        message_type = channel_reader.get_message_type()
-        assert message_type in ("SensorView", "GroundTruth")
+    with open_channel(osi_trace_spec) as channel_reader:
+        message_type = channel_reader.get_channel_specification().message_type
+        assert message_type in (MessageType.SENSOR_VIEW, MessageType.GROUND_TRUTH)
         for osi_message in channel_reader:
             current_timestamp = timestamp_osi_to_float(osi_message.timestamp)
             osi_moving_object_list = (
                 osi_message.global_ground_truth.moving_object
-                if message_type == "SensorView"
+                if message_type == MessageType.SENSOR_VIEW
                 else osi_message.moving_object
             )
             for osi_moving_object in osi_moving_object_list:
@@ -378,14 +375,14 @@ def parse_moving_objects(
 
 
 def osi2osc(
-    osi_trace_spec: OSIChannelSpecification, path_xosc: Path, path_xodr: Path = None
+    osi_trace_spec: ChannelSpecification, path_xosc: Path, path_xodr: Path = None
 ) -> Path:
     """
     Converts an OSI GroundTruth or SensorView trace to an OpenSCENARIO XML file
     at the specified path.
 
     Args:
-        osi_trace_spec (OSIChannelSpecification): Input OSI trace file.
+        osi_trace_spec (ChannelSpecification): Input OSI trace file.
         path_xosc (Path): Output OpenSCENARIO file path.
         path_xodr (Path, optional): Optional OpenDRIVE map path to be integrated in the output OpenSCENARIO file.
     Returns:
@@ -394,19 +391,23 @@ def osi2osc(
         AssertionError: If the input OSI trace is not of type SensorView or GroundTruth.
     """
 
-    with OSIChannelReader.from_osi_channel_specification(
-        osi_trace_spec
-    ) as osi_trace_channel_reader:
-        assert osi_trace_channel_reader.get_message_type() in (
-            "SensorView",
-            "GroundTruth",
+    with open_channel(osi_trace_spec) as osi_trace_channel_reader:
+        resolved_spec = osi_trace_channel_reader.get_channel_specification()
+        assert resolved_spec.message_type in (
+            MessageType.SENSOR_VIEW,
+            MessageType.GROUND_TRUTH,
         )
-        stop_timestamp = osi_trace_channel_reader.get_channel_info().get("stop")
-        msg = next(osi_trace_channel_reader.get_messages())
+        osi_trace_iterator = iter(osi_trace_channel_reader)
+        msg = next(osi_trace_iterator, None)
+        if msg is None:
+            raise ValueError(f"Input OSI trace ({resolved_spec.path}) is empty.")
+        stop_timestamp = timestamp_osi_to_float(msg.timestamp)
+        for stop_message in osi_trace_iterator:
+            stop_timestamp = timestamp_osi_to_float(stop_message.timestamp)
         host_vehicle_id = msg.host_vehicle_id.value if msg else None
-        if host_vehicle_id == None:
+        if host_vehicle_id is None:
             logging.warning(
-                f"Input OSI trace ({osi_trace_channel_reader.get_source_path()}) has no specified host_vehicle_id. The output OpenSCENARIO file will not have a specified ego vehicle."
+                f"Input OSI trace ({resolved_spec.path}) has no specified host_vehicle_id. The output OpenSCENARIO file will not have a specified ego vehicle."
             )
 
     my_moving_objects = parse_moving_objects(osi_trace_spec, host_vehicle_id)
@@ -532,8 +533,13 @@ def main():
                 f"Input OSI trace file '{path_ositrace}' does not exist."
             )
 
-        osi_trace_spec = OSIChannelSpecification(
-            path=path_ositrace, message_type=args.ositype
+        osi_trace_spec = ChannelSpecification(
+            path=path_ositrace,
+            message_type=(
+                MessageType.SENSOR_VIEW
+                if args.ositype == "SensorView"
+                else MessageType.GROUND_TRUTH
+            ),
         )
         path_xosc = Path(args.xosc)
         osi2osc(osi_trace_spec, path_xosc)
