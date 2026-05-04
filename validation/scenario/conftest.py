@@ -32,13 +32,13 @@ def pytest_configure(config):
 
 
 def pytest_report_header(config):
-    tool_path = getattr(config, "_osc_tool", None)
-    tool_path = getattr(tool_path, "tool_path", config.getoption("--toolpath"))
+    tool = getattr(config, "_osc_tool", None)
+    resolved_tool_path = getattr(tool, "tool_path", config.getoption("--toolpath"))
     return [
         f"Validation Suite: OSC Validation Suite {osc_validation_version}",
         f"Validation Suite Path: {pathlib.Path(__file__).parent}",
         f"Validated Tool: {config.getoption('--tool')}",
-        f"Tool Path: {tool_path}",
+        f"Tool Path: {resolved_tool_path}",
         f"Tool Version: {getattr(config, '_osc_tool_version', 'unknown version')}",
         f"Validation Run Start Time: {datetime.datetime.now().astimezone().isoformat()}",
     ]
