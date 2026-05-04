@@ -181,6 +181,20 @@ def test_osi2osc_without_matching_host_vehicle_keeps_generic_names(tmp_path):
     ]
 
 
+def test_osi2osc_rejects_empty_trace(tmp_path):
+    trace_path = tmp_path / "empty.osi"
+    with open_channel_writer(
+        ChannelSpecification(path=trace_path, message_type="SensorView")
+    ):
+        pass
+
+    with pytest.raises(ValueError, match="is empty"):
+        osi2osc(
+            ChannelSpecification(path=trace_path, message_type="SensorView"),
+            tmp_path / "scenario.xosc",
+        )
+
+
 def test_build_osc_scenario_object_rejects_unmapped_vehicle_type():
     moving_object = OSI2OSCMovingObject(
         id="1",
