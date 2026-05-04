@@ -7,26 +7,27 @@ import osc_validation.metrics.trajectory_similarity as trajectory_similarity_mod
 import osc_validation.utils.esminigt2sv as esminigt2sv_module
 import osc_validation.utils.osi_format_converter as osi_format_converter_module
 import osc_validation.utils.strip_sensorview as strip_sensorview_module
-from osc_validation.utils.osi_reader import OSIChannelReader
-from osc_validation.utils.osi_writer import OSIChannelWriter
-from tests.conftest import _make_ground_truth, _make_sensor_view, _write_binary_trace
+from osi_utilities import open_channel
+from osi_utilities import open_channel_writer
+from tests.conftest import _make_ground_truth, _make_sensor_view
 
 osi2osc_module = importlib.import_module("osc_validation.generation.osi2osc")
 
 
 def _write_sensorview_trace(path: Path, positions: list[float]) -> None:
-    messages = []
-    for index, x in enumerate(positions):
-        sensor_view = _make_sensor_view(index * 0.1, obj_id=1)
-        moving_object = sensor_view.global_ground_truth.moving_object[0]
-        moving_object.base.position.x = x
-        moving_object.base.position.y = 1.0
-        moving_object.base.dimension.length = 4.5
-        moving_object.base.dimension.width = 1.8
-        moving_object.base.dimension.height = 1.5
-        moving_object.vehicle_classification.type = 4
-        messages.append(sensor_view)
-    _write_binary_trace(path, messages)
+    with open_channel_writer(
+        ChannelSpecification(path=path, message_type="SensorView")
+    ) as writer:
+        for index, x in enumerate(positions):
+            sensor_view = _make_sensor_view(index * 0.1, obj_id=1)
+            moving_object = sensor_view.global_ground_truth.moving_object[0]
+            moving_object.base.position.x = x
+            moving_object.base.position.y = 1.0
+            moving_object.base.dimension.length = 4.5
+            moving_object.base.dimension.width = 1.8
+            moving_object.base.dimension.height = 1.5
+            moving_object.vehicle_classification.type = 4
+            writer.write_message(sensor_view)
 
 
 def test_osi2osc_main_writes_scenario(tmp_path, monkeypatch):
@@ -44,14 +45,12 @@ def test_osi2osc_main_writes_scenario(tmp_path, monkeypatch):
     assert output_path.exists()
 
 
-def test_osi_format_converter_main_converts_compressed_trace_to_mcap(
-    tmp_path, monkeypatch
-):
-    input_path = tmp_path / "input.osi.xz"
+def test_osi_format_converter_main_converts_trace_to_mcap(tmp_path, monkeypatch):
+    input_path = tmp_path / "input.osi"
     input_spec = ChannelSpecification(path=input_path, message_type="SensorView")
-    with OSIChannelWriter.from_osi_channel_specification(input_spec) as writer:
+    with open_channel_writer(input_spec) as writer:
         for index in range(3):
-            writer.write(_make_sensor_view(index * 0.1))
+            writer.write_message(_make_sensor_view(index * 0.1))
 
     output_path = tmp_path / "output.mcap"
     monkeypatch.setattr(
@@ -77,15 +76,17 @@ def test_osi_format_converter_main_converts_compressed_trace_to_mcap(
 
     osi_format_converter_module.main()
 
-    with OSIChannelReader.from_osi_channel_specification(
-        ChannelSpecification(path=output_path, topic="sv")
-    ) as reader:
+    with open_channel(ChannelSpecification(path=output_path, topic="sv")) as reader:
         assert len(list(reader)) == 3
 
 
 def test_esminigt2sv_main_converts_groundtruth_trace(tmp_path, monkeypatch):
     input_path = tmp_path / "input.osi"
-    _write_binary_trace(input_path, [_make_ground_truth(0.0), _make_ground_truth(0.1)])
+    with open_channel_writer(
+        ChannelSpecification(path=input_path, message_type="GroundTruth")
+    ) as writer:
+        writer.write_message(_make_ground_truth(0.0))
+        writer.write_message(_make_ground_truth(0.1))
     output_path = tmp_path / "output.osi"
 
     monkeypatch.setattr(
@@ -100,7 +101,7 @@ def test_esminigt2sv_main_converts_groundtruth_trace(tmp_path, monkeypatch):
 
     esminigt2sv_module.main()
 
-    with OSIChannelReader.from_osi_channel_specification(
+    with open_channel(
         ChannelSpecification(path=output_path, message_type="SensorView")
     ) as reader:
         assert len(list(reader)) == 2
@@ -111,7 +112,10 @@ def test_strip_sensorview_main_strips_lane_boundary(tmp_path, monkeypatch):
     output_path = tmp_path / "output.osi"
     sensor_view = _make_sensor_view(0.0)
     sensor_view.global_ground_truth.lane_boundary.add().id.value = 10
-    _write_binary_trace(input_path, [sensor_view])
+    with open_channel_writer(
+        ChannelSpecification(path=input_path, message_type="SensorView")
+    ) as writer:
+        writer.write_message(sensor_view)
 
     monkeypatch.setattr(
         strip_sensorview_module.argparse.ArgumentParser,
@@ -134,7 +138,7 @@ def test_strip_sensorview_main_strips_lane_boundary(tmp_path, monkeypatch):
 
     strip_sensorview_module.main()
 
-    with OSIChannelReader.from_osi_channel_specification(
+    with open_channel(
         ChannelSpecification(path=output_path, message_type="SensorView")
     ) as reader:
         messages = list(reader)

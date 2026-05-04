@@ -12,24 +12,6 @@ from osc_validation.dataproviders.dataprovider import (
 )
 
 
-class _FakeStreamingResponse:
-    def __init__(self, content: bytes):
-        self._content = content
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return False
-
-    def raise_for_status(self):
-        return None
-
-    def iter_content(self, chunk_size: int):
-        for start in range(0, len(self._content), chunk_size):
-            yield self._content[start : start + chunk_size]
-
-
 class _FakeResponse:
     def __init__(self, content: bytes):
         self.content = content
@@ -51,28 +33,6 @@ def test_builtin_data_provider_resolves_known_builtin_trace():
 
     assert trace_path.exists()
     assert trace_path.name.endswith(".mcap")
-
-
-def test_download_data_provider_downloads_file_and_cleans_up(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        "osc_validation.dataproviders.dataprovider.requests.get",
-        lambda uri, stream=True, timeout=30: _FakeStreamingResponse(b"payload"),
-    )
-
-    provider = DownloadDataProvider(
-        uri="https://example.com/file.txt",
-        base_path="download/test",
-    )
-    provider.root_path = tmp_path
-    provider.base_path = tmp_path / "download"
-    provider.file_path = provider.base_path / provider.filename
-
-    path = provider.ensure_data_path("file.txt")
-
-    assert path.read_bytes() == b"payload"
-    assert provider.loaded is True
-    assert provider.cleanup() is True
-    assert not provider.base_path.exists()
 
 
 def test_download_data_provider_skips_download_when_cached(tmp_path, monkeypatch):

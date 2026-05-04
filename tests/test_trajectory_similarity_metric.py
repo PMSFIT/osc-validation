@@ -2,37 +2,37 @@ from pathlib import Path
 
 import pytest
 
-from osi_utilities import ChannelSpecification
+from osi_utilities import ChannelSpecification, open_channel_writer
 
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
-from tests.conftest import _make_sensor_view, _write_binary_trace
+from tests.conftest import _make_sensor_view
 
 
 def _write_sensorview_trace(
     path: Path, positions_by_object: dict[int, list[float]]
 ) -> ChannelSpecification:
     frame_count = len(next(iter(positions_by_object.values())))
-    messages = []
-    for frame_index in range(frame_count):
-        sensor_view = _make_sensor_view(frame_index * 0.1, obj_id=1)
-        sensor_view.global_ground_truth.ClearField("moving_object")
-        sensor_view.global_ground_truth.host_vehicle_id.value = 1
-        sensor_view.host_vehicle_id.value = 1
-        for obj_id, positions in positions_by_object.items():
-            moving_object = sensor_view.global_ground_truth.moving_object.add()
-            moving_object.id.value = obj_id
-            moving_object.base.position.x = positions[frame_index]
-            moving_object.base.position.y = float(obj_id)
-            moving_object.base.position.z = 0.0
-            moving_object.base.orientation.yaw = 0.0
-            moving_object.base.orientation.pitch = 0.0
-            moving_object.base.orientation.roll = 0.0
-            moving_object.base.dimension.length = 4.5
-            moving_object.base.dimension.width = 1.8
-            moving_object.base.dimension.height = 1.5
-        messages.append(sensor_view)
-
-    _write_binary_trace(path, messages)
+    with open_channel_writer(
+        ChannelSpecification(path=path, message_type="SensorView")
+    ) as writer:
+        for frame_index in range(frame_count):
+            sensor_view = _make_sensor_view(frame_index * 0.1, obj_id=1)
+            sensor_view.global_ground_truth.ClearField("moving_object")
+            sensor_view.global_ground_truth.host_vehicle_id.value = 1
+            sensor_view.host_vehicle_id.value = 1
+            for obj_id, positions in positions_by_object.items():
+                moving_object = sensor_view.global_ground_truth.moving_object.add()
+                moving_object.id.value = obj_id
+                moving_object.base.position.x = positions[frame_index]
+                moving_object.base.position.y = float(obj_id)
+                moving_object.base.position.z = 0.0
+                moving_object.base.orientation.yaw = 0.0
+                moving_object.base.orientation.pitch = 0.0
+                moving_object.base.orientation.roll = 0.0
+                moving_object.base.dimension.length = 4.5
+                moving_object.base.dimension.width = 1.8
+                moving_object.base.dimension.height = 1.5
+            writer.write_message(sensor_view)
     return ChannelSpecification(path=path, message_type="SensorView")
 
 

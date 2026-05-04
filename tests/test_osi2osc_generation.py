@@ -3,14 +3,14 @@ from pathlib import Path
 from lxml import etree
 import pytest
 
-from osi_utilities import ChannelSpecification
+from osi_utilities import ChannelSpecification, open_channel_writer
 
 from osc_validation.generation.osi2osc import (
     OSI2OSCMovingObject,
     osi2osc,
     parse_moving_objects,
 )
-from tests.conftest import _make_ground_truth, _make_sensor_view, _write_binary_trace
+from tests.conftest import _make_ground_truth, _make_sensor_view
 
 
 def _configure_vehicle(moving_object, obj_id: int, x: float, y: float) -> None:
@@ -64,13 +64,15 @@ def _make_ground_truth_frame(
 
 def test_parse_moving_objects_sensorview(tmp_path):
     trace_path = tmp_path / "sensorview_trace.osi"
-    _write_binary_trace(
-        trace_path,
-        [
-            _make_sensor_view_frame(0.0, host_vehicle_id=2, ego_x=10.0, other_x=0.0),
-            _make_sensor_view_frame(0.1, host_vehicle_id=2, ego_x=11.0, other_x=1.0),
-        ],
-    )
+    with open_channel_writer(
+        ChannelSpecification(path=trace_path, message_type="SensorView")
+    ) as writer:
+        writer.write_message(
+            _make_sensor_view_frame(0.0, host_vehicle_id=2, ego_x=10.0, other_x=0.0)
+        )
+        writer.write_message(
+            _make_sensor_view_frame(0.1, host_vehicle_id=2, ego_x=11.0, other_x=1.0)
+        )
 
     objects = parse_moving_objects(
         ChannelSpecification(path=trace_path, message_type="SensorView"),
@@ -88,13 +90,15 @@ def test_parse_moving_objects_sensorview(tmp_path):
 
 def test_parse_moving_objects_groundtruth(tmp_path):
     trace_path = tmp_path / "groundtruth_trace.osi"
-    _write_binary_trace(
-        trace_path,
-        [
-            _make_ground_truth_frame(0.0, host_vehicle_id=2, ego_x=10.0, other_x=0.0),
-            _make_ground_truth_frame(0.1, host_vehicle_id=2, ego_x=11.0, other_x=1.0),
-        ],
-    )
+    with open_channel_writer(
+        ChannelSpecification(path=trace_path, message_type="GroundTruth")
+    ) as writer:
+        writer.write_message(
+            _make_ground_truth_frame(0.0, host_vehicle_id=2, ego_x=10.0, other_x=0.0)
+        )
+        writer.write_message(
+            _make_ground_truth_frame(0.1, host_vehicle_id=2, ego_x=11.0, other_x=1.0)
+        )
 
     objects = parse_moving_objects(
         ChannelSpecification(path=trace_path, message_type="GroundTruth"),
@@ -109,13 +113,15 @@ def test_parse_moving_objects_groundtruth(tmp_path):
 
 def test_osi2osc_generates_expected_structure(tmp_path):
     trace_path = tmp_path / "input_trace.osi"
-    _write_binary_trace(
-        trace_path,
-        [
-            _make_sensor_view_frame(0.0, host_vehicle_id=2, ego_x=10.0, other_x=0.0),
-            _make_sensor_view_frame(0.1, host_vehicle_id=2, ego_x=11.0, other_x=1.0),
-        ],
-    )
+    with open_channel_writer(
+        ChannelSpecification(path=trace_path, message_type="SensorView")
+    ) as writer:
+        writer.write_message(
+            _make_sensor_view_frame(0.0, host_vehicle_id=2, ego_x=10.0, other_x=0.0)
+        )
+        writer.write_message(
+            _make_sensor_view_frame(0.1, host_vehicle_id=2, ego_x=11.0, other_x=1.0)
+        )
     xodr_path = tmp_path / "map.xodr"
     xodr_path.write_text("dummy map", encoding="utf-8")
     xosc_path = tmp_path / "scenario.xosc"
@@ -151,13 +157,15 @@ def test_osi2osc_generates_expected_structure(tmp_path):
 
 def test_osi2osc_without_matching_host_vehicle_keeps_generic_names(tmp_path):
     trace_path = tmp_path / "gt_trace.osi"
-    _write_binary_trace(
-        trace_path,
-        [
-            _make_ground_truth_frame(0.0, host_vehicle_id=99, ego_x=10.0, other_x=0.0),
-            _make_ground_truth_frame(0.1, host_vehicle_id=99, ego_x=11.0, other_x=1.0),
-        ],
-    )
+    with open_channel_writer(
+        ChannelSpecification(path=trace_path, message_type="GroundTruth")
+    ) as writer:
+        writer.write_message(
+            _make_ground_truth_frame(0.0, host_vehicle_id=99, ego_x=10.0, other_x=0.0)
+        )
+        writer.write_message(
+            _make_ground_truth_frame(0.1, host_vehicle_id=99, ego_x=11.0, other_x=1.0)
+        )
     xosc_path = tmp_path / "scenario.xosc"
 
     result = osi2osc(
