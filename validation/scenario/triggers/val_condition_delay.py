@@ -4,8 +4,8 @@ from typing import Callable
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider
-from .val_distance_longitudinal_start_trigger import _run_distance_longitudinal_start_trigger_case
-from .val_speed_start_trigger import _run_speed_start_trigger_case
+from val_distance_longitudinal_start_trigger import _run_distance_longitudinal_start_trigger_case
+from val_speed_start_trigger import _run_speed_start_trigger_case
 
 
 @pytest.fixture(
