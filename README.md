@@ -24,15 +24,15 @@ poetry install
 When using Poetry as your dependency manager, you can either activate the virtual environment once, or prefix each command with `poetry run` to execute it inside the environment.
 For brevity, the `poetry run` prefix is omitted in the rest of this documentation.
 
-### Run tests using pytest
+### Run validation
 
-Run the following command to execute the test suite using the specified test directory with the chosen tool to be validated.
+Run the validation suite with an installed OpenSCENARIO engine:
 
 ```bash
 pytest file_or_dir --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
 ```
 
-The first positional argument (`file_or_dir`) specifies the test directory (or file) to run. Pytest will recursively discover and execute all test files within a given folder based on a contained `pytest.ini` configuration, using it as the root for test collection.
+The first positional argument (`file_or_dir`) specifies the validation test directory (or file) to run. Pytest will recursively discover and execute all validation files within a given folder based on a contained `pytest.ini` configuration, using it as the root for test collection.
 
 - `<TOOL_NAME>`: Name of the OpenSCENARIO engine to test (e.g., `ESMini`, `GTGen`)
 - `<PATH_TO_TOOL_EXECUTABLE>`: Path to the tool's executable
@@ -47,6 +47,14 @@ For more information on available command-line options, run:
 
 ```bash
 pytest --help
+```
+
+### Development checks
+
+The repository also contains a small unit and smoke test suite for development and maintenance work:
+
+```bash
+pytest tests
 ```
 
 ## Tool validation setup
@@ -68,36 +76,26 @@ Tools already integrated:
 To integrate a custom tool:
 
 - Implement a wrapper subclass of `OSCTool`
-- Extend conftest.py to register your tool in the CLI options and generate_tool_trace fixture
+- Extend `validation/scenario/conftest.py` to register your tool in `_make_tool`
 
     ```python
-    def pytest_addoption(parser):
-        # [...]
-        group.addoption(
-            "--tool", action="store", default="ESMini", help="Tool to Validate: ESMini, GTGen, YourToolName"
-        )
-        # [...]
+    def _make_tool(config):
+        tool_name = config.getoption("--tool")
+        toolpath = config.getoption("--toolpath")
 
-    @pytest.fixture(scope="session")
-    def generate_tool_trace(request):
-    # [...]
         if tool_name == "ESMini":
-            tool = ESMini(request.config.getoption("--toolpath"))
+            return ESMini(toolpath)
         elif tool_name == "GTGen":
-            tool = GTGen_Simulator(request.config.getoption("--toolpath"))
+            return GTGen_Simulator(toolpath)
         elif tool_name == "YourToolName":
-            tool = YourToolWrapperClass(request.config.getoption("--toolpath"))
-        else:
-            tool = None
-        # [...]
+            return YourToolWrapperClass(toolpath)
+        raise ValueError("Tool not found")
     ```
     The pytest fixture `generate_tool_trace` then yields the `run` function callable of the selected tool wrapper:
     ```python
-        # [...]
-        if tool:
-            yield tool.run
-        else:
-            raise ValueError("Tool not found")
+    @pytest.fixture(scope="session")
+    def generate_tool_trace(request):
+        yield request.config._osc_tool.run
     ```
     Using the `generate_tool_trace` fixture in a test case function enables to inject the tool execution process into test cases.
     Note that the fixture `generate_tool_trace` is a callable and accepts the corresponding function parameters of the `run` function.
@@ -150,7 +148,17 @@ Validation metrics compare certain characteristics of tool-generated traces to r
 - May enforce preconditions on the input traces (e.g., matching framerate)
 - May include post-processing steps to ensure comparability of the compared subject
 
-### 5. Test case function
+### 5. OSI trace I/O
+
+Use `asam-osi-utilities` (`osi_utilities`) for generic OSI trace reading and writing:
+
+```python
+from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
+```
+
+Project code should pass OSI traces around as `ChannelSpecification` instances. Use `open_channel(...)` to read traces and `open_channel_writer(...)` to write traces.
+
+### 6. Test case function
 
 Test cases are built using the previously described components and pytest's built-in functionality.
 
