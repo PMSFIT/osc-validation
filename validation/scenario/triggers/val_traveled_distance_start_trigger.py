@@ -10,11 +10,11 @@ from osc_validation.generation import (
     TraveledDistanceTriggerSpec,
     TriggerTransformRequest,
     apply_trigger_transform,
+    find_traveled_distance_activation_point,
     osi2osc,
 )
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification
-
 
 @pytest.fixture(
     scope="module",
@@ -128,6 +128,14 @@ def test_traveled_distance_start_trigger_activates_target_actor(
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
         result_file=tmp_path / "trajectory_alignment_similarity_report.txt",
+        # Start after the trigger edge because OpenSCENARIO does not mandate
+        # whether the first trajectory point is applied in the activation frame.
+        start_time=find_traveled_distance_activation_point(
+            input_channel_spec=reference_trace_channel_spec,
+            trigger_object_id=trigger_object_id,
+            trigger_distance_m=trigger_distance_m,
+            trigger_rule="greaterOrEqual",
+        ).time_s + rate,
         time_tolerance=0.01,
         lag_scan_max_frames=1,
     )

@@ -267,7 +267,7 @@ def build_distance_position_triggered_comparison_trace(
                 if output_index < shifted_start_index:
                     state_src = initial_state
                 else:
-                    state_index = output_index - shifted_start_index + 1
+                    state_index = output_index - shifted_start_index
                     if state_index >= len(triggered_source_states):
                         state_index = len(triggered_source_states) - 1
                     state_src = triggered_source_states[state_index]

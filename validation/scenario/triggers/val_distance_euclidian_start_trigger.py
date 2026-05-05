@@ -12,9 +12,11 @@ from osc_validation.generation import (
     apply_trigger_transform,
     osi2osc,
 )
+from osc_validation.generation.trigger_transforms.distance_to_position import (
+    find_distance_position_activation_point,
+)
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification
-
 
 @pytest.fixture(
     scope="module",
@@ -132,6 +134,17 @@ def test_distance_euclidian_start_trigger_activates_target_actor(
         moving_object_id=moving_object_id,
         result_file=tmp_path
         / "trajectory_alignment_similarity_report_distance_euclidian_start_trigger.txt",
+        # Start after the trigger edge because OpenSCENARIO does not mandate
+        # whether the first trajectory point is applied in the activation frame.
+        start_time=find_distance_position_activation_point(
+            input_channel_spec=reference_trace_channel_spec,
+            trigger_object_id=trigger_object_id,
+            trigger_distance_m=trigger_distance_m,
+            trigger_rule="lessOrEqual",
+            target_position_x=target_position_x,
+            target_position_y=target_position_y,
+            relative_distance_type="euclidianDistance",
+        ).time_s + rate,
         time_tolerance=0.01,
         lag_scan_max_frames=2,
     )
