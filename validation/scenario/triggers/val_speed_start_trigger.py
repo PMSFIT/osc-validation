@@ -18,6 +18,8 @@ from osc_validation.generation.trigger_transforms.speed import find_speed_activa
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification, open_channel
 
+from validation.scenario.assertions import assert_no_osc_engine_errors
+
 
 """
 Lichtblick User Script:
@@ -233,6 +235,7 @@ def _run_speed_start_trigger_case(
         log_path=tmp_path,
         rate=rate,
     )
+    assert_no_osc_engine_errors(tool_trace_channel_spec)
 
     metric = TrajectoryAlignmentSimilarityMetric()
     reference_triggered_channel_spec = transform_result.reference_channel_spec

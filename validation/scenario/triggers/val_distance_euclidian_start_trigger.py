@@ -18,6 +18,9 @@ from osc_validation.generation.trigger_transforms.distance_to_position import (
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification
 
+from validation.scenario.assertions import assert_no_osc_engine_errors
+
+
 @pytest.fixture(
     scope="module",
     params=[
@@ -124,6 +127,7 @@ def test_distance_euclidian_start_trigger_activates_target_actor(
         log_path=tmp_path,
         rate=rate,
     )
+    assert_no_osc_engine_errors(tool_trace_channel_spec)
 
     metric = TrajectoryAlignmentSimilarityMetric()
     reference_triggered_channel_spec = transform_result.reference_channel_spec

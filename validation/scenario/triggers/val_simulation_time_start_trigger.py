@@ -17,6 +17,8 @@ from osc_validation.metrics.qccheck import QCOSITraceChecker
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification
 
+from validation.scenario.assertions import assert_no_osc_engine_errors
+
 
 @pytest.fixture(
     scope="module",
@@ -147,6 +149,7 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
         log_path=tmp_path,
         rate=rate,
     )
+    assert_no_osc_engine_errors(tool_trace_channel_spec)
 
     """ qc_check = QCOSITraceChecker(ruleset=yaml_ruleset)
     result = qc_check.check(
