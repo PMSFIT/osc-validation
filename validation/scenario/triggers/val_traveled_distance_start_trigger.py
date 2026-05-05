@@ -101,6 +101,7 @@ def test_traveled_distance_start_trigger_activates_target_actor(
                 trigger_rule="greaterOrEqual",
                 activation_frame_offset=activation_frame_offset,
             ),
+            init_pose_policy="close_to_trajectory_start",
         )
     )
     osc_path = transform_result.xosc_path
