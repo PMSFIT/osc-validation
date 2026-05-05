@@ -83,6 +83,8 @@ class ESMini(OSCTool):
             "--fixed_timestep",
             str(rate),
             "--osi_static_reporting 2",  # report static data at every step
+            "--traj_filter",
+            "0.0",  # preserve exact trajectory samples for validation
         ]
 
         if log_path is not None:
