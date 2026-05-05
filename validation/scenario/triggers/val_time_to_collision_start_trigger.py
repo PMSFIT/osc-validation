@@ -11,12 +11,12 @@ from osc_validation.generation import (
     TriggerTransformRequest,
     apply_trigger_transform,
     build_trace_with_calculated_kinematics,
+    find_ttc_position_activation_point,
     osi2osc,
 )
 from osc_validation.generation.init_transforms.models import InitPoseOverride
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification, open_channel
-
 
 @pytest.fixture(
     scope="module",
@@ -192,6 +192,16 @@ def test_time_to_collision_start_trigger_activates_target_actor(
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
         result_file=tmp_path / "trajectory_alignment_similarity_report_ttc_start_trigger.txt",
+        # Start after the trigger edge because OpenSCENARIO does not mandate
+        # whether the first trajectory point is applied in the activation frame.
+        start_time=find_ttc_position_activation_point(
+            input_channel_spec=reference_trace_channel_spec,
+            trigger_object_id=trigger_object_id,
+            target_position_x=target_position_x,
+            target_position_y=target_position_y,
+            trigger_ttc_s=trigger_ttc_s,
+            trigger_rule="lessOrEqual",
+        ).time_s + rate,
         time_tolerance=0.01,
         lag_scan_max_frames=2,
     )

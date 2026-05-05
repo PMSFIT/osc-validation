@@ -6,7 +6,7 @@ from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
 from ..init_transforms.models import InitPoseOverride
 
-from .common import evaluate_rule, find_moving_object
+from .common import ActivationPoint, evaluate_rule, find_moving_object
 from .models import (
     TimeToCollisionPositionTriggerSpec,
     TriggerTransformRequest,
@@ -35,6 +35,70 @@ def _compute_ttc_to_position(
         # TTC cannot be calculated for non-approaching motion and condition evaluates false.
         return float("inf")
     return distance / relative_speed
+
+
+def find_ttc_position_activation_point(
+    input_channel_spec: ChannelSpecification,
+    trigger_object_id: int,
+    trigger_ttc_s: float,
+    target_position_x: float,
+    target_position_y: float,
+    trigger_rule: str = "lessOrEqual",
+) -> ActivationPoint:
+    """
+    Return the first activation point for a TimeToCollisionCondition-to-position check.
+
+    The activation point is the earliest frame where the configured TTC rule
+    evaluates to true for `trigger_object_id` against the target position.
+    """
+    with open_channel(input_channel_spec) as reader:
+        messages = list(reader)
+        if not messages:
+            raise RuntimeError("Input trace has no messages.")
+
+    activation_index = _find_ttc_position_activation_index_from_messages(
+        messages=messages,
+        trigger_object_id=trigger_object_id,
+        trigger_ttc_s=trigger_ttc_s,
+        target_position_x=target_position_x,
+        target_position_y=target_position_y,
+        trigger_rule=trigger_rule,
+    )
+    activation_msg = messages[activation_index]
+    activation_time = (
+        activation_msg.timestamp.seconds + activation_msg.timestamp.nanos / 1e9
+    )
+    return ActivationPoint(index=activation_index, time_s=activation_time)
+
+
+def _find_ttc_position_activation_index_from_messages(
+    messages: list,
+    trigger_object_id: int,
+    trigger_ttc_s: float,
+    target_position_x: float,
+    target_position_y: float,
+    trigger_rule: str,
+) -> int:
+    for idx, msg in enumerate(messages):
+        trigger_obj = find_moving_object(msg, trigger_object_id)
+        if trigger_obj is None:
+            raise KeyError(
+                f"Trigger object ID {trigger_object_id} not found in one or more frames."
+            )
+        ttc = _compute_ttc_to_position(
+            obj_x=trigger_obj.base.position.x,
+            obj_y=trigger_obj.base.position.y,
+            obj_vx=trigger_obj.base.velocity.x,
+            obj_vy=trigger_obj.base.velocity.y,
+            target_x=target_position_x,
+            target_y=target_position_y,
+        )
+        if math.isfinite(ttc) and evaluate_rule(ttc, trigger_ttc_s, trigger_rule):
+            return idx
+
+    raise RuntimeError(
+        f"TTC position condition not reached: object {trigger_object_id}, rule={trigger_rule}, value={trigger_ttc_s}s."
+    )
 
 
 def apply_time_to_collision_position_start_trigger(
@@ -129,29 +193,14 @@ def build_ttc_position_triggered_comparison_trace(
         if not input_messages:
             raise RuntimeError("Input trace has no messages.")
 
-    activation_index = None
-    for idx, msg in enumerate(input_messages):
-        trigger_obj = find_moving_object(msg, trigger_object_id)
-        if trigger_obj is None:
-            raise KeyError(
-                f"Trigger object ID {trigger_object_id} not found in one or more frames."
-            )
-        ttc = _compute_ttc_to_position(
-            obj_x=trigger_obj.base.position.x,
-            obj_y=trigger_obj.base.position.y,
-            obj_vx=trigger_obj.base.velocity.x,
-            obj_vy=trigger_obj.base.velocity.y,
-            target_x=target_position_x,
-            target_y=target_position_y,
-        )
-        if math.isfinite(ttc) and evaluate_rule(ttc, trigger_ttc_s, trigger_rule):
-            activation_index = idx
-            break
-
-    if activation_index is None:
-        raise RuntimeError(
-            f"TTC position condition not reached: object {trigger_object_id}, rule={trigger_rule}, value={trigger_ttc_s}s."
-        )
+    activation_index = _find_ttc_position_activation_index_from_messages(
+        messages=input_messages,
+        trigger_object_id=trigger_object_id,
+        trigger_ttc_s=trigger_ttc_s,
+        target_position_x=target_position_x,
+        target_position_y=target_position_y,
+        trigger_rule=trigger_rule,
+    )
 
     shifted_start_index = activation_index + activation_frame_offset
 
@@ -196,7 +245,7 @@ def build_ttc_position_triggered_comparison_trace(
                 if output_index < shifted_start_index:
                     state_src = initial_state
                 else:
-                    state_index = output_index - shifted_start_index + 1
+                    state_index = output_index - shifted_start_index
                     if state_index >= len(triggered_source_states):
                         state_index = len(triggered_source_states) - 1
                     state_src = triggered_source_states[state_index]

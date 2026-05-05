@@ -6,7 +6,7 @@ from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
 from ..init_transforms.models import InitPoseOverride
 
-from .common import evaluate_rule, find_moving_object
+from .common import ActivationPoint, evaluate_rule, find_moving_object
 from .models import (
     TraveledDistanceTriggerSpec,
     TriggerTransformRequest,
@@ -61,6 +61,66 @@ def apply_traveled_distance_start_trigger(
     return output_xosc_path
 
 
+def find_traveled_distance_activation_point(
+    input_channel_spec: ChannelSpecification,
+    trigger_object_id: int,
+    trigger_distance_m: float,
+    trigger_rule: str = "greaterThan",
+) -> ActivationPoint:
+    """
+    Return the first activation point for a TraveledDistanceCondition check.
+
+    The activation point is the earliest frame where the cumulative planar
+    traveled distance satisfies `trigger_rule` against `trigger_distance_m`.
+    """
+    with open_channel(input_channel_spec) as reader:
+        messages = list(reader)
+        if not messages:
+            raise RuntimeError("Input trace has no messages.")
+
+    activation_index = _find_traveled_distance_activation_index_from_messages(
+        messages=messages,
+        trigger_object_id=trigger_object_id,
+        trigger_distance_m=trigger_distance_m,
+        trigger_rule=trigger_rule,
+    )
+    activation_msg = messages[activation_index]
+    activation_time = (
+        activation_msg.timestamp.seconds + activation_msg.timestamp.nanos / 1e9
+    )
+    return ActivationPoint(index=activation_index, time_s=activation_time)
+
+
+def _find_traveled_distance_activation_index_from_messages(
+    messages: list,
+    trigger_object_id: int,
+    trigger_distance_m: float,
+    trigger_rule: str,
+) -> int:
+    previous_position = None
+    cumulative_distance = 0.0
+    for idx, msg in enumerate(messages):
+        trigger_obj = find_moving_object(msg, trigger_object_id)
+        if trigger_obj is None:
+            raise KeyError(
+                f"Trigger object ID {trigger_object_id} not found in one or more frames."
+            )
+
+        position = (trigger_obj.base.position.x, trigger_obj.base.position.y)
+        if previous_position is not None:
+            cumulative_distance += math.hypot(
+                position[0] - previous_position[0],
+                position[1] - previous_position[1],
+            )
+        if evaluate_rule(cumulative_distance, trigger_distance_m, trigger_rule):
+            return idx
+        previous_position = position
+
+    raise RuntimeError(
+        f"Traveled distance condition not reached: object {trigger_object_id}, rule={trigger_rule}, value={trigger_distance_m}m."
+    )
+
+
 def build_traveled_distance_triggered_comparison_trace(
     input_channel_spec: ChannelSpecification,
     output_channel_spec: ChannelSpecification,
@@ -81,29 +141,12 @@ def build_traveled_distance_triggered_comparison_trace(
         if not input_messages:
             raise RuntimeError("Input trace has no messages.")
 
-    trigger_positions = []
-    for msg in input_messages:
-        trigger_obj = find_moving_object(msg, trigger_object_id)
-        if trigger_obj is None:
-            raise KeyError(
-                f"Trigger object ID {trigger_object_id} not found in one or more frames."
-            )
-        trigger_positions.append((trigger_obj.base.position.x, trigger_obj.base.position.y))
-
-    cumulative_distance = 0.0
-    activation_index = None
-    for idx in range(1, len(trigger_positions)):
-        x0, y0 = trigger_positions[idx - 1]
-        x1, y1 = trigger_positions[idx]
-        cumulative_distance += math.hypot(x1 - x0, y1 - y0)
-        if evaluate_rule(cumulative_distance, trigger_distance_m, trigger_rule):
-            activation_index = idx
-            break
-
-    if activation_index is None:
-        raise RuntimeError(
-            f"Traveled distance condition not reached: object {trigger_object_id}, rule={trigger_rule}, value={trigger_distance_m}m."
-        )
+    activation_index = _find_traveled_distance_activation_index_from_messages(
+        messages=input_messages,
+        trigger_object_id=trigger_object_id,
+        trigger_distance_m=trigger_distance_m,
+        trigger_rule=trigger_rule,
+    )
     shifted_start_index = activation_index + activation_frame_offset
 
     triggered_source_states = []
@@ -147,7 +190,7 @@ def build_traveled_distance_triggered_comparison_trace(
                 if output_index < shifted_start_index:
                     state_src = initial_state
                 else:
-                    state_index = output_index - shifted_start_index + 1
+                    state_index = output_index - shifted_start_index
                     if state_index >= len(triggered_source_states):
                         state_index = len(triggered_source_states) - 1
                     state_src = triggered_source_states[state_index]
