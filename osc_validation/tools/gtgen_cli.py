@@ -1,6 +1,6 @@
 import logging
-import os
 import subprocess
+import sys
 from pathlib import Path
 from osi_utilities import (
     ChannelSpecification,
@@ -15,6 +15,7 @@ from osc_validation.utils.osi_channel_specification import (
     OSIChannelSpecValidator,
     with_name_suffix,
 )
+from osc_validation.tools.metadata import OSC_ENGINE_ERRORS_METADATA_KEY
 
 
 class GTGen_Simulator(OSCTool):
@@ -87,7 +88,35 @@ class GTGen_Simulator(OSCTool):
 
         cmd_str = " ".join(map(str, cmd))
         logging.info(f"Running gtgen_cli with command: '{cmd_str}'")
-        os.system(cmd_str)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            errors="replace",
+            check=False,
+        )
+        if result.stdout:
+            print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        console_output = f"{result.stdout or ''}\n{result.stderr or ''}"
+        osc_engine_errors = _extract_gtgen_osc_engine_errors(console_output)
+        if osc_engine_errors:
+            logging.warning(
+                "GTGen OSC engine errors:\n%s", "\n".join(osc_engine_errors)
+            )
+        if log_path is not None:
+            console_log_path = Path(log_path) / "gtgen_console.log"
+            # Some GTGen diagnostics (e.g. osc_engine errors) are only emitted
+            # to the process console, not to the native gtgen_core.log file.
+            console_log_path.write_text(
+                f"$ {cmd_str}\n"
+                f"exit code: {result.returncode}\n\n"
+                f"--- stdout ---\n{result.stdout or ''}\n"
+                f"--- stderr ---\n{result.stderr or ''}\n",
+                encoding="utf-8",
+            )
+            logging.info(f"GTGen console output: {console_log_path}")
         if not osi_gtgen_sv_spec.exists():
             raise RuntimeError(
                 f"GTGen trace could not be generated. Check the tool's logs for more details."
@@ -103,7 +132,25 @@ class GTGen_Simulator(OSCTool):
             for message in reader:
                 writer.write_message(message)
         output_spec = writer.get_channel_specification()
+        if osc_engine_errors:
+            output_spec = ChannelSpecification(
+                path=output_spec.path,
+                message_type=output_spec.message_type,
+                topic=output_spec.topic,
+                metadata={
+                    **dict(output_spec.metadata),
+                    OSC_ENGINE_ERRORS_METADATA_KEY: "\n".join(osc_engine_errors),
+                },
+            )
 
         logging.info(f"Output trace specification: {output_spec}")
 
         return output_spec
+
+
+def _extract_gtgen_osc_engine_errors(console_output: str) -> list[str]:
+    return [
+        line
+        for line in console_output.splitlines()
+        if "[osc_engine] [error]" in line
+    ]

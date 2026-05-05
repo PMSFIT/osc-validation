@@ -18,6 +18,9 @@ from osc_validation.generation.init_transforms.models import InitPoseOverride
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification, open_channel
 
+from validation.scenario.assertions import assert_no_osc_engine_errors
+
+
 @pytest.fixture(
     scope="module",
     params=[
@@ -183,6 +186,7 @@ def test_time_to_collision_start_trigger_activates_target_actor(
         log_path=tmp_path,
         rate=rate,
     )
+    assert_no_osc_engine_errors(tool_trace_channel_spec)
 
     metric = TrajectoryAlignmentSimilarityMetric()
     reference_triggered_channel_spec = transform_result.reference_channel_spec
