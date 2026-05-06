@@ -83,6 +83,7 @@ def test_distance_euclidian_start_trigger_activates_target_actor(
         osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc_distance_euclidian_start_trigger.xosc",
         path_xodr=odr_file,
+        init_pose_policy="close_to_trajectory_start",
     )
     transform_result = apply_trigger_transform(
         TriggerTransformRequest(
