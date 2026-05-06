@@ -105,6 +105,11 @@ class GTGen_Simulator(OSCTool):
             logging.warning(
                 "GTGen OSC engine errors:\n%s", "\n".join(osc_engine_errors)
             )
+        core_errors = _extract_gtgen_core_errors(console_output)
+        if core_errors:
+            logging.warning(
+                "GTGen core errors:\n%s", "\n".join(core_errors)
+            )
         if log_path is not None:
             console_log_path = Path(log_path) / "gtgen_console.log"
             # Some GTGen diagnostics (e.g. osc_engine errors) are only emitted
@@ -117,9 +122,16 @@ class GTGen_Simulator(OSCTool):
                 encoding="utf-8",
             )
             logging.info(f"GTGen console output: {console_log_path}")
-        if not osi_gtgen_sv_spec.exists():
+        if result.returncode != 0 or not osi_gtgen_sv_spec.exists():
+            details = []
+            details.append(f"exit code: {result.returncode}")
+            if core_errors:
+                details.append("\n".join(core_errors))
+            elif osc_engine_errors:
+                details.append("\n".join(osc_engine_errors))
+            detail_str = "\n".join(details)
             raise RuntimeError(
-                f"GTGen trace could not be generated. Check the tool's logs for more details."
+                f"GTGen trace could not be generated.\n{detail_str}"
             )
         logging.info(f"GTGen temp output: {osi_gtgen_sv_spec}")
 
@@ -132,6 +144,9 @@ class GTGen_Simulator(OSCTool):
             for message in reader:
                 writer.write_message(message)
         output_spec = writer.get_channel_specification()
+        # GTGen sometimes produces a trace even if it reports osc_engine errors.
+        # For that case, we include the error messages as metadata in the output
+        # channel specification for better traceability.
         if osc_engine_errors:
             output_spec = ChannelSpecification(
                 path=output_spec.path,
@@ -154,3 +169,19 @@ def _extract_gtgen_osc_engine_errors(console_output: str) -> list[str]:
         for line in console_output.splitlines()
         if "[osc_engine] [error]" in line
     ]
+
+
+def _extract_gtgen_core_errors(console_output: str) -> list[str]:
+    """Extract [gtgen::core] [error] blocks including indented continuation lines."""
+    lines = console_output.splitlines()
+    result = []
+    in_error_block = False
+    for line in lines:
+        if "[gtgen::core] [error]" in line:
+            result.append(line)
+            in_error_block = True
+        elif in_error_block and line and (line[0] == " " or line[0] == "\t"):
+            result.append(line)
+        else:
+            in_error_block = False
+    return result
