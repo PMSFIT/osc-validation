@@ -5,6 +5,7 @@ import pathlib
 from osc_validation import __version__ as osc_validation_version
 from osc_validation.tools.esmini import ESMini
 from osc_validation.tools.gtgen_cli import GTGen_Simulator
+from osc_validation.tools.osc_simulator import OscSimulator
 
 
 class UnknownToolError(ValueError):
@@ -19,6 +20,8 @@ def _make_tool(config):
         return ESMini(toolpath)
     elif tool_name == "GTGen":
         return GTGen_Simulator(toolpath)
+    elif tool_name == "OscSimulator":
+        return OscSimulator(toolpath)
     raise UnknownToolError(f"Unknown tool: {tool_name}")
 
 
@@ -82,7 +85,7 @@ def pytest_addoption(parser):
         "--tool",
         action="store",
         default="ESMini",
-        help="Tool to Validate: ESMini, GTGen",
+        help="Tool to Validate: ESMini, GTGen, OscSimulator",
     )
     group.addoption(
         "--toolpath",
