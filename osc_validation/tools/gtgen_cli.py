@@ -1,6 +1,5 @@
 import logging
 import subprocess
-import sys
 from pathlib import Path
 from osi_utilities import (
     ChannelSpecification,
@@ -96,9 +95,9 @@ class GTGen_Simulator(OSCTool):
             check=False,
         )
         if result.stdout:
-            print(result.stdout, end="")
+            logging.debug("GTGen stdout:\n%s", result.stdout)
         if result.stderr:
-            print(result.stderr, end="", file=sys.stderr)
+            logging.debug("GTGen stderr:\n%s", result.stderr)
         console_output = f"{result.stdout or ''}\n{result.stderr or ''}"
         osc_engine_errors = _extract_gtgen_osc_engine_errors(console_output)
         if osc_engine_errors:
@@ -136,14 +135,13 @@ class GTGen_Simulator(OSCTool):
         logging.info(f"GTGen temp output: {osi_gtgen_sv_spec}")
 
         # Adapt output trace file format according to the requested specification
-        output_spec = None
         with (
             open_channel_writer(osi_output_spec) as writer,
             open_channel(osi_gtgen_sv_spec) as reader,
         ):
             for message in reader:
                 writer.write_message(message)
-        output_spec = writer.get_channel_specification()
+            output_spec = writer.get_channel_specification()
         # GTGen sometimes produces a trace even if it reports osc_engine errors.
         # For that case, we include the error messages as metadata in the output
         # channel specification for better traceability.
