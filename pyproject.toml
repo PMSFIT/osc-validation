@@ -3,12 +3,26 @@ name = "osc-validation"
 version = "0.1.0"
 description = "This project implements a validation suite for ASAM OpenSCENARIO XML implementations for a restricted subset of ASAM OpenSCENARIO XML."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<4.0"
 license = "MPL-2.0"
 keywords = [ "openscenario", "osi", "validation" ]
 authors = [
   {email = "osi@pmsf.de"},
   {name = "PMSF"}
+]
+dependencies = [
+  "lxml>=5.2.2,<6.0.0",
+  "matplotlib>=3.8.2,<4.0.0",
+  "osi-python @ git+https://github.com/OpenSimulationInterface/osi-python.git",
+  "pandas==2.2.3",
+  "similaritymeasures==1.2.0",
+  "requests>=2.32.3,<3.0.0",
+  "mcap>=1.2.2,<2.0.0",
+  "mcap-protobuf-support>=0.5.3,<0.6.0",
+  "qc-osi-trace @ git+https://github.com/OpenSimulationInterface/qc-osi-trace.git",
+  "pytest>=8.2.2,<9.0.0",
+  "asam-osi-utilities>=0.4.0,<0.5.0",
+  "pytest-html>=4.2.0,<5.0.0",
 ]
 
 [project.urls]
@@ -24,21 +38,6 @@ osi_format_converter = 'osc_validation.utils.osi_format_converter:main'
 [tool.poetry]
 requires-poetry = ">=2.0"
 include = [ "data", "validation", "specification" ]
-
-[tool.poetry.dependencies]
-python = "^3.10"
-lxml = "^5.2.2"
-matplotlib = "^3.8.2"
-osi-python = { git = "https://github.com/OpenSimulationInterface/osi-python.git", branch = "main" }
-pandas = "2.2.3"
-similaritymeasures = "1.2.0"
-requests = "^2.32.3"
-mcap = "^1.2.2"
-mcap-protobuf-support = "^0.5.3"
-qc-osi-trace = { git = "https://github.com/OpenSimulationInterface/qc-osi-trace.git", branch = "main" }
-pytest = "^8.2.2"
-asam-osi-utilities = "^0.4.0"
-pytest-html = "^4.2.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"
