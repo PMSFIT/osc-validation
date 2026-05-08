@@ -101,6 +101,8 @@ class OscSimulator(OSCTool):
             str(output_dir),
             "--step-size",
             str(rate),
+            "--reported-osi-version",
+            "3.7.0"
         ]
 
         cmd_str = " ".join(map(str, cmd))
