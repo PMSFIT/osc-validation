@@ -1,0 +1,7 @@
+[[xfail]]
+test = "validation/scenario/triggers/val_time_to_collision_start_trigger.py::*"
+reason = "TTC not supported by Tool v0.0.1"
+
+[[xfail]]
+test = "validation/scenario/sequencing/val_split_*.py::*"
+reason = "Sequencing not implemented by Tool v0.0.1"

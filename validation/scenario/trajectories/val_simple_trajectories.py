@@ -19,8 +19,8 @@ from osi_utilities import ChannelSpecification
         "simple_trajectories/20240603T152322.095000Z_sv_370_3200_618_dronetracker_135_swerve.mcap"
     ],
 )
-def osi_trace(request):
-    provider = BuiltinDataProvider()
+def osi_trace(request, builtin_data_path):
+    provider = BuiltinDataProvider(builtin_data_path)
     yield provider.ensure_data_path(request.param)
     provider.cleanup()
 
@@ -31,10 +31,10 @@ def osi_trace(request):
         "https://raw.githubusercontent.com/OpenSimulationInterface/qc-osi-trace/refs/heads/main/qc_ositrace/checks/osirules/rulesyml/osi_3_7_0.yml"
     ],
 )
-def yaml_ruleset(request):
+def yaml_ruleset(request, tmp_path_factory):
     uri = request.param
     filename = Path(urlparse(uri).path).name
-    base_path = Path("download/osirules")
+    base_path = tmp_path_factory.mktemp("osirules")
     provider = DownloadDataProvider(uri=uri, base_path=base_path)
     yield provider.ensure_data_path(filename)
     provider.cleanup()

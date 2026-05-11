@@ -28,13 +28,13 @@ class DataProvider:
 
 
 class BuiltinDataProvider(DataProvider):
-    def __init__(self):
-        super().__init__(Path(__file__).parent.parent.parent, "data/builtin")
+    def __init__(self, data_root: Path):
+        super().__init__(data_root, "")
 
 
 class BaseDownloadDataProvider(DataProvider):
     def __init__(self, uri: str, base_path: str | Path, force_download: bool = True):
-        super().__init__(Path(__file__).parent.parent.parent, Path("data") / base_path)
+        super().__init__(Path(base_path), "")
 
         self.uri = uri
         self.force_download = force_download

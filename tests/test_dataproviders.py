@@ -25,26 +25,26 @@ def test_data_provider_raises_for_missing_path(tmp_path):
         provider.ensure_data_path("missing.txt")
 
 
-def test_builtin_data_provider_resolves_known_builtin_trace():
-    provider = BuiltinDataProvider()
-    trace_path = provider.ensure_data_path(
-        "simple_trajectories/20240603T152322.095000Z_sv_370_3200_618_dronetracker_135_swerve.mcap"
-    )
+def test_builtin_data_provider_resolves_known_builtin_trace(tmp_path):
+    fake_file = tmp_path / "simple_trajectories" / "trace.mcap"
+    fake_file.parent.mkdir()
+    fake_file.touch()
 
-    assert trace_path.exists()
-    assert trace_path.name.endswith(".mcap")
+    provider = BuiltinDataProvider(tmp_path)
+    resolved = provider.ensure_data_path("simple_trajectories/trace.mcap")
+
+    assert resolved.exists()
+    assert resolved.name == "trace.mcap"
 
 
 def test_download_data_provider_skips_download_when_cached(tmp_path, monkeypatch):
+    base = tmp_path / "download"
     provider = DownloadDataProvider(
         uri="https://example.com/file.txt",
-        base_path="download/test",
+        base_path=base,
         force_download=False,
     )
-    provider.root_path = tmp_path
-    provider.base_path = tmp_path / "download"
     provider.base_path.mkdir(parents=True, exist_ok=True)
-    provider.file_path = provider.base_path / provider.filename
     provider.file_path.write_text("cached", encoding="utf-8")
     provider.loaded = True
 
@@ -68,11 +68,8 @@ def test_download_zip_data_provider_extracts_archive(tmp_path, monkeypatch):
 
     provider = DownloadZIPDataProvider(
         uri="https://example.com/archive.zip",
-        base_path="download/zip",
+        base_path=tmp_path / "zip",
     )
-    provider.root_path = tmp_path
-    provider.base_path = tmp_path / "zip"
-    provider.file_path = provider.base_path / provider.filename
 
     extracted = provider.ensure_data_path("nested/file.txt")
 

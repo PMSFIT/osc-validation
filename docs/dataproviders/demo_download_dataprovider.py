@@ -30,8 +30,8 @@ def osi_trace(request):
     scope="module",
     params=["xodr_example/map.xodr"],
 )
-def odr_file(request):
-    provider = BuiltinDataProvider()
+def odr_file(request, builtin_data_path):
+    provider = BuiltinDataProvider(builtin_data_path)
     yield provider.ensure_data_path(request.param)
     provider.cleanup()
 

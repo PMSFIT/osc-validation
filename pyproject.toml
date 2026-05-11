@@ -23,6 +23,7 @@ dependencies = [
   "pytest>=8.2.2,<9.0.0",
   "asam-osi-utilities>=0.4.0,<0.5.0",
   "pytest-html>=4.2.0,<5.0.0",
+  "tomli>=2.0.0,<3.0.0; python_version < '3.11'",
 ]
 
 [project.urls]
@@ -35,9 +36,12 @@ strip_sensorview = 'osc_validation.utils.strip_sensorview:main'
 trajectory_similarity = 'osc_validation.metrics.trajectory_similarity:main'
 osi_format_converter = 'osc_validation.utils.osi_format_converter:main'
 
+[project.entry-points."pytest11"]
+osc-validation = 'osc_validation.pytest_plugin'
+
 [tool.poetry]
 requires-poetry = ">=2.0"
-include = [ "data", "validation", "specification" ]
+include = [ "specification" ]
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"

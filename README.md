@@ -6,16 +6,39 @@ The validation is based on a [subset definition](specification/osc_subset_defini
 
 It derives from this subset a validation suite of representative test cases and metrics that can then be used to check an implementation for correct OSI ground truth generation for those cases.
 
+## Repository structure
+
+The repository separates reusable validation support from concrete validation test cases:
+
+- `osc_validation/` is the reusable Python package. It provides low-level validation functionality such as tool wrappers, data providers, generation utilities, metrics, and a pytest plugin entry point.
+- `tests/` contains unit and smoke tests for the reusable `osc_validation` package and plugin behavior. These tests do not run the first-level OpenSCENARIO validation suite against a tool.
+- `validation/` contains the actual validation test cases and any built-in local data needed by those cases. The validation suite is pytest-based, uses the `osc_validation` pytest plugin, and keeps its standalone pytest configuration in `validation/pytest.ini`.
+
 ## Installation
 
 > [!NOTE]
 > If you choose to manage this project with Poetry, be aware that it requires **Poetry 2.0 or newer**.
 
+### Install from source with Poetry
+
 Use [poetry](https://python-poetry.org/) to install the validation suite into a new virtual environment:
 
 ```bash
+git clone https://github.com/PMSFIT/osc-validation
+cd osc-validation
 poetry install
 ```
+
+### Install the library/plugin only (no test cases)
+
+The `osc-validation` package (library + pytest plugin) can also be installed standalone:
+
+```bash
+pip install osc-validation
+```
+
+This is useful if you want to write your own test cases that use the `osc_validation` API (tools, metrics, dataproviders, generation utilities) and the pytest plugin (`--tool`, `--toolpath` options, `generate_tool_trace` fixture).
+The built-in test cases and reference data are **not** included in the package — clone the repository for those.
 
 ## Usage
 
@@ -24,15 +47,25 @@ poetry install
 When using Poetry as your dependency manager, you can either activate the virtual environment once, or prefix each command with `poetry run` to execute it inside the environment.
 For brevity, the `poetry run` prefix is omitted in the rest of this documentation.
 
-### Run validation
-
-Run the validation suite with an installed OpenSCENARIO engine:
+### List available validation tests (no tool required)
 
 ```bash
-pytest file_or_dir --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
+pytest validation/scenario --collect-only
 ```
 
-The first positional argument (`file_or_dir`) specifies the validation test directory (or file) to run. Pytest will recursively discover and execute all validation files within a given folder based on a contained `pytest.ini` configuration, using it as the root for test collection.
+### Run validation
+
+Run the validation suite with an installed OpenSCENARIO engine from the repository root:
+
+```bash
+pytest validation/scenario --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
+```
+
+Optionally narrow down to a specific category or test file:
+
+```bash
+pytest validation/scenario/trajectories --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
+```
 
 - `<TOOL_NAME>`: Name of the OpenSCENARIO engine to test (e.g., `ESMini`, `GTGen`)
 - `<PATH_TO_TOOL_EXECUTABLE>`: Path to the tool's executable
@@ -52,8 +85,38 @@ pytest validation/scenario --tool ESMini --toolpath C:/path/to/esmini/bin/esmini
 For more information on available command-line options, run:
 
 ```bash
-pytest --help
+pytest validation/scenario --help
 ```
+
+### Test profiles
+
+A **test profile** is a TOML file that declares expected failures for a specific validation run — for example, features not yet supported by a particular tool version. It is designed to be maintained by tool CI pipelines and passed to the suite externally, without modifying this repository.
+
+Pass a profile with `--test-profile`:
+
+```bash
+pytest validation/scenario --tool ESMini --toolpath /path/to/esmini --test-profile /path/to/my_profile.toml
+```
+
+Profile format:
+
+```toml
+[[xfail]]
+test = "scenario/triggers/val_condition_delay.py::test_condition_delay"
+reason = "ConditionDelay not supported in v1.2"
+
+[[xfail]]
+test = "scenario/sequencing/val_split_*.py::*"
+reason = "Sequencing not implemented"
+strict = true  # optional, default false — if true, an unexpected pass is a failure
+```
+
+Each `[[xfail]]` entry requires:
+- `test` — pytest node ID or `fnmatch` glob pattern matching one or more node IDs
+- `reason` — human-readable explanation shown in the report
+
+Optional:
+- `strict` (bool, default `false`) — when `true`, the test is marked as failed if it unexpectedly passes
 
 ### Development checks
 
@@ -82,7 +145,7 @@ Tools already integrated:
 To integrate a custom tool:
 
 - Implement a wrapper subclass of `OSCTool`
-- Extend `validation/scenario/conftest.py` to register your tool in `_make_tool`
+- Register it in `osc_validation/pytest_plugin.py` → `_make_tool`:
 
     ```python
     def _make_tool(config):
@@ -106,6 +169,9 @@ To integrate a custom tool:
     Using the `generate_tool_trace` fixture in a test case function enables to inject the tool execution process into test cases.
     Note that the fixture `generate_tool_trace` is a callable and accepts the corresponding function parameters of the `run` function.
 
+> [!NOTE]
+> When using the package installed via pip (without the built-in test cases), you need to clone the repository and point pytest at `validation/scenario/` to run the suite, or write your own test cases in a local directory.
+
 ## Test case design
 
 Test cases are constructed using reference resources, a reference implementation, automated trace generation, quality checkers, validation metrics and corresponding test parameters.
@@ -122,11 +188,13 @@ Such resources are prepared for provision to a test case via pytest fixtures:
     scope="module",
     params=["simple_trajectories/sv_trace1.osi", "simple_trajectories/sv_trace2.osi"],
 )
-def osi_trace(request):
-    provider = BuiltinDataProvider()
+def osi_trace(request, builtin_data_path):
+    provider = BuiltinDataProvider(builtin_data_path)
     yield provider.ensure_data_path(request.param)
     provider.cleanup()
 ```
+
+The `builtin_data_path` session fixture is provided by `validation/scenario/conftest.py` and resolves to `validation/data/builtin/`.
 
 ### 2. Reference implementation
 
