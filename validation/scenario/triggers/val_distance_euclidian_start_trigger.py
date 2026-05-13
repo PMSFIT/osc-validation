@@ -18,7 +18,7 @@ from osc_validation.generation.trigger_transforms.distance_to_position import (
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification
 
-from scenario.assertions import assert_no_osc_engine_errors
+from osc_validation.assertions import assert_no_osc_engine_errors
 
 
 @pytest.fixture(

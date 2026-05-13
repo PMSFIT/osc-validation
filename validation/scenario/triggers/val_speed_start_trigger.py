@@ -18,7 +18,7 @@ from osc_validation.generation.trigger_transforms.speed import find_speed_activa
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification, open_channel
 
-from scenario.assertions import assert_no_osc_engine_errors
+from osc_validation.assertions import assert_no_osc_engine_errors
 
 
 """
