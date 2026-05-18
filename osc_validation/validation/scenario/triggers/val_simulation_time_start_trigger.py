@@ -13,7 +13,6 @@ from osc_validation.generation import (
     apply_trigger_transform,
     osi2osc,
 )
-from osc_validation.metrics.qccheck import QCOSITraceChecker
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification
 
@@ -66,6 +65,7 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
     odr_file: Path,
     yaml_ruleset: Path,
     generate_tool_trace: Callable,
+    assert_osi_trace_compliance: Callable,
     tmp_path: Path,
     moving_object_id: int,
     ego_object_id: int,
@@ -151,13 +151,12 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
     )
     assert_no_osc_engine_errors(tool_trace_channel_spec)
 
-    """ qc_check = QCOSITraceChecker(ruleset=yaml_ruleset)
-    result = qc_check.check(
+    assert_osi_trace_compliance(
         channel_spec=tool_trace_channel_spec,
         result_file=tmp_path / "qc_result_trigger_delay.xqar",
         output_config=tmp_path / "qc_config_trigger_delay.xml",
+        ruleset=yaml_ruleset,
     )
-    assert result == True, "QC check failed for the trigger-delay tool trace." """
 
     metric = TrajectoryAlignmentSimilarityMetric()
     delayed_reference_channel_spec = transform_result.reference_channel_spec
