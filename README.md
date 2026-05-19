@@ -29,16 +29,15 @@ cd osc-validation
 poetry install
 ```
 
-### Install the library/plugin only (no test cases)
+### Install the package
 
-The `osc-validation` package (library + pytest plugin) can also be installed standalone:
+The `osc-validation` package can also be installed standalone:
 
 ```bash
 pip install osc-validation
 ```
 
-This is useful if you want to write your own test cases that use the `osc_validation` API (tools, metrics, dataproviders, generation utilities) and the pytest plugin (`--tool`, `--toolpath` options, `generate_tool_trace` fixture).
-The built-in test cases and reference data are **not** included in the package — clone the repository for those.
+This installs the reusable `osc_validation` API, the pytest plugin, the `osc-validate` command, and the built-in validation test cases and reference data.
 
 ## Usage
 
@@ -55,10 +54,10 @@ pytest validation/scenario --collect-only
 
 ### Run validation
 
-Run the validation suite with an installed OpenSCENARIO engine from the repository root:
+Run the installed validation suite with an installed OpenSCENARIO engine:
 
 ```bash
-pytest validation/scenario --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
+osc-validate --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
 ```
 
 Optionally narrow down to a specific category or test file:
@@ -73,19 +72,19 @@ pytest validation/scenario/trajectories --tool <TOOL_NAME> --toolpath <PATH_TO_T
 Example:
 
 ```bash
-pytest validation/scenario --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe
+osc-validate --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe
 ```
 
 Generate a self-contained HTML validation report with:
 
 ```bash
-pytest validation/scenario --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --html=validation-report.html --self-contained-html
+osc-validate --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --html validation-report.html
 ```
 
 For more information on available command-line options, run:
 
 ```bash
-pytest validation/scenario --help
+osc-validate --help
 ```
 
 ### Test profiles
@@ -95,7 +94,7 @@ A **test profile** is a TOML file that declares expected failures for a specific
 Pass a profile with `--test-profile`:
 
 ```bash
-pytest validation/scenario --tool ESMini --toolpath /path/to/esmini --test-profile /path/to/my_profile.toml
+osc-validate --tool ESMini --toolpath /path/to/esmini --test-profile /path/to/my_profile.toml
 ```
 
 Profile format:
@@ -168,9 +167,6 @@ To integrate a custom tool:
     ```
     Using the `generate_tool_trace` fixture in a test case function enables to inject the tool execution process into test cases.
     Note that the fixture `generate_tool_trace` is a callable and accepts the corresponding function parameters of the `run` function.
-
-> [!NOTE]
-> When using the package installed via pip (without the built-in test cases), you need to clone the repository and point pytest at `validation/scenario/` to run the suite, or write your own test cases in a local directory.
 
 ## Test case design
 

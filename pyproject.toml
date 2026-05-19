@@ -30,6 +30,7 @@ dependencies = [
 repository = "https://github.com/PMSFIT/osc-validation"
 
 [project.scripts]
+osc-validate = 'osc_validation.cli:main'
 osi2osc = 'osc_validation.generation.osi2osc:main'
 esminigt2sv = 'osc_validation.utils.esminigt2sv:main'
 strip_sensorview = 'osc_validation.utils.strip_sensorview:main'
@@ -41,7 +42,15 @@ osc-validation = 'osc_validation.pytest_plugin'
 
 [tool.poetry]
 requires-poetry = ">=2.0"
-include = [ "specification" ]
+packages = [
+  { include = "osc_validation" },
+  { include = "validation", to = "osc_validation" },
+]
+include = [
+  "specification",
+  "validation/pytest.ini",
+  "validation/data/**/*",
+]
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"

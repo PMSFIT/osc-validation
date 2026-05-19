@@ -8,11 +8,11 @@ intended to be authored and maintained by tool CI pipelines and passed via the
 Example profile file::
 
     [[xfail]]
-    test = "validation/scenario/triggers/val_condition_delay.py::test_foo"
+    test = "scenario/triggers/val_condition_delay.py::test_foo"
     reason = "ConditionDelay not supported in this version"
 
     [[xfail]]
-    test = "validation/scenario/sequencing/val_split_*.py::*"
+    test = "scenario/sequencing/val_split_*.py::*"
     reason = "Sequencing not implemented"
     strict = true
 """

@@ -1,8 +1,10 @@
 from pathlib import Path
 import importlib
 
+import pytest
 from osi_utilities import ChannelSpecification
 
+import osc_validation.cli as cli_module
 import osc_validation.metrics.trajectory_similarity as trajectory_similarity_module
 import osc_validation.utils.esminigt2sv as esminigt2sv_module
 import osc_validation.utils.osi_format_converter as osi_format_converter_module
@@ -12,6 +14,81 @@ from osi_utilities import open_channel_writer
 from tests.conftest import _make_ground_truth, _make_sensor_view
 
 osi2osc_module = importlib.import_module("osc_validation.generation.osi2osc")
+
+
+def test_osc_validate_main_runs_installed_validation_suite(monkeypatch):
+    captured_args = None
+
+    def fake_pytest_main(args):
+        nonlocal captured_args
+        captured_args = args
+        return 17
+
+    monkeypatch.setattr(cli_module.pytest, "main", fake_pytest_main)
+
+    assert (
+        cli_module.main(
+            [
+                "--tool",
+                "ESMini",
+                "--toolpath",
+                "C:/tools/esmini.exe",
+                "--test-profile",
+                "profile.toml",
+            ]
+        )
+        == 17
+    )
+
+    validation_dir = cli_module._validation_dir()
+    assert captured_args == [
+        f"--rootdir={validation_dir}",
+        f"--config-file={validation_dir / 'pytest.ini'}",
+        str(validation_dir),
+        "--tool",
+        "ESMini",
+        "--toolpath",
+        "C:/tools/esmini.exe",
+        "--test-profile",
+        "profile.toml",
+    ]
+
+
+def test_osc_validate_main_adds_self_contained_html(monkeypatch):
+    captured_args = None
+
+    def fake_pytest_main(args):
+        nonlocal captured_args
+        captured_args = args
+        return 0
+
+    monkeypatch.setattr(cli_module.pytest, "main", fake_pytest_main)
+
+    assert (
+        cli_module.main(
+            [
+                "--tool",
+                "GTGen",
+                "--html",
+                "validation-report.html",
+            ]
+        )
+        == 0
+    )
+
+    assert "--html=validation-report.html" in captured_args
+    assert "--self-contained-html" in captured_args
+
+
+def test_osc_validate_main_rejects_positional_test_paths(monkeypatch):
+    monkeypatch.setattr(
+        cli_module.pytest,
+        "main",
+        lambda args: pytest.fail("pytest should not be called"),
+    )
+
+    with pytest.raises(SystemExit):
+        cli_module.main(["--tool", "ESMini", "scenario/trajectories"])
 
 
 def _write_sensorview_trace(path: Path, positions: list[float]) -> None:
