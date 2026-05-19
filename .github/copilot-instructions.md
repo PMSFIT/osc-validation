@@ -14,13 +14,14 @@ poetry install
 poetry run pytest tests
 
 # Run the full validation suite against a tool
-poetry run pytest validation/scenario --tool ESMini --toolpath /path/to/esmini
+poetry run osc-validate --tool ESMini --toolpath /path/to/esmini
 
-# Run a single test file
-poetry run pytest validation/scenario/trajectories/val_simple_trajectories.py --tool ESMini --toolpath /path/to/esmini
+# List validation tests without running a tool
+poetry run pytest --pyargs osc_validation.validation.scenario --collect-only
 
-# Run a single test by name
-poetry run pytest validation/scenario -k "test_trajectory_and_osi_compliance" --tool ESMini --toolpath /path/to/esmini
+# Use direct pytest only when developing validation tests or running specific parts of the suite
+poetry run pytest --pyargs osc_validation.validation.scenario.trajectories --tool ESMini --toolpath /path/to/esmini
+poetry run pytest --pyargs osc_validation.validation.scenario -k "test_trajectory_and_osi_compliance" --tool ESMini --toolpath /path/to/esmini
 
 # Format code
 poetry run black <changed files>
@@ -37,6 +38,7 @@ The project separates reusable validation support from concrete validation test 
    - `dataproviders/` — Data sourcing (`DataProvider` base class). `BuiltinDataProvider(data_root)` serves local files from a provided data root path; `DownloadDataProvider`/`DownloadZIPDataProvider` fetch remote resources.
    - `utils/` — Project utility functions such as trace conversion helpers, SensorView stripping, GroundTruth-to-SensorView conversion, trajectory extraction, and channel specification helpers. Generic OSI trace I/O is provided by `asam-osi-utilities` (`osi_utilities`).
    - `pytest_plugin.py` — Registers `--tool`, `--toolpath`, `--test-profile` CLI options; provides `generate_tool_trace` session fixture; handles validation test collection/profile metadata/report header behavior.
+   - `cli.py` — Provides the `osc-validate` entry point for running the installed validation suite.
 
 2. **`tests/`** — Unit and smoke tests for `osc_validation`
    - Tests package/plugin behavior and project-owned utility logic.
