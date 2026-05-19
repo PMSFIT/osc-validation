@@ -46,10 +46,10 @@ This installs the reusable `osc_validation` API, the pytest plugin, the `osc-val
 When using Poetry as your dependency manager, you can either activate the virtual environment once, or prefix each command with `poetry run` to execute it inside the environment.
 For brevity, the `poetry run` prefix is omitted in the rest of this documentation.
 
-### List available validation tests (no tool required)
+### List available validation tests
 
 ```bash
-pytest validation/scenario --collect-only
+pytest --pyargs osc_validation --collect-only
 ```
 
 ### Run validation
@@ -60,25 +60,23 @@ Run the installed validation suite with an installed OpenSCENARIO engine:
 osc-validate --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
 ```
 
-Optionally narrow down to a specific category or test file:
-
-```bash
-pytest validation/scenario/trajectories --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
-```
-
 - `<TOOL_NAME>`: Name of the OpenSCENARIO engine to test (e.g., `ESMini`, `GTGen`)
 - `<PATH_TO_TOOL_EXECUTABLE>`: Path to the tool's executable
 
-Example:
+> [!NOTE]
+> You can omit `--toolpath` if your OpenSCENARIO engine's cli command is on PATH.
+
+Use `pytest` directly if you need to run a specific part of the suite (e.g. when developing test cases) or if you need specific pytest features that are not provided through the `osc-validate` command.
+For running specific parts of the installed validation suite outside of the source repo, use `--pyargs` so pytest resolves the validation package location automatically:
 
 ```bash
-osc-validate --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe
+pytest --pyargs osc_validation.validation.scenario.trajectories --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
 ```
 
 Generate a self-contained HTML validation report with:
 
 ```bash
-osc-validate --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --html validation-report.html
+osc-validate --tool <TOOL_NAME> --html validation-report.html
 ```
 
 For more information on available command-line options, run:
@@ -140,6 +138,7 @@ Tools already integrated:
 
 - ESMini
 - GTGen Simulator (via gtgen_cli)
+- OscSimulator
 
 To integrate a custom tool:
 
