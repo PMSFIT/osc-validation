@@ -67,10 +67,16 @@ osc-validate --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
 > You can omit `--toolpath` if your OpenSCENARIO engine's cli command is on PATH.
 
 Use `pytest` directly if you need to run a specific part of the suite (e.g. when developing test cases) or if you need specific pytest features that are not provided through the `osc-validate` command.
-For running specific parts of the installed validation suite outside of the source repo, use `--pyargs` so pytest resolves the validation package location automatically:
+Run pytest against paths inside `osc_validation/validation` so the validation suite's pytest configuration and plugin are loaded:
 
 ```bash
-pytest --pyargs osc_validation.validation.scenario.trajectories --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
+pytest osc_validation/validation/scenario/trajectories --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
+```
+
+From outside the repository root, pass the validation suite config explicitly:
+
+```bash
+pytest <PATH_TO_REPOSITORY_ROOT>/osc_validation/validation/scenario/trajectories --config-file <PATH_TO_REPOSITORY_ROOT>/osc_validation/validation/pytest.ini --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
 ```
 
 Generate a self-contained HTML validation report with:

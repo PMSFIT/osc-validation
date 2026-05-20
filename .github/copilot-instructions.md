@@ -17,10 +17,10 @@ poetry run pytest tests
 poetry run osc-validate --tool ESMini --toolpath /path/to/esmini
 
 # List validation tests without running a tool
-poetry run pytest --pyargs osc_validation.validation.scenario --collect-only
+poetry run pytest osc_validation/validation/scenario --collect-only
 # Use direct pytest only when developing validation tests or running specific parts of the suite
-poetry run pytest --pyargs osc_validation.validation.scenario.trajectories --tool ESMini --toolpath /path/to/esmini
-poetry run pytest --pyargs osc_validation.validation.scenario -k "test_trajectory_and_osi_compliance" --tool ESMini --toolpath /path/to/esmini
+poetry run pytest osc_validation/validation/scenario/trajectories --tool ESMini --toolpath /path/to/esmini
+poetry run pytest osc_validation/validation/scenario -k "test_trajectory_and_osi_compliance" --tool ESMini --toolpath /path/to/esmini
 
 # Format code
 poetry run black <changed files>
@@ -36,7 +36,7 @@ The project separates reusable validation support from concrete validation test 
    - `metrics/` — Validation metrics (`OSIMetric` base class). Compare tool-generated traces to reference traces (e.g., `TrajectorySimilarityMetric`).
    - `dataproviders/` — Data sourcing (`DataProvider` base class). `BuiltinDataProvider(data_root)` serves local files from a provided data root path; `DownloadDataProvider`/`DownloadZIPDataProvider` fetch remote resources.
    - `utils/` — Project utility functions such as trace conversion helpers, SensorView stripping, GroundTruth-to-SensorView conversion, trajectory extraction, and channel specification helpers. Generic OSI trace I/O is provided by `asam-osi-utilities` (`osi_utilities`).
-   - `pytest_plugin.py` — Registers `--tool`, `--toolpath`, `--test-profile` CLI options; provides `generate_tool_trace` session fixture; handles validation test collection/profile metadata/report header behavior.
+   - `pytest_plugin.py` — Suite-local pytest plugin loaded by `osc_validation/validation/conftest.py`; registers `--tool`, `--toolpath`, `--test-profile` CLI options; provides `generate_tool_trace`; handles profile metadata and report headers.
    - `cli.py` — Provides the `osc-validate` entry point for running the installed validation suite.
 
 2. **`tests/`** — Unit and smoke tests for `osc_validation`
@@ -45,7 +45,8 @@ The project separates reusable validation support from concrete validation test 
 
 3. **`osc_validation/validation/`** — Packaged validation suite built on reusable `osc_validation` modules
    - Tests live under `osc_validation/validation/scenario/` and are discovered via `osc_validation/validation/pytest.ini`.
-   - `osc_validation/validation/scenario/conftest.py` provides the `builtin_data_path` session fixture (resolves to `osc_validation/validation/data/builtin/`) and sets the HTML report title.
+   - `osc_validation/validation/conftest.py` loads the suite-local pytest plugin and sets the HTML report title.
+   - `osc_validation/validation/scenario/conftest.py` provides the `builtin_data_path` session fixture (resolves to `osc_validation/validation/data/builtin/`).
    - `osc_validation/validation/data/builtin/` — Built-in local data and reference OSI trace files used by validation cases.
    - Validation test files consume the `osc_validation` pytest plugin fixtures and CLI options.
 
