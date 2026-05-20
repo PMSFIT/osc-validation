@@ -40,7 +40,20 @@ class XFailEntry:
 
     def matches(self, node_id: str) -> bool:
         """Return True if *node_id* matches this entry's test pattern."""
-        return fnmatch(node_id, self.test)
+        return (
+            fnmatch(node_id, self.test)
+            or _unparameterized_node_id(node_id) == self.test
+        )
+
+
+def _unparameterized_node_id(node_id: str) -> str:
+    """Return the base test node ID without a trailing pytest parameter suffix."""
+    if not node_id.endswith("]"):
+        return node_id
+    base_node_id, separator, _ = node_id.rpartition("[")
+    if separator and "::" in base_node_id:
+        return base_node_id
+    return node_id
 
 
 @dataclass

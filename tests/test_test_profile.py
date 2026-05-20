@@ -18,6 +18,11 @@ def test_xfail_entry_exact_match():
     assert entry.matches("validation/scenario/foo.py::test_bar")
 
 
+def test_xfail_entry_unparameterized_node_id_matches_parameterized_item():
+    entry = XFailEntry(test="validation/scenario/foo.py::test_bar", reason="r")
+    assert entry.matches("validation/scenario/foo.py::test_bar[data-set-1]")
+
+
 def test_xfail_entry_no_match():
     entry = XFailEntry(test="validation/scenario/foo.py::test_bar", reason="r")
     assert not entry.matches("validation/scenario/foo.py::test_other")

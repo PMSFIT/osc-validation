@@ -118,6 +118,9 @@ Each `[[xfail]]` entry requires:
 - `test` — pytest node ID or `fnmatch` glob pattern matching one or more node IDs
 - `reason` — human-readable explanation shown in the report
 
+A function-level node ID without a parametrization suffix also matches all parametrized instances of that test.
+For example, `scenario/foo.py::test_bar` matches collected items such as `scenario/foo.py::test_bar[data-set-1]`.
+
 Optional:
 - `strict` (bool, default `false`) — when `true`, the test is marked as failed if it unexpectedly passes
 
