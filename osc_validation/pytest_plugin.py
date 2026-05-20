@@ -72,15 +72,7 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    """Register markers and initialise the tool when ``--tool`` is provided."""
-    config.addinivalue_line(
-        "markers", "trajectory: trajectory-specific tests"
-    )
-    config.addinivalue_line(
-        "markers",
-        "xfail_from_profile: xfail mark applied via --test-profile config",
-    )
-
+    """Initialise the tool when ``--tool`` is provided."""
     config._osc_validation_run_start_time = datetime.datetime.now().astimezone()
     config._osc_tool = None
     config._osc_tool_version = None
