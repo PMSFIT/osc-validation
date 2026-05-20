@@ -2,13 +2,16 @@
 
 import argparse
 from pathlib import Path
+import subprocess
 import sys
-
-import pytest
 
 
 def _validation_dir() -> Path:
     return Path(__file__).resolve().parent / "validation"
+
+
+def _resolve_from_cwd(path: str) -> str:
+    return str(Path(path).resolve())
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -45,17 +48,20 @@ def _pytest_args(args: argparse.Namespace, validation_dir: Path) -> list[str]:
     pytest_args = [
         f"--rootdir={validation_dir}",
         f"--config-file={validation_dir / 'pytest.ini'}",
+        "--import-mode=importlib",
         str(validation_dir),
         "--tool",
         args.tool,
     ]
 
     if args.toolpath is not None:
-        pytest_args.extend(["--toolpath", args.toolpath])
+        pytest_args.extend(["--toolpath", _resolve_from_cwd(args.toolpath)])
     if args.test_profile is not None:
-        pytest_args.extend(["--test-profile", args.test_profile])
+        pytest_args.extend(["--test-profile", _resolve_from_cwd(args.test_profile)])
     if args.html is not None:
-        pytest_args.extend([f"--html={args.html}", "--self-contained-html"])
+        pytest_args.extend(
+            [f"--html={_resolve_from_cwd(args.html)}", "--self-contained-html"]
+        )
 
     return pytest_args
 
@@ -63,7 +69,17 @@ def _pytest_args(args: argparse.Namespace, validation_dir: Path) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     validation_dir = _validation_dir()
-    return pytest.main(_pytest_args(args, validation_dir))
+    if not (validation_dir / "pytest.ini").exists() or not (
+        validation_dir / "scenario"
+    ).exists():
+        raise FileNotFoundError(
+            "Installed validation suite not found at "
+            f"'{validation_dir}'. "
+            "Install osc-validation from a built wheel/sdist, or place the "
+            "validation suite inside the osc_validation package."
+        )
+    command = [sys.executable, "-m", "pytest", *_pytest_args(args, validation_dir)]
+    return subprocess.run(command, check=False, cwd=validation_dir).returncode
 
 
 if __name__ == "__main__":

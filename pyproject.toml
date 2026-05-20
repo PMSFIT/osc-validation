@@ -44,12 +44,11 @@ osc-validation = 'osc_validation.pytest_plugin'
 requires-poetry = ">=2.0"
 packages = [
   { include = "osc_validation" },
-  { include = "validation", to = "osc_validation" },
 ]
 include = [
   "specification",
-  "validation/pytest.ini",
-  "validation/data/**/*",
+  "osc_validation/validation/pytest.ini",
+  "osc_validation/validation/data/**/*",
 ]
 
 [tool.poetry.group.dev.dependencies]

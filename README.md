@@ -10,9 +10,9 @@ It derives from this subset a validation suite of representative test cases and 
 
 The repository separates reusable validation support from concrete validation test cases:
 
-- `osc_validation/` is the reusable Python package. It provides low-level validation functionality such as tool wrappers, data providers, generation utilities, metrics, and a pytest plugin entry point.
+- `osc_validation/` is the installable Python package. It provides low-level validation functionality such as tool wrappers, data providers, generation utilities, metrics, the pytest plugin entry point, and the packaged validation suite.
 - `tests/` contains unit and smoke tests for the reusable `osc_validation` package and plugin behavior. These tests do not run the first-level OpenSCENARIO validation suite against a tool.
-- `validation/` contains the actual validation test cases and any built-in local data needed by those cases. The validation suite is pytest-based, uses the `osc_validation` pytest plugin, and keeps its standalone pytest configuration in `validation/pytest.ini`.
+- `osc_validation/validation/` contains the actual validation test cases and any built-in local data needed by those cases. The validation suite is pytest-based, uses the `osc_validation` pytest plugin, and keeps its standalone pytest configuration in `osc_validation/validation/pytest.ini`.
 
 ## Installation
 
@@ -189,7 +189,7 @@ def osi_trace(request, builtin_data_path):
     provider.cleanup()
 ```
 
-The `builtin_data_path` session fixture is provided by `validation/scenario/conftest.py` and resolves to `validation/data/builtin/`.
+The `builtin_data_path` session fixture is provided by `osc_validation/validation/scenario/conftest.py` and resolves to `osc_validation/validation/data/builtin/`.
 
 ### 2. Reference implementation
 

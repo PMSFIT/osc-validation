@@ -18,7 +18,7 @@ Responsibilities
 
 Presentation hooks that are specific to the built-in validation suite (e.g.
 ``pytest_html_report_title``) live in
-``validation/scenario/conftest.py`` where conftest scoping
+``osc_validation/validation/scenario/conftest.py`` where conftest scoping
 keeps them from affecting unrelated pytest sessions.
 """
 
