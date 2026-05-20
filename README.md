@@ -49,7 +49,7 @@ For brevity, the `poetry run` prefix is omitted in the rest of this documentatio
 ### List available validation tests
 
 ```bash
-pytest --pyargs osc_validation --collect-only
+pytest osc_validation/validation --collect-only
 ```
 
 ### Run validation

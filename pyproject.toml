@@ -37,9 +37,6 @@ strip_sensorview = 'osc_validation.utils.strip_sensorview:main'
 trajectory_similarity = 'osc_validation.metrics.trajectory_similarity:main'
 osi_format_converter = 'osc_validation.utils.osi_format_converter:main'
 
-[project.entry-points."pytest11"]
-osc-validation = 'osc_validation.pytest_plugin'
-
 [tool.poetry]
 requires-poetry = ">=2.0"
 packages = [

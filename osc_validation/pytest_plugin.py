@@ -1,16 +1,13 @@
 """
 Pytest plugin for the OSC Validation Suite.
 
-Registered as a ``pytest11`` entry point so that OSC Validation Suite
-options, hooks, and fixtures are available in every pytest session where the
-package is installed — including external test packages that supply their own
-``val_*.py`` files.
+Loaded by the packaged validation suite and by the ``osc-validate`` wrapper so
+that OSC Validation Suite options, hooks, and fixtures are available only for
+validation runs.
 
 Responsibilities
 ----------------
 * Register CLI options (``--tool``, ``--toolpath``, ``--test-profile``).
-* Collect ``val_*.py`` files regardless of the active ``python_files`` ini
-  setting (needed when the package is installed without its source tree).
 * Initialise the tool under test and expose it via the ``generate_tool_trace``
   session fixture.
 * Apply xfail markers from an optional test-profile file.
@@ -23,7 +20,6 @@ keeps them from affecting unrelated pytest sessions.
 """
 
 import datetime
-import fnmatch
 import pathlib
 
 import pytest
@@ -50,29 +46,6 @@ def _make_tool(config):
     elif tool_name == "OscSimulator":
         return OscSimulator(toolpath)
     raise UnknownToolError(f"Unknown tool: {tool_name}")
-
-
-def pytest_collect_file(parent, file_path):
-    """Collect ``val_*.py`` files as pytest modules.
-
-    The ``val_`` prefix distinguishes validation tests from unit tests.
-    When the package is installed via pip the ``pyproject.toml`` that declares
-    ``python_files = val_*.py`` is absent, so pytest would otherwise skip
-    these files.  This hook ensures collection works regardless of how the
-    package was obtained.
-
-    A guard against double-collection is applied: if the active
-    ``python_files`` ini option already matches the filename (e.g. when
-    running directly from the cloned repository), the built-in collector
-    handles the file and this hook returns ``None``.
-    """
-    if file_path.suffix == ".py" and file_path.name.startswith("val_"):
-        python_files = parent.config.getini("python_files")
-        already_matched = any(
-            fnmatch.fnmatch(file_path.name, pat) for pat in python_files
-        )
-        if not already_matched:
-            return pytest.Module.from_parent(parent, path=file_path)
 
 
 def pytest_addoption(parser):
