@@ -6,16 +6,8 @@ from qc_baselib import Configuration
 
 from qc_ositrace import constants
 from qc_ositrace.main import run_checker_bundle
-from qc_ositrace.checks.osirules import osirules_constants
-from qc_ositrace.checks.deserialization import deserialization_constants
 
 from osi_utilities import ChannelSpecification
-
-
-CHECKER_IDS = [
-    deserialization_constants.CHECKER_ID,
-    osirules_constants.CHECKER_ID,
-]
 
 
 @dataclass(frozen=True)
@@ -92,16 +84,12 @@ class QCOSITraceChecker(TraceChecker):
 
         result = run_checker_bundle(config)
 
-        if config.get_checker_bundle_param(
+        configured_result_file = config.get_checker_bundle_param(
             checker_bundle_name=constants.BUNDLE_NAME, param_name="resultFile"
-        ):
+        )
+        if configured_result_file:
             logging.info(f"Writing results to {result_file}")
-
-            result.write_to_file(
-                config.get_checker_bundle_param(
-                    checker_bundle_name=constants.BUNDLE_NAME, param_name="resultFile"
-                )
-            )
+            result.write_to_file(configured_result_file)
         else:
             logging.info(
                 "No result file specified, results will not be written to file"
@@ -111,8 +99,8 @@ class QCOSITraceChecker(TraceChecker):
             logging.info(f"Writing configuration to file: {output_config}")
             config.write_to_file(output_config)
 
-        passed = result.all_checkers_completed_without_issue(CHECKER_IDS)
-        issue_count = _issue_count(result, CHECKER_IDS)
+        passed = result.all_checkers_completed_without_issue()
+        issue_count = result.get_issue_count()
         return QCOSITraceCheckResult(
             passed=passed,
             summary=_format_qc_result_summary(
@@ -163,14 +151,18 @@ def _format_qc_result_summary(
     if output_config is not None:
         lines.append(f"Output config: {output_config}")
 
-    lines.append("Checker summary:")
-    for checker_id in CHECKER_IDS:
-        status = _checker_status(result, checker_id)
-        count = _checker_issue_count(result, checker_id)
-        count_text = "unknown" if count is None else str(count)
-        lines.append(f"- {checker_id}: status={status}, issues={count_text}")
+    checker_results = result.get_checker_results(constants.BUNDLE_NAME)
 
-    issue_lines, omitted_count = _issue_lines(result, max_issues=max_issues)
+    lines.append("Checker summary:")
+    for checker in checker_results:
+        lines.append(
+            f"- {checker.checker_id}: status={_format_status(checker.status)}, "
+            f"issues={len(checker.issues)}"
+        )
+
+    issue_lines, omitted_count = _issue_lines(
+        checker_results, max_issues=max_issues
+    )
     if issue_lines:
         lines.append("Issues:")
         lines.extend(issue_lines)
@@ -186,48 +178,20 @@ def _format_qc_result_summary(
     return "\n".join(lines)
 
 
-def _issue_count(result, checker_ids: list[str]) -> int:
-    count = 0
-    for checker_id in checker_ids:
-        checker_count = _checker_issue_count(result, checker_id)
-        if checker_count is not None:
-            count += checker_count
-    return count
+def _format_status(status) -> str:
+    return getattr(status, "value", None) or getattr(status, "name", None) or str(status)
 
 
-def _checker_status(result, checker_id: str) -> str:
-    try:
-        status = result.get_checker_status(checker_id)
-    except Exception:
-        return "unknown"
-    return (
-        getattr(status, "value", None) or getattr(status, "name", None) or str(status)
-    )
-
-
-def _checker_issue_count(result, checker_id: str) -> int | None:
-    try:
-        return result.get_checker_issue_count(constants.BUNDLE_NAME, checker_id)
-    except Exception:
-        try:
-            return len(result.get_issues(constants.BUNDLE_NAME, checker_id))
-        except Exception:
-            return None
-
-
-def _issue_lines(result, max_issues: int) -> tuple[list[str], int]:
+def _issue_lines(checker_results, max_issues: int) -> tuple[list[str], int]:
     lines = []
     total_count = 0
-    for checker_id in CHECKER_IDS:
-        try:
-            issues = result.get_issues(constants.BUNDLE_NAME, checker_id)
-        except Exception:
-            continue
+    for checker in checker_results:
+        issues = checker.issues
         total_count += len(issues)
         for issue in issues:
             if len(lines) >= max_issues:
                 continue
-            lines.append(f"- [{checker_id}] {_format_issue(issue)}")
+            lines.append(f"- [{checker.checker_id}] {_format_issue(issue)}")
     return lines, max(0, total_count - len(lines))
 
 
