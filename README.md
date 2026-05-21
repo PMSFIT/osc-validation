@@ -88,13 +88,21 @@ osc-validate --tool <TOOL_NAME> --html validation-report.html
 Enable QC OSI trace checks at test case call sites with:
 
 ```bash
-pytest validation/scenario --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --qc-osi-trace --qc-osi-version 3.7.0
+osc-validate --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --qc-osi-trace --qc-osi-version 3.7.0
+```
+or
+```bash
+pytest osc_validation/validation --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --qc-osi-trace --qc-osi-version 3.7.0
 ```
 
 For more information on available command-line options, run:
 
 ```bash
 osc-validate --help
+```
+or
+```bash
+pytest osc_validation/validation --help
 ```
 
 ### Test profiles
