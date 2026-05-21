@@ -44,6 +44,11 @@ def test_osc_validate_main_runs_installed_validation_suite(monkeypatch):
                 "C:/tools/esmini.exe",
                 "--test-profile",
                 "profile.toml",
+                "--qc-osi-trace",
+                "--qc-osi-version",
+                "3.7.0",
+                "--qc-osi-ruleset",
+                "rules.yml",
             ]
         )
         == 17
@@ -63,6 +68,11 @@ def test_osc_validate_main_runs_installed_validation_suite(monkeypatch):
         str(Path("C:/tools/esmini.exe").resolve()),
         "--test-profile",
         str(Path("profile.toml").resolve()),
+        "--qc-osi-trace",
+        "--qc-osi-version",
+        "3.7.0",
+        "--qc-osi-ruleset",
+        str(Path("rules.yml").resolve()),
     ]
 
 
