@@ -111,6 +111,40 @@ def test_osc_validate_main_adds_self_contained_html(monkeypatch):
     assert "--self-contained-html" in captured_command
 
 
+def test_osc_validate_main_adds_junitxml(monkeypatch):
+    captured_command = None
+    validation_dir = Path("installed-validation")
+
+    def fake_subprocess_run(command, check, cwd):
+        nonlocal captured_command
+        captured_command = command
+        assert check is False
+        assert cwd == validation_dir
+        return type("CompletedProcess", (), {"returncode": 0})()
+
+    monkeypatch.setattr(cli_module.subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr(cli_module, "_validation_dir", lambda: validation_dir)
+    monkeypatch.setattr(
+        cli_module.Path,
+        "exists",
+        lambda self: self.name in {"pytest.ini", "scenario"},
+    )
+
+    assert (
+        cli_module.main(
+            [
+                "--tool",
+                "GTGen",
+                "--junitxml",
+                "validation-results.xml",
+            ]
+        )
+        == 0
+    )
+
+    assert f"--junitxml={Path('validation-results.xml').resolve()}" in captured_command
+
+
 def test_osc_validate_main_rejects_positional_test_paths(monkeypatch):
     monkeypatch.setattr(
         cli_module.subprocess,

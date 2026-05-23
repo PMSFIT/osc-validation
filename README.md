@@ -85,6 +85,12 @@ Generate a self-contained HTML validation report with:
 osc-validate --tool <TOOL_NAME> --html validation-report.html
 ```
 
+Generate a JUnit XML results file with:
+
+```bash
+osc-validate --tool <TOOL_NAME> --junitxml validation-results.xml
+```
+
 Enable QC OSI trace checks at test case call sites with:
 
 ```bash

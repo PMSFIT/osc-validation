@@ -42,6 +42,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="Write a self-contained pytest-html report to PATH.",
     )
     parser.add_argument(
+        "--junitxml",
+        default=None,
+        metavar="PATH",
+        help="Write a JUnit XML report to PATH.",
+    )
+    parser.add_argument(
         "--qc-osi-trace",
         action="store_true",
         default=False,
@@ -80,6 +86,8 @@ def _pytest_args(args: argparse.Namespace, validation_dir: Path) -> list[str]:
         pytest_args.extend(
             [f"--html={_resolve_from_cwd(args.html)}", "--self-contained-html"]
         )
+    if args.junitxml is not None:
+        pytest_args.append(f"--junitxml={_resolve_from_cwd(args.junitxml)}")
     if args.qc_osi_trace:
         pytest_args.append("--qc-osi-trace")
     if args.qc_osi_version is not None:
