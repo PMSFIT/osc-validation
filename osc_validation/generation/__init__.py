@@ -11,6 +11,12 @@ from .init_transforms import (
     apply_init_pose_transform,
     build_init_pose_overridden_reference_trace,
 )
+from .init_actions import (
+    InitActionActor,
+    InitActionsXoscRequest,
+    InitActionsXoscResult,
+    build_init_actions_xosc,
+)
 from .trigger_transforms import (
     DistancePositionTriggerSpec,
     SimulationTimeTriggerSpec,
