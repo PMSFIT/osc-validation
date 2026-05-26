@@ -14,7 +14,7 @@ from osc_validation.generation import (
 )
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
 
-from validation.scenario.assertions import assert_no_osc_engine_errors
+from osc_validation.assertions import assert_no_osc_engine_errors
 
 
 @pytest.fixture(
@@ -23,8 +23,8 @@ from validation.scenario.assertions import assert_no_osc_engine_errors
         "simple_trajectories/20240603T152322.095000Z_sv_370_3200_618_dronetracker_135_swerve.mcap"
     ],
 )
-def osi_trace(request):
-    provider = BuiltinDataProvider()
+def osi_trace(request, builtin_data_path):
+    provider = BuiltinDataProvider(builtin_data_path)
     yield provider.ensure_data_path(request.param)
     provider.cleanup()
 

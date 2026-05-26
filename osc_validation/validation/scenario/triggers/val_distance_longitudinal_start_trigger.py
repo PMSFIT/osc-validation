@@ -7,19 +7,52 @@ import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
 from osc_validation.generation import (
-    TimeToCollisionPositionTriggerSpec,
+    DistancePositionTriggerSpec,
     TriggerTransformRequest,
     apply_trigger_transform,
-    build_trace_with_calculated_kinematics,
-    find_ttc_position_activation_point,
     osi2osc,
 )
 from osc_validation.generation.init_transforms.models import InitPoseOverride
+from osc_validation.generation.trigger_transforms.distance_to_position import find_distance_position_activation_point
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
-from osi_utilities import ChannelSpecification, open_channel
+from osi_utilities import ChannelSpecification
 
-from validation.scenario.assertions import assert_no_osc_engine_errors
+from osc_validation.assertions import assert_no_osc_engine_errors
 
+
+""" 
+Lichtblick User Script:
+
+import { Input, Message } from "./types";
+
+type Output = {
+  x1: number;
+  x2: number;
+  distance: number;
+};
+
+export const inputs = ["<INSERT_TOOL_TRACE_TOPIC_NAME>"];
+
+export const output = "test_topic";
+
+let x1 = 0;
+let x2 = -275.37930040547195; // Hardcoded target_position_x used in the trigger spec of the test.
+
+export default function script(
+  event: Input<"<INSERT_TOOL_TRACE_TOPIC_NAME>">,
+): Output {
+  const msg = event.message;
+  const obj1 = msg.global_ground_truth.moving_object?.[0];
+  x1 = obj1.base.position.x;
+
+  return {
+    x1: x1,
+    x2: x2,
+    distance: x2 - x1,
+  };
+}
+
+"""
 
 @pytest.fixture(
     scope="module",
@@ -27,8 +60,8 @@ from validation.scenario.assertions import assert_no_osc_engine_errors
         "simple_trajectories/20240603T152322.095000Z_sv_370_3200_618_dronetracker_135_swerve.mcap"
     ],
 )
-def osi_trace(request):
-    provider = BuiltinDataProvider()
+def osi_trace(request, builtin_data_path):
+    provider = BuiltinDataProvider(builtin_data_path)
     yield provider.ensure_data_path(request.param)
     provider.cleanup()
 
@@ -39,10 +72,10 @@ def osi_trace(request):
         "https://raw.githubusercontent.com/OpenSimulationInterface/qc-osi-trace/refs/heads/main/qc_ositrace/checks/osirules/rulesyml/osi_3_7_0.yml"
     ],
 )
-def yaml_ruleset(request):
+def yaml_ruleset(request, tmp_path_factory):
     uri = request.param
     filename = Path(urlparse(uri).path).name
-    base_path = Path("download/osirules")
+    base_path = tmp_path_factory.mktemp("osirules")
     provider = DownloadDataProvider(uri=uri, base_path=base_path)
     yield provider.ensure_data_path(filename)
     provider.cleanup()
@@ -53,97 +86,67 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-def _get_object_position_at_last_frame(
-    channel_spec: ChannelSpecification, object_id: int
-) -> tuple[float, float, float]:
-    with open_channel(channel_spec) as reader:
-        messages = list(reader)
-        if not messages:
-            raise RuntimeError("Input trace has no messages.")
-        last = messages[-1]
-        moving_objects = (
-            last.global_ground_truth.moving_object
-            if hasattr(last, "global_ground_truth")
-            else last.moving_object
-        )
-        target = next((mo for mo in moving_objects if mo.id.value == object_id), None)
-        if target is None:
-            raise KeyError(f"Object ID {object_id} not found in last frame.")
-        return (
-            target.base.position.x,
-            target.base.position.y,
-            target.base.position.z,
-        )
-
-
-@pytest.mark.trajectory
-@pytest.mark.parametrize("moving_object_id", [2])
-@pytest.mark.parametrize("trigger_object_id", [1])
-@pytest.mark.parametrize("trigger_ttc_s", [5.0])
-@pytest.mark.parametrize("activation_frame_offset", [1])
-@pytest.mark.parametrize("rate", [0.05])
-@pytest.mark.parametrize("tolerance", [0.3])
-def test_time_to_collision_start_trigger_activates_target_actor(
+def _run_distance_longitudinal_start_trigger_case(
     osi_trace: Path,
     odr_file: Path,
-    yaml_ruleset: Path,
     generate_tool_trace: Callable,
     tmp_path: Path,
-    moving_object_id: int,
-    trigger_object_id: int,
-    trigger_ttc_s: float,
-    activation_frame_offset: int,
-    rate: float,
-    tolerance: float,
+    condition_delay_s: float = 0.0,
+    moving_object_id: int = 2,
+    trigger_object_id: int = 1,
+    trigger_distance_m: float = 10.0,
+    post_trigger_guard_time_s: float = 0.05,   # Tolerance parameter to account for small discrepancies in the exact activation point of the trigger
+    max_alignment_lag_frames: int = 1,         # Maximum lag (+/-) between the tool trajectory and reference trajectory to still be considered valid
+    rate: float = 0.05,
+    tolerance: float = 0.1,
 ):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    raw_reference_channel_spec = ChannelSpecification(osi_trace, message_type="SensorView")
-    reference_trace_channel_spec = build_trace_with_calculated_kinematics(
-        input_channel_spec=raw_reference_channel_spec,
-        output_channel_spec=ChannelSpecification(
-            path=tmp_path / "reference_with_kinematics_for_ttc.mcap",
-            message_type="SensorView",
-            metadata={
-                "net.asam.osi.trace.channel.description": "Reference trace with calculated velocity and acceleration for TTC trigger validation"
-            },
-        ),
+    reference_trace_channel_spec = ChannelSpecification(osi_trace, message_type="SensorView")
+    activation_frame_offset = 1                 # Number of frames for the triggered event to activate after the distance threshold is crossed
+    target_position_x, target_position_y, target_position_z = (
+        -275.37930040547195,
+        -52.90668516705058,
+        0.29707853723620486,
     )
-
-    target_position_x, target_position_y, target_position_z = _get_object_position_at_last_frame(
-        reference_trace_channel_spec, trigger_object_id
-    )
+    case_name = "distance_longitudinal_start_trigger"
+    if condition_delay_s > 0:
+        case_name = f"{case_name}_delay_{condition_delay_s:g}s"
 
     osc_path = osi2osc(
         osi_trace_spec=reference_trace_channel_spec,
-        path_xosc=tmp_path / "osi2osc_ttc_start_trigger.xosc",
+        path_xosc=tmp_path / f"osi2osc_{case_name}.xosc",
         path_xodr=odr_file,
     )
-
     transform_result = apply_trigger_transform(
         TriggerTransformRequest(
             source_xosc_path=osc_path,
             source_reference_channel_spec=reference_trace_channel_spec,
             output_xosc_path=osc_path,
             output_reference_channel_spec=ChannelSpecification(
-                path=tmp_path / "reference_ttc_start_trigger_comparison.mcap",
+                path=tmp_path
+                / f"reference_{case_name}_comparison.mcap",
                 message_type="SensorView",
                 metadata={
-                    "net.asam.osi.trace.channel.description": "Reference trace with TTC start trigger applied"
+                    "net.asam.osi.trace.channel.description": (
+                        "Reference trace with longitudinal distance start trigger applied"
+                    )
                 },
             ),
-            spec=TimeToCollisionPositionTriggerSpec(
+            spec=DistancePositionTriggerSpec(
                 trigger_entity_ref="Ego",
                 target_event_name=f"osi_moving_object_{moving_object_id}_maneuver_event",
-                condition_name=f"ttc_trigger_object{moving_object_id}_start",
-                trigger_ttc_s=trigger_ttc_s,
+                condition_name=f"distance_longitudinal_trigger_object{moving_object_id}_start",
+                trigger_distance_m=trigger_distance_m,
                 trigger_object_id=trigger_object_id,
                 triggered_object_id=moving_object_id,
                 target_position_x=target_position_x,
                 target_position_y=target_position_y,
                 target_position_z=target_position_z,
+                relative_distance_type="longitudinal",
                 trigger_rule="lessOrEqual",
+                condition_delay_s=condition_delay_s,
                 activation_frame_offset=activation_frame_offset,
             ),
             init_pose_policy="explicit_overrides", # need explicit override because osi2osc default init position (0,0,0) is not on road (gtgen doesn't support placing objects outside of road)
@@ -177,10 +180,10 @@ def test_time_to_collision_start_trigger_activates_target_actor(
         osc_path=osc_path,
         odr_path=odr_file,
         osi_output_spec=ChannelSpecification(
-            path=tmp_path / "tool_trace_ttc_start_trigger.mcap",
+            path=tmp_path / f"tool_trace_{case_name}.mcap",
             message_type="SensorView",
             metadata={
-                "net.asam.osi.trace.channel.description": "Tool-generated trace for TTC start trigger validation"
+                "net.asam.osi.trace.channel.description": "Tool-generated trace for longitudinal distance start trigger validation"
             },
         ),
         log_path=tmp_path,
@@ -195,22 +198,38 @@ def test_time_to_collision_start_trigger_activates_target_actor(
         reference_channel_spec=reference_triggered_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
-        result_file=tmp_path / "trajectory_alignment_similarity_report_ttc_start_trigger.txt",
-        # Start after the trigger edge because OpenSCENARIO does not mandate
-        # whether the first trajectory point is applied in the activation frame.
-        start_time=find_ttc_position_activation_point(
+        result_file=tmp_path
+        / f"trajectory_alignment_similarity_report_{case_name}.txt",
+        start_time=find_distance_position_activation_point(
             input_channel_spec=reference_trace_channel_spec,
             trigger_object_id=trigger_object_id,
+            trigger_distance_m=trigger_distance_m,
+            trigger_rule="lessOrEqual",
             target_position_x=target_position_x,
             target_position_y=target_position_y,
-            trigger_ttc_s=trigger_ttc_s,
-            trigger_rule="lessOrEqual",
-        ).time_s + rate,
+            relative_distance_type="longitudinal"
+        ).time_s + condition_delay_s + post_trigger_guard_time_s,
         time_tolerance=0.01,
-        lag_scan_max_frames=2,
+        lag_scan_max_frames=max_alignment_lag_frames,
     )
 
-    assert abs(best_lag_frames) <= 2
+    assert abs(best_lag_frames) <= max_alignment_lag_frames
     assert area < tolerance
     assert cl < tolerance
     assert mae < tolerance
+
+
+@pytest.mark.trajectory
+def test_distance_longitudinal_start_trigger_activates_target_actor(
+    osi_trace: Path,
+    odr_file: Path,
+    yaml_ruleset: Path,
+    generate_tool_trace: Callable,
+    tmp_path: Path,
+):
+    _run_distance_longitudinal_start_trigger_case(
+        osi_trace=osi_trace,
+        odr_file=odr_file,
+        generate_tool_trace=generate_tool_trace,
+        tmp_path=tmp_path,
+    )

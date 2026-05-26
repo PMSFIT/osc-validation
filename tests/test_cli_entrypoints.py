@@ -1,8 +1,10 @@
 from pathlib import Path
 import importlib
 
+import pytest
 from osi_utilities import ChannelSpecification
 
+import osc_validation.cli as cli_module
 import osc_validation.metrics.trajectory_similarity as trajectory_similarity_module
 import osc_validation.utils.esminigt2sv as esminigt2sv_module
 import osc_validation.utils.osi_format_converter as osi_format_converter_module
@@ -12,6 +14,115 @@ from osi_utilities import open_channel_writer
 from tests.conftest import _make_ground_truth, _make_sensor_view
 
 osi2osc_module = importlib.import_module("osc_validation.generation.osi2osc")
+
+
+def test_osc_validate_main_runs_installed_validation_suite(monkeypatch):
+    captured_command = None
+    validation_dir = Path("installed-validation")
+
+    def fake_subprocess_run(command, check, cwd):
+        nonlocal captured_command
+        captured_command = command
+        assert check is False
+        assert cwd == validation_dir
+        return type("CompletedProcess", (), {"returncode": 17})()
+
+    monkeypatch.setattr(cli_module.subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr(cli_module, "_validation_dir", lambda: validation_dir)
+    monkeypatch.setattr(
+        cli_module.Path,
+        "exists",
+        lambda self: self.name in {"pytest.ini", "scenario"},
+    )
+
+    assert (
+        cli_module.main(
+            [
+                "--tool",
+                "ESMini",
+                "--toolpath",
+                "C:/tools/esmini.exe",
+                "--test-profile",
+                "profile.toml",
+            ]
+        )
+        == 17
+    )
+
+    assert captured_command == [
+        cli_module.sys.executable,
+        "-m",
+        "pytest",
+        f"--rootdir={validation_dir}",
+        f"--config-file={validation_dir / 'pytest.ini'}",
+        "--import-mode=importlib",
+        str(validation_dir),
+        "--tool",
+        "ESMini",
+        "--toolpath",
+        str(Path("C:/tools/esmini.exe").resolve()),
+        "--test-profile",
+        str(Path("profile.toml").resolve()),
+    ]
+
+
+def test_osc_validate_main_adds_self_contained_html(monkeypatch):
+    captured_command = None
+    validation_dir = Path("installed-validation")
+
+    def fake_subprocess_run(command, check, cwd):
+        nonlocal captured_command
+        captured_command = command
+        assert check is False
+        assert cwd == validation_dir
+        return type("CompletedProcess", (), {"returncode": 0})()
+
+    monkeypatch.setattr(cli_module.subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr(cli_module, "_validation_dir", lambda: validation_dir)
+    monkeypatch.setattr(
+        cli_module.Path,
+        "exists",
+        lambda self: self.name in {"pytest.ini", "scenario"},
+    )
+
+    assert (
+        cli_module.main(
+            [
+                "--tool",
+                "GTGen",
+                "--html",
+                "validation-report.html",
+            ]
+        )
+        == 0
+    )
+
+    assert f"--html={Path('validation-report.html').resolve()}" in captured_command
+    assert "--self-contained-html" in captured_command
+
+
+def test_osc_validate_main_rejects_positional_test_paths(monkeypatch):
+    monkeypatch.setattr(
+        cli_module.subprocess,
+        "run",
+        lambda command, check, cwd: pytest.fail("pytest should not be called"),
+    )
+
+    with pytest.raises(SystemExit):
+        cli_module.main(["--tool", "ESMini", "scenario/trajectories"])
+
+
+def test_osc_validate_main_requires_installed_validation_suite(monkeypatch):
+    monkeypatch.setattr(cli_module, "_validation_dir", lambda: Path("missing-validation"))
+    monkeypatch.setattr(cli_module.Path, "exists", lambda self: False)
+    monkeypatch.setattr(
+        cli_module.subprocess,
+        "run",
+        lambda command, check, cwd: pytest.fail("pytest should not be called"),
+    )
+
+    with pytest.raises(FileNotFoundError, match="Installed validation suite not found"):
+        cli_module.main(["--tool", "ESMini"])
 
 
 def _write_sensorview_trace(path: Path, positions: list[float]) -> None:

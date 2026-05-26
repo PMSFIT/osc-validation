@@ -4,8 +4,8 @@ from typing import Callable
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider
-from val_distance_longitudinal_start_trigger import _run_distance_longitudinal_start_trigger_case
-from val_speed_start_trigger import _run_speed_start_trigger_case
+from .val_distance_longitudinal_start_trigger import _run_distance_longitudinal_start_trigger_case
+from .val_speed_start_trigger import _run_speed_start_trigger_case
 
 
 @pytest.fixture(
@@ -14,8 +14,8 @@ from val_speed_start_trigger import _run_speed_start_trigger_case
         "simple_trajectories/20240603T152322.095000Z_sv_370_3200_618_dronetracker_135_swerve.mcap"
     ],
 )
-def osi_trace(request):
-    provider = BuiltinDataProvider()
+def osi_trace(request, builtin_data_path):
+    provider = BuiltinDataProvider(builtin_data_path)
     yield provider.ensure_data_path(request.param)
     provider.cleanup()
 
