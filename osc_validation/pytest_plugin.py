@@ -10,6 +10,8 @@ Responsibilities
 * Register CLI options (``--tool``, ``--toolpath``, ``--test-profile``).
 * Initialise the tool under test and expose it via the ``generate_tool_trace``
   session fixture.
+* Expose optional QC OSI trace checking via the
+  ``assert_osi_trace_compliance`` session fixture.
 * Apply xfail markers from an optional test-profile file.
 * Add validation metadata to the pytest report header.
 
@@ -25,6 +27,7 @@ import pathlib
 import pytest
 
 from osc_validation import __version__ as osc_validation_version
+from osc_validation.assertions import make_assert_osi_trace_compliance
 from osc_validation.test_profile import load_test_profile
 from osc_validation.tools.esmini import ESMini
 from osc_validation.tools.gtgen_cli import GTGen_Simulator
@@ -68,6 +71,26 @@ def pytest_addoption(parser):
         default=None,
         metavar="PATH",
         help="Path to a TOML test profile file declaring expected failures for this run",
+    )
+    group.addoption(
+        "--qc-osi-trace",
+        action="store_true",
+        default=False,
+        help="Enable QC OSI trace checks at assert_osi_trace_compliance fixture call sites",
+    )
+    group.addoption(
+        "--qc-osi-version",
+        action="store",
+        default=None,
+        metavar="VERSION",
+        help="Default OSI version for QC OSI trace checks",
+    )
+    group.addoption(
+        "--qc-osi-ruleset",
+        action="store",
+        default=None,
+        metavar="PATH",
+        help="Default OSI ruleset YAML file for QC OSI trace checks",
     )
 
 
@@ -148,6 +171,16 @@ def pytest_collection_modifyitems(config, items):
                 strict=entry.strict,
             )
             item.add_marker(marker, append=False)
+
+
+@pytest.fixture(scope="session")
+def assert_osi_trace_compliance(request):
+    """Assert OSI trace QC compliance when enabled by ``--qc-osi-trace``."""
+    return make_assert_osi_trace_compliance(
+        qc_enabled=request.config.getoption("--qc-osi-trace"),
+        default_osi_version=request.config.getoption("--qc-osi-version"),
+        default_ruleset=request.config.getoption("--qc-osi-ruleset"),
+    )
 
 
 @pytest.fixture(scope="session")

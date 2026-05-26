@@ -8,7 +8,6 @@ import pytest
 from osi_utilities import MessageType
 from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
 from osc_validation.generation import osi2osc
-from osc_validation.metrics.qccheck import QCOSITraceChecker
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
 from osi_utilities import ChannelSpecification
 
@@ -51,6 +50,7 @@ def test_trajectory_and_omegaprime_compliance(
     odr_file: Path,
     yaml_ruleset: Path,
     generate_tool_trace: Callable,
+    assert_osi_trace_compliance: Callable,
     tmp_path: Path,
     moving_object_id: int,
     tolerance=1e-1,
@@ -100,13 +100,13 @@ def test_trajectory_and_omegaprime_compliance(
     )
 
     # Check compliance of tool trace to omega prime ruleset and OSI 3.7.0 ruleset
-    qc_check = QCOSITraceChecker(osi_version="3.7.0", ruleset=yaml_ruleset)
-    result = qc_check.check(
+    assert_osi_trace_compliance(
         channel_spec=tool_trace_channel_spec,
         result_file=tmp_path / "qc_result.xqar",
         output_config=tmp_path / "qc_config.xml",
+        osi_version="3.7.0",
+        ruleset=yaml_ruleset,
     )
-    assert result == True, "QC check failed for the tool-generated OSI trace."
 
     # Calculate trajectory similarity metrics
     trajectory_similarity_metric = TrajectorySimilarityMetric(

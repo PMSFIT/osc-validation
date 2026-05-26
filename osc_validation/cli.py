@@ -41,6 +41,30 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         metavar="PATH",
         help="Write a self-contained pytest-html report to PATH.",
     )
+    parser.add_argument(
+        "--junitxml",
+        default=None,
+        metavar="PATH",
+        help="Write a JUnit XML report to PATH.",
+    )
+    parser.add_argument(
+        "--qc-osi-trace",
+        action="store_true",
+        default=False,
+        help="Enable QC OSI trace checks at test case call sites.",
+    )
+    parser.add_argument(
+        "--qc-osi-version",
+        default=None,
+        metavar="VERSION",
+        help="Default OSI version for QC OSI trace checks.",
+    )
+    parser.add_argument(
+        "--qc-osi-ruleset",
+        default=None,
+        metavar="PATH",
+        help="Default OSI ruleset YAML file for QC OSI trace checks.",
+    )
     return parser.parse_args(argv)
 
 
@@ -62,6 +86,14 @@ def _pytest_args(args: argparse.Namespace, validation_dir: Path) -> list[str]:
         pytest_args.extend(
             [f"--html={_resolve_from_cwd(args.html)}", "--self-contained-html"]
         )
+    if args.junitxml is not None:
+        pytest_args.append(f"--junitxml={_resolve_from_cwd(args.junitxml)}")
+    if args.qc_osi_trace:
+        pytest_args.append("--qc-osi-trace")
+    if args.qc_osi_version is not None:
+        pytest_args.extend(["--qc-osi-version", args.qc_osi_version])
+    if args.qc_osi_ruleset is not None:
+        pytest_args.extend(["--qc-osi-ruleset", _resolve_from_cwd(args.qc_osi_ruleset)])
 
     return pytest_args
 
