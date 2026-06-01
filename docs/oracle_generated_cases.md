@@ -1,8 +1,4 @@
-# Validation Case Architecture
-
-This note describes the preferred structure for future validation test cases.
-It is intended as guidance for future maintainers and AI agents.
-Existing tests do not need to be migrated just for consistency; apply this structure when adding new cases or when touching an existing case for a real feature change.
+# Oracle-based Validation Case Architecture
 
 ## Goal
 
