@@ -37,6 +37,11 @@ class ObjectStateMetricResult:
         max_roll_error: Maximum absolute wrapped roll error in radians.
         max_orientation_error: Maximum absolute wrapped orientation error in
             radians across yaw, pitch, and roll.
+        max_length_error: Maximum length error in meters.
+        max_width_error: Maximum width error in meters.
+        max_height_error: Maximum height error in meters.
+        max_dimension_error: Maximum dimension error in meters across length,
+            width, and height.
     """
 
     reference_object_id: int
@@ -49,6 +54,10 @@ class ObjectStateMetricResult:
     max_pitch_error: float
     max_roll_error: float
     max_orientation_error: float
+    max_length_error: float
+    max_width_error: float
+    max_height_error: float
+    max_dimension_error: float
 
 
 def _moving_objects(message):
@@ -123,6 +132,10 @@ class ObjectStateMetric(OSIMetric):
         max_pitch_error = 0.0
         max_roll_error = 0.0
         max_orientation_error = 0.0
+        max_length_error = 0.0
+        max_width_error = 0.0
+        max_height_error = 0.0
+        max_dimension_error = 0.0
         sample_count = 0
         for reference_msg, tool_msg in zip(reference_messages, tool_messages):
             reference_time = timestamp_osi_to_float(reference_msg.timestamp)
@@ -173,6 +186,27 @@ class ObjectStateMetric(OSIMetric):
                 pitch_error,
                 roll_error,
             )
+            length_error = abs(
+                tool_object.base.dimension.length
+                - reference_object.base.dimension.length
+            )
+            width_error = abs(
+                tool_object.base.dimension.width
+                - reference_object.base.dimension.width
+            )
+            height_error = abs(
+                tool_object.base.dimension.height
+                - reference_object.base.dimension.height
+            )
+            max_length_error = max(max_length_error, length_error)
+            max_width_error = max(max_width_error, width_error)
+            max_height_error = max(max_height_error, height_error)
+            max_dimension_error = max(
+                max_dimension_error,
+                length_error,
+                width_error,
+                height_error,
+            )
             if ignore_first_speed_sample and sample_count == 0:
                 sample_count += 1
                 continue
@@ -204,6 +238,10 @@ class ObjectStateMetric(OSIMetric):
             max_pitch_error=max_pitch_error,
             max_roll_error=max_roll_error,
             max_orientation_error=max_orientation_error,
+            max_length_error=max_length_error,
+            max_width_error=max_width_error,
+            max_height_error=max_height_error,
+            max_dimension_error=max_dimension_error,
         )
 
     def _resolve_tool_object_id(
