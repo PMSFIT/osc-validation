@@ -10,6 +10,9 @@ class InitActionActor:
     y: float
     z: float
     yaw: float
+    bounding_box_center_x: float
+    bounding_box_center_y: float
+    bounding_box_center_z: float
     pitch: float = 0.0
     roll: float = 0.0
     speed_mps: float | None = None
@@ -26,6 +29,7 @@ class InitActionsXoscRequest:
     stop_time_s: float
     road_network_path: Path | None = None
     include_teleport_actions: bool = True
+    include_add_entity_actions: bool = False
 
 
 @dataclass(frozen=True)

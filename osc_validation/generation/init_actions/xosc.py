@@ -20,9 +20,9 @@ def _build_vehicle(actor: InitActionActor) -> etree._Element:
     etree.SubElement(
         xml_bounding_box,
         "Center",
-        x=_float(actor.length * 0.5),
-        y="0.0",
-        z=_float(actor.height * 0.5),
+        x=_float(actor.bounding_box_center_x),
+        y=_float(actor.bounding_box_center_y),
+        z=_float(actor.bounding_box_center_z),
     )
     etree.SubElement(
         xml_bounding_box,
@@ -61,12 +61,7 @@ def _build_vehicle(actor: InitActionActor) -> etree._Element:
     return xml_vehicle
 
 
-def _append_teleport_action(
-    xml_private: etree._Element, actor: InitActionActor
-) -> None:
-    xml_private_action = etree.SubElement(xml_private, "PrivateAction")
-    xml_teleport_action = etree.SubElement(xml_private_action, "TeleportAction")
-    xml_position = etree.SubElement(xml_teleport_action, "Position")
+def _append_world_position(xml_position: etree._Element, actor: InitActionActor) -> None:
     etree.SubElement(
         xml_position,
         "WorldPosition",
@@ -77,6 +72,27 @@ def _append_teleport_action(
         p=_float(actor.pitch),
         r=_float(actor.roll),
     )
+
+
+def _append_teleport_action(
+    xml_private: etree._Element, actor: InitActionActor
+) -> None:
+    xml_private_action = etree.SubElement(xml_private, "PrivateAction")
+    xml_teleport_action = etree.SubElement(xml_private_action, "TeleportAction")
+    xml_position = etree.SubElement(xml_teleport_action, "Position")
+    _append_world_position(xml_position, actor)
+
+
+def _append_add_entity_action(
+    xml_actions: etree._Element, actor: InitActionActor
+) -> None:
+    xml_global_action = etree.SubElement(xml_actions, "GlobalAction")
+    xml_entity_action = etree.SubElement(
+        xml_global_action, "EntityAction", entityRef=actor.entity_ref
+    )
+    xml_add_entity_action = etree.SubElement(xml_entity_action, "AddEntityAction")
+    xml_position = etree.SubElement(xml_add_entity_action, "Position")
+    _append_world_position(xml_position, actor)
 
 
 def _append_speed_action(xml_private: etree._Element, actor: InitActionActor) -> None:
@@ -140,6 +156,12 @@ def build_init_actions_xosc(request: InitActionsXoscRequest) -> InitActionsXoscR
     xml_init = etree.SubElement(xml_storyboard, "Init")
     xml_actions = etree.SubElement(xml_init, "Actions")
     for actor in request.actors:
+        if request.include_add_entity_actions:
+            _append_add_entity_action(xml_actions, actor)
+
+    for actor in request.actors:
+        if not request.include_teleport_actions and actor.speed_mps is None:
+            continue
         xml_private = etree.SubElement(
             xml_actions, "Private", entityRef=actor.entity_ref
         )

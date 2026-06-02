@@ -1,3 +1,6 @@
+import math
+
+import pytest
 from osi_utilities import ChannelSpecification, open_channel_writer
 
 from tests.conftest import _make_sensor_view
@@ -5,7 +8,14 @@ from tests.conftest import _make_sensor_view
 from osc_validation.metrics import ObjectStateMetric
 
 
-def _write_trace(path, object_id: int, xs: list[float]):
+def _write_trace(
+    path,
+    object_id: int,
+    xs: list[float],
+    yaw: float = 0.25,
+    pitch: float = 0.1,
+    roll: float = -0.05,
+):
     with open_channel_writer(
         ChannelSpecification(path=path, message_type="SensorView")
     ) as writer:
@@ -16,6 +26,9 @@ def _write_trace(path, object_id: int, xs: list[float]):
             moving_object.base.position.y = 2.0
             moving_object.base.velocity.x = 10.0
             moving_object.base.velocity.y = 0.0
+            moving_object.base.orientation.yaw = yaw
+            moving_object.base.orientation.pitch = pitch
+            moving_object.base.orientation.roll = roll
             writer.write_message(msg)
 
 
@@ -39,3 +52,48 @@ def test_object_state_metric_matches_closest_initial_object(tmp_path):
     assert result.max_xy_error < 0.11
     assert result.max_planar_speed_error == 0.0
     assert result.max_time_error == 0.0
+    assert result.max_yaw_error == 0.0
+    assert result.max_pitch_error == 0.0
+    assert result.max_roll_error == 0.0
+    assert result.max_orientation_error == 0.0
+
+
+def test_object_state_metric_wraps_orientation_error(tmp_path):
+    reference_path = tmp_path / "reference.osi"
+    tool_path = tmp_path / "tool.osi"
+    _write_trace(reference_path, object_id=1, xs=[0.0], yaw=math.pi - 0.01)
+    _write_trace(tool_path, object_id=1, xs=[0.0], yaw=-math.pi + 0.01)
+
+    result = ObjectStateMetric().compute(
+        reference_channel_spec=ChannelSpecification(
+            reference_path, message_type="SensorView"
+        ),
+        tool_channel_spec=ChannelSpecification(tool_path, message_type="SensorView"),
+        moving_object_id=1,
+        match_mode="same_id",
+    )
+
+    assert result.max_yaw_error == pytest.approx(0.02)
+    assert result.max_pitch_error == 0.0
+    assert result.max_roll_error == 0.0
+    assert result.max_orientation_error == pytest.approx(0.02)
+
+
+def test_object_state_metric_filters_by_reference_time_range(tmp_path):
+    reference_path = tmp_path / "reference.osi"
+    tool_path = tmp_path / "tool.osi"
+    _write_trace(reference_path, object_id=1, xs=[0.0, 0.0, 0.0])
+    _write_trace(tool_path, object_id=1, xs=[10.0, 0.05, 10.0])
+
+    result = ObjectStateMetric().compute(
+        reference_channel_spec=ChannelSpecification(
+            reference_path, message_type="SensorView"
+        ),
+        tool_channel_spec=ChannelSpecification(tool_path, message_type="SensorView"),
+        moving_object_id=1,
+        match_mode="same_id",
+        time_range_s=(0.09, 0.11),
+    )
+
+    assert result.sample_count == 1
+    assert result.max_xy_error == pytest.approx(0.05)

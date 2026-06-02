@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from osi3 import osi_sensorview_pb2, osi_version_pb2
 from osi_utilities import ChannelSpecification, open_channel_writer
 
+from osc_validation.utils.utils import rotatePointZYX
+
 
 @dataclass(frozen=True)
 class InitActionReferenceActor:
@@ -12,6 +14,9 @@ class InitActionReferenceActor:
     y: float
     z: float
     yaw: float
+    bounding_box_center_x: float
+    bounding_box_center_y: float
+    bounding_box_center_z: float
     pitch: float = 0.0
     roll: float = 0.0
     speed_mps: float | None = None
@@ -65,14 +70,20 @@ def _build_sensor_view(
         speed = actor.speed_mps if actor.speed_mps is not None else 0.0
         vx = math.cos(actor.yaw) * speed
         vy = math.sin(actor.yaw) * speed
-        center_dx = math.cos(actor.yaw) * actor.length * 0.5
-        center_dy = math.sin(actor.yaw) * actor.length * 0.5
+        center_dx, center_dy, center_dz = rotatePointZYX(
+            actor.bounding_box_center_x,
+            actor.bounding_box_center_y,
+            actor.bounding_box_center_z,
+            actor.yaw,
+            actor.pitch,
+            actor.roll,
+        )
 
         moving_object = sensor_view.global_ground_truth.moving_object.add()
         moving_object.id.value = actor.object_id
         moving_object.base.position.x = actor.x + center_dx + vx * timestamp_s
         moving_object.base.position.y = actor.y + center_dy + vy * timestamp_s
-        moving_object.base.position.z = actor.z + actor.height * 0.5
+        moving_object.base.position.z = actor.z + center_dz
         moving_object.base.orientation.yaw = actor.yaw
         moving_object.base.orientation.pitch = actor.pitch
         moving_object.base.orientation.roll = actor.roll
