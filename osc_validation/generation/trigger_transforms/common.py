@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from ...utils.utils import find_moving_object, get_moving_objects
+
 
 @dataclass(frozen=True)
 class ActivationPoint:
@@ -23,17 +25,3 @@ def evaluate_rule(lhs: float, rhs: float, rule: str) -> bool:
     raise ValueError(f"Unsupported rule '{rule}'.")
 
 
-def get_moving_objects(message):
-    if hasattr(message, "global_ground_truth"):
-        return message.global_ground_truth.moving_object
-    if hasattr(message, "moving_object"):
-        return message.moving_object
-    return []
-
-
-def find_moving_object(message, object_id: int):
-    moving_objects = get_moving_objects(message)
-    for mo in moving_objects:
-        if mo.id.value == object_id:
-            return mo
-    return None
