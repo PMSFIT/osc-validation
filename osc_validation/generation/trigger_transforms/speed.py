@@ -7,7 +7,14 @@ from osi_utilities import ChannelSpecification, open_channel, open_channel_write
 from ..init_transforms.models import InitPoseOverride
 from ..init_transforms.init_pose import apply_init_pose_override_to_reference_object
 
-from .common import ActivationPoint, evaluate_rule, find_moving_object
+from .common import (
+    ActivationPoint,
+    ConditionEdge,
+    evaluate_condition_edge,
+    evaluate_rule,
+    find_moving_object,
+    validate_condition_edge,
+)
 from .models import SpeedTriggerSpec, TriggerTransformRequest, TriggerTransformResult
 
 
@@ -16,7 +23,9 @@ def _find_speed_activation_index_from_messages(
     trigger_object_id: int,
     trigger_speed_mps: float,
     trigger_rule: str,
+    condition_edge: ConditionEdge = "rising",
 ) -> int:
+    previous_value = None
     for idx, msg in enumerate(messages):
         trigger_obj = find_moving_object(msg, trigger_object_id)
         if trigger_obj is None:
@@ -24,11 +33,13 @@ def _find_speed_activation_index_from_messages(
                 f"Trigger object ID {trigger_object_id} not found in one or more frames."
             )
         speed = math.hypot(trigger_obj.base.velocity.x, trigger_obj.base.velocity.y)
-        if evaluate_rule(speed, trigger_speed_mps, trigger_rule):
+        current_value = evaluate_rule(speed, trigger_speed_mps, trigger_rule)
+        if evaluate_condition_edge(previous_value, current_value, condition_edge):
             return idx
+        previous_value = current_value
 
     raise RuntimeError(
-        f"Speed condition not reached: object {trigger_object_id}, rule={trigger_rule}, value={trigger_speed_mps}m/s."
+        f"Speed condition not reached: object {trigger_object_id}, rule={trigger_rule}, value={trigger_speed_mps}m/s, condition_edge={condition_edge}."
     )
 
 
@@ -37,12 +48,13 @@ def find_speed_activation_point(
     trigger_object_id: int,
     trigger_speed_mps: float,
     trigger_rule: str = "greaterThan",
+    condition_edge: ConditionEdge = "rising",
 ) -> ActivationPoint:
     """
     Return the first activation point for a SpeedCondition check.
 
     The activation point is the earliest frame where the trigger object's planar
-    speed satisfies `trigger_rule` against `trigger_speed_mps`.
+    speed condition activates according to `condition_edge`.
 
     Typical usage:
     - Trigger generation/reference logic to derive a deterministic activation
@@ -61,6 +73,7 @@ def find_speed_activation_point(
         trigger_object_id=trigger_object_id,
         trigger_speed_mps=trigger_speed_mps,
         trigger_rule=trigger_rule,
+        condition_edge=condition_edge,
     )
     activation_msg = messages[activation_index]
     activation_time = (
@@ -77,12 +90,14 @@ def apply_speed_start_trigger(
     condition_name: str,
     trigger_speed_mps: float,
     trigger_rule: str = "greaterThan",
+    condition_edge: ConditionEdge = "rising",
     condition_delay_s: float = 0.0,
 ) -> Path:
     if trigger_speed_mps < 0:
         raise ValueError("trigger_speed_mps must be >= 0.")
     if condition_delay_s < 0:
         raise ValueError("condition_delay_s must be >= 0.")
+    validate_condition_edge(condition_edge)
 
     tree = etree.parse(str(source_xosc_path))
     root = tree.getroot()
@@ -101,7 +116,7 @@ def apply_speed_start_trigger(
         "Condition",
         name=condition_name,
         delay=str(condition_delay_s),
-        conditionEdge="rising",
+        conditionEdge=condition_edge,
     )
     xml_by_entity_condition = etree.SubElement(xml_condition, "ByEntityCondition")
     xml_triggering_entities = etree.SubElement(
@@ -131,6 +146,7 @@ def build_speed_triggered_comparison_trace(
     triggered_object_id: int,
     trigger_speed_mps: float,
     trigger_rule: str = "greaterThan",
+    condition_edge: ConditionEdge = "rising",
     condition_delay_s: float = 0.0,
     activation_frame_offset: int = 1,
     pre_trigger_hold_overrides: list[InitPoseOverride] | None = None,
@@ -141,6 +157,7 @@ def build_speed_triggered_comparison_trace(
         raise ValueError("condition_delay_s must be >= 0.")
     if activation_frame_offset < 0:
         raise ValueError("activation_frame_offset must be >= 0.")
+    validate_condition_edge(condition_edge)
 
     with open_channel(input_channel_spec) as reader:
         input_messages = list(reader)
@@ -152,6 +169,7 @@ def build_speed_triggered_comparison_trace(
         trigger_object_id=trigger_object_id,
         trigger_speed_mps=trigger_speed_mps,
         trigger_rule=trigger_rule,
+        condition_edge=condition_edge,
     )
 
     activation_msg = input_messages[activation_index]
@@ -238,6 +256,7 @@ class SpeedTriggerTransformer:
             condition_name=request.spec.condition_name,
             trigger_speed_mps=request.spec.trigger_speed_mps,
             trigger_rule=request.spec.trigger_rule,
+            condition_edge=request.spec.condition_edge,
             condition_delay_s=request.spec.condition_delay_s,
         )
         reference_channel_spec = build_speed_triggered_comparison_trace(
@@ -247,6 +266,7 @@ class SpeedTriggerTransformer:
             triggered_object_id=request.spec.triggered_object_id,
             trigger_speed_mps=request.spec.trigger_speed_mps,
             trigger_rule=request.spec.trigger_rule,
+            condition_edge=request.spec.condition_edge,
             condition_delay_s=request.spec.condition_delay_s,
             activation_frame_offset=request.spec.activation_frame_offset,
             pre_trigger_hold_overrides=request.init_pose_overrides,
