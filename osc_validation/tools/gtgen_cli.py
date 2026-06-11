@@ -73,8 +73,8 @@ class GTGen_Simulator(OSCTool):
             self.tool_path,
             "-s",
             osc_path,
-            "--gtgen-data",
-            "./GTGEN_DATA",
+            #"--gtgen-data",
+            #"./GTGEN_DATA",
             "--output-trace",
             osi_gtgen_sv_spec.path,
         ]

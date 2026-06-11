@@ -17,6 +17,13 @@ from .init_actions import (
     InitActionsXoscResult,
     build_init_actions_xosc,
 )
+from .trajectory_interpolation import (
+    TrajectoryInterpolationActor,
+    TrajectoryInterpolationVertex,
+    TrajectoryInterpolationXoscRequest,
+    TrajectoryInterpolationXoscResult,
+    build_trajectory_interpolation_xosc,
+)
 from .trigger_transforms import (
     DistancePositionTriggerSpec,
     SimulationTimeTriggerSpec,
