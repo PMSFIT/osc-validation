@@ -1,8 +1,17 @@
-from datetime import datetime
 from pathlib import Path
 
 from lxml import etree
 
+from ..xosc_builders import (
+    WorldPosition,
+    XoscHeader,
+    XoscVehicle,
+    append_simulation_time_stop_trigger,
+    append_vehicle,
+    append_world_position,
+    build_open_scenario_root,
+    write_xosc_tree,
+)
 from .models import InitActionActor, InitActionsXoscRequest, InitActionsXoscResult
 
 
@@ -11,66 +20,32 @@ def _float(value: float) -> str:
 
 
 def _build_vehicle(actor: InitActionActor) -> etree._Element:
-    xml_vehicle = etree.Element(
-        "Vehicle",
-        name=f"{actor.entity_ref}_vehicle",
-        vehicleCategory=actor.vehicle_category,
+    return append_vehicle(
+        etree.Element("ScenarioObject"),
+        XoscVehicle(
+            name=f"{actor.entity_ref}_vehicle",
+            category=actor.vehicle_category,
+            center_x=_float(actor.bounding_box_center_x),
+            center_y=_float(actor.bounding_box_center_y),
+            center_z=_float(actor.bounding_box_center_z),
+            height=_float(actor.height),
+            length=_float(actor.length),
+            width=_float(actor.width),
+        ),
     )
-    xml_bounding_box = etree.SubElement(xml_vehicle, "BoundingBox")
-    etree.SubElement(
-        xml_bounding_box,
-        "Center",
-        x=_float(actor.bounding_box_center_x),
-        y=_float(actor.bounding_box_center_y),
-        z=_float(actor.bounding_box_center_z),
-    )
-    etree.SubElement(
-        xml_bounding_box,
-        "Dimensions",
-        height=_float(actor.height),
-        length=_float(actor.length),
-        width=_float(actor.width),
-    )
-    etree.SubElement(
-        xml_vehicle,
-        "Performance",
-        maxAcceleration="4.0",
-        maxDeceleration="9.0",
-        maxSpeed="250.0",
-    )
-    xml_axles = etree.SubElement(xml_vehicle, "Axles")
-    etree.SubElement(
-        xml_axles,
-        "FrontAxle",
-        maxSteering="0.5",
-        positionX="2.7",
-        positionZ="0.4",
-        trackWidth="1.63",
-        wheelDiameter="0.8",
-    )
-    etree.SubElement(
-        xml_axles,
-        "RearAxle",
-        maxSteering="0.0",
-        positionX="0.0",
-        positionZ="0.4",
-        trackWidth="1.63",
-        wheelDiameter="0.8",
-    )
-    etree.SubElement(xml_vehicle, "Properties")
-    return xml_vehicle
 
 
 def _append_world_position(xml_position: etree._Element, actor: InitActionActor) -> None:
-    etree.SubElement(
+    append_world_position(
         xml_position,
-        "WorldPosition",
-        x=_float(actor.x),
-        y=_float(actor.y),
-        z=_float(actor.z),
-        h=_float(actor.yaw),
-        p=_float(actor.pitch),
-        r=_float(actor.roll),
+        WorldPosition(
+            x=actor.x,
+            y=actor.y,
+            z=actor.z,
+            h=actor.yaw,
+            p=actor.pitch,
+            r=actor.roll,
+        ),
     )
 
 
@@ -125,34 +100,20 @@ def build_init_actions_xosc(request: InitActionsXoscRequest) -> InitActionsXoscR
     if request.stop_time_s <= 0.0:
         raise ValueError("stop_time_s must be > 0.0.")
 
-    xml_root = etree.Element("OpenSCENARIO")
-    xml_file_header = etree.SubElement(
-        xml_root,
-        "FileHeader",
-        revMajor="1",
-        revMinor="3",
-        date=datetime.today().strftime("%Y-%m-%dT%H:%M:%S"),
-        author="OSC Validation InitActions Oracle",
-        description="InitActions validation scenario",
+    xml_root, xml_entities, xml_storyboard = build_open_scenario_root(
+        XoscHeader(
+            author="OSC Validation InitActions Oracle",
+            description="InitActions validation scenario",
+        ),
+        request.road_network_path,
     )
-    etree.SubElement(xml_file_header, "License", name="", resource="")
-    etree.SubElement(xml_root, "CatalogLocations")
-    xml_road_network = etree.SubElement(xml_root, "RoadNetwork")
-    if request.road_network_path is not None:
-        etree.SubElement(
-            xml_road_network,
-            "LogicFile",
-            filepath=str(request.road_network_path),
-        )
 
-    xml_entities = etree.SubElement(xml_root, "Entities")
     for actor in request.actors:
         xml_scenario_object = etree.SubElement(
             xml_entities, "ScenarioObject", name=actor.entity_ref
         )
         xml_scenario_object.append(_build_vehicle(actor))
 
-    xml_storyboard = etree.SubElement(xml_root, "Storyboard")
     xml_init = etree.SubElement(xml_storyboard, "Init")
     xml_actions = etree.SubElement(xml_init, "Actions")
     for actor in request.actors:
@@ -169,28 +130,7 @@ def build_init_actions_xosc(request: InitActionsXoscRequest) -> InitActionsXoscR
             _append_teleport_action(xml_private, actor)
         _append_speed_action(xml_private, actor)
 
-    xml_stop_trigger = etree.SubElement(xml_storyboard, "StopTrigger")
-    xml_condition_group = etree.SubElement(xml_stop_trigger, "ConditionGroup")
-    xml_condition = etree.SubElement(
-        xml_condition_group,
-        "Condition",
-        name="End",
-        delay="0.0",
-        conditionEdge="rising",
-    )
-    xml_by_value_condition = etree.SubElement(xml_condition, "ByValueCondition")
-    etree.SubElement(
-        xml_by_value_condition,
-        "SimulationTimeCondition",
-        value=_float(request.stop_time_s),
-        rule="greaterOrEqual",
-    )
+    append_simulation_time_stop_trigger(xml_storyboard, request.stop_time_s)
 
-    xml_tree = etree.ElementTree(xml_root)
-    xml_tree.write(
-        str(request.output_xosc_path),
-        encoding="utf-8",
-        xml_declaration=True,
-        pretty_print=True,
-    )
+    write_xosc_tree(request.output_xosc_path, xml_root)
     return InitActionsXoscResult(xosc_path=request.output_xosc_path)
