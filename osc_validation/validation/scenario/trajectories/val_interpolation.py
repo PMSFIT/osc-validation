@@ -9,14 +9,14 @@ from osc_validation.dataproviders import BuiltinDataProvider
 from osc_validation.generation import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
-    TrajectoryInterpolationXoscRequest,
-    build_trajectory_interpolation_xosc,
 )
 from osc_validation.metrics import ObjectStateMetric
+from osc_validation.oracles import (
+    TrajectoryInterpolationCaseSpec,
+    build_trajectory_interpolation_case,
+)
 from osc_validation.reference import (
     TrajectoryInterpolationReferenceMode,
-    TrajectoryInterpolationReferenceRequest,
-    build_trajectory_interpolation_reference_trace,
 )
 
 
@@ -72,17 +72,10 @@ def test_timed_polyline_trajectory_interpolation(
     rate = 1.0
     actor = _actor()
     case_name = interpolation_mode
-    xosc_result = build_trajectory_interpolation_xosc(
-        TrajectoryInterpolationXoscRequest(
+    case_result = build_trajectory_interpolation_case(
+        TrajectoryInterpolationCaseSpec(
             output_xosc_path=tmp_path / f"trajectory_interpolation_{case_name}.xosc",
-            actor=actor,
-            stop_time_s=4.0,
-            road_network_path=odr_file,
-        )
-    )
-    reference_channel_spec = build_trajectory_interpolation_reference_trace(
-        TrajectoryInterpolationReferenceRequest(
-            output_channel_spec=ChannelSpecification(
+            output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path / f"reference_trajectory_interpolation_{case_name}.mcap",
                 message_type="SensorView",
                 metadata={
@@ -90,7 +83,9 @@ def test_timed_polyline_trajectory_interpolation(
                 },
             ),
             actor=actor,
+            stop_time_s=4.0,
             sample_period_s=rate,
+            road_network_path=odr_file,
             host_vehicle_id=actor.object_id,
             interpolation_mode=interpolation_mode,
             initial_speed_mps=initial_speed_mps,
@@ -98,7 +93,7 @@ def test_timed_polyline_trajectory_interpolation(
     )
 
     tool_trace_channel_spec = generate_tool_trace(
-        osc_path=xosc_result.xosc_path,
+        osc_path=case_result.xosc_path,
         odr_path=odr_file,
         osi_output_spec=ChannelSpecification(
             path=tmp_path / f"tool_trace_trajectory_interpolation_{case_name}.mcap",
@@ -113,7 +108,7 @@ def test_timed_polyline_trajectory_interpolation(
     assert_no_osc_engine_errors(tool_trace_channel_spec)
 
     metric_result = ObjectStateMetric().compute(
-        reference_channel_spec=reference_channel_spec,
+        reference_channel_spec=case_result.reference_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=actor.object_id,
         match_mode="closest_initial_xy",
