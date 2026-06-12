@@ -89,12 +89,12 @@ def test_constant_acceleration_reference_carries_speed_between_segments(tmp_path
     assert len(objects) == 5
     assert math.isclose(objects[1].base.position.x, 2.5)
     assert math.isclose(objects[1].base.position.y, 0.0)
-    assert math.isclose(objects[2].base.velocity.x, 0.0)
-    assert math.isclose(objects[2].base.velocity.y, 10.0)
+    assert math.isclose(objects[2].base.velocity.x, 7.5)
+    assert math.isclose(objects[2].base.velocity.y, 0.0)
     assert math.isclose(objects[3].base.position.x, 10.0)
     assert math.isclose(objects[3].base.position.y, 7.5)
     assert math.isclose(objects[3].base.velocity.x, 0.0)
-    assert math.isclose(objects[3].base.velocity.y, 5.0)
+    assert math.isclose(objects[3].base.velocity.y, 7.5)
 
 
 def test_constant_acceleration_reference_uses_initial_speed_formula(tmp_path):
@@ -122,10 +122,10 @@ def test_constant_acceleration_reference_uses_initial_speed_formula(tmp_path):
     assert math.isclose(objects[0].base.position.x, 0.0)
     assert math.isclose(objects[1].base.position.x, 3.5)
     assert math.isclose(objects[2].base.position.x, 10.0)
-    assert math.isclose(objects[0].base.velocity.x, 2.0)
-    assert math.isclose(objects[1].base.velocity.x, 5.0)
-    assert math.isclose(objects[2].base.velocity.x, 8.0)
-    assert math.isclose(objects[0].base.acceleration.x, 3.0)
+    assert math.isclose(objects[0].base.velocity.x, 0.0)
+    assert math.isclose(objects[1].base.velocity.x, 3.5)
+    assert math.isclose(objects[2].base.velocity.x, 6.5)
+    assert math.isclose(objects[0].base.acceleration.x, 0.0)
 
 
 def test_reference_rejects_non_increasing_vertex_times(tmp_path):

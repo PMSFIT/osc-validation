@@ -9,6 +9,10 @@ from osc_validation.generation import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
+from osc_validation.generation.trace_kinematics import (
+    build_trace_with_calculated_kinematics,
+)
+from osc_validation.utils.osi_channel_specification import with_name_suffix
 from osc_validation.utils.utils import rotatePointZYX
 
 TrajectoryInterpolationReferenceMode = Literal[
@@ -149,26 +153,6 @@ def _build_sensor_view(
         interpolation_mode,
         segment_initial_speed_mps,
     )
-    dx = end.x - start.x
-    dy = end.y - start.y
-    dz = end.z - start.z
-    arc_length, segment_speed_mps, acceleration_mps2 = _segment_kinematics(
-        start,
-        end,
-        interpolation_mode,
-        segment_initial_speed_mps,
-    )
-    speed_mps = segment_speed_mps + acceleration_mps2 * (timestamp_s - start.time_s)
-
-    if arc_length == 0.0:
-        ux = uy = uz = 0.0
-    else:
-        ux = dx / arc_length
-        uy = dy / arc_length
-        uz = dz / arc_length
-    vx = ux * speed_mps
-    vy = uy * speed_mps
-    vz = uz * speed_mps
     center_dx, center_dy, center_dz = rotatePointZYX(
         actor.bounding_box_center_x,
         actor.bounding_box_center_y,
@@ -200,12 +184,6 @@ def _build_sensor_view(
     moving_object.base.dimension.length = actor.length
     moving_object.base.dimension.width = actor.width
     moving_object.base.dimension.height = actor.height
-    moving_object.base.velocity.x = vx
-    moving_object.base.velocity.y = vy
-    moving_object.base.velocity.z = vz
-    moving_object.base.acceleration.x = ux * acceleration_mps2
-    moving_object.base.acceleration.y = uy * acceleration_mps2
-    moving_object.base.acceleration.z = uz * acceleration_mps2
     moving_object.type = 2
     moving_object.vehicle_classification.type = 4
     return sensor_view
@@ -232,7 +210,8 @@ def build_trajectory_interpolation_reference_trace(
     if not math.isclose(frame_count_float, round(frame_count_float), abs_tol=1e-9):
         raise ValueError("sample_period_s must divide the trajectory duration exactly.")
 
-    with open_channel_writer(request.output_channel_spec) as writer:
+    pose_channel_spec = with_name_suffix(request.output_channel_spec, "_poses")
+    with open_channel_writer(pose_channel_spec) as writer:
         for frame_index in range(frame_count):
             timestamp_s = start.time_s + frame_index * request.sample_period_s
             writer.write_message(
@@ -244,4 +223,9 @@ def build_trajectory_interpolation_reference_trace(
                     initial_speed_mps=request.initial_speed_mps,
                 )
             )
-        return writer.get_channel_specification()
+        pose_channel_spec = writer.get_channel_specification()
+
+    return build_trace_with_calculated_kinematics(
+        input_channel_spec=pose_channel_spec,
+        output_channel_spec=request.output_channel_spec,
+    )

@@ -8,11 +8,15 @@ from osc_validation.generation import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
+from osc_validation.generation.trace_kinematics import (
+    build_trace_with_calculated_kinematics,
+)
 from osc_validation.reference.trajectory_interpolation import (
     _build_sensor_view,
     _get_osi_version,
     _set_timestamp,
 )
+from osc_validation.utils.osi_channel_specification import with_name_suffix
 from osc_validation.utils.utils import rotatePointZYX
 
 
@@ -97,56 +101,6 @@ def _build_speed_action_sensor_view(
     return sensor_view
 
 
-def _moving_object(message: osi_sensorview_pb2.SensorView):
-    return message.global_ground_truth.moving_object[0]
-
-
-def _derive_kinematics(messages: list[osi_sensorview_pb2.SensorView]) -> None:
-    previous_velocity = (0.0, 0.0, 0.0)
-    previous_position = None
-    previous_timestamp_s = None
-
-    for message in messages:
-        moving_object = _moving_object(message)
-        timestamp_s = message.timestamp.seconds + message.timestamp.nanos / 1e9
-        position = (
-            moving_object.base.position.x,
-            moving_object.base.position.y,
-            moving_object.base.position.z,
-        )
-
-        if previous_position is None or previous_timestamp_s is None:
-            velocity = (0.0, 0.0, 0.0)
-            acceleration = (0.0, 0.0, 0.0)
-        else:
-            dt = timestamp_s - previous_timestamp_s
-            if dt <= 0.0:
-                raise RuntimeError(
-                    "Non-increasing timestamps encountered while deriving kinematics."
-                )
-            velocity = (
-                (position[0] - previous_position[0]) / dt,
-                (position[1] - previous_position[1]) / dt,
-                (position[2] - previous_position[2]) / dt,
-            )
-            acceleration = (
-                (velocity[0] - previous_velocity[0]) / dt,
-                (velocity[1] - previous_velocity[1]) / dt,
-                (velocity[2] - previous_velocity[2]) / dt,
-            )
-
-        moving_object.base.velocity.x = velocity[0]
-        moving_object.base.velocity.y = velocity[1]
-        moving_object.base.velocity.z = velocity[2]
-        moving_object.base.acceleration.x = acceleration[0]
-        moving_object.base.acceleration.y = acceleration[1]
-        moving_object.base.acceleration.z = acceleration[2]
-
-        previous_position = position
-        previous_timestamp_s = timestamp_s
-        previous_velocity = velocity
-
-
 def build_follow_trajectory_future_time_reference_reference_trace(
     request: FollowTrajectoryFutureTimeReferenceReferenceRequest,
 ) -> ChannelSpecification:
@@ -184,9 +138,13 @@ def build_follow_trajectory_future_time_reference_reference_trace(
                 )
             )
 
-    _derive_kinematics(messages)
-
-    with open_channel_writer(request.output_channel_spec) as writer:
+    pose_channel_spec = with_name_suffix(request.output_channel_spec, "_poses")
+    with open_channel_writer(pose_channel_spec) as writer:
         for message in messages:
             writer.write_message(message)
-        return writer.get_channel_specification()
+        pose_channel_spec = writer.get_channel_specification()
+
+    return build_trace_with_calculated_kinematics(
+        input_channel_spec=pose_channel_spec,
+        output_channel_spec=request.output_channel_spec,
+    )
