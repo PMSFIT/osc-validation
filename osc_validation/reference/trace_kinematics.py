@@ -25,7 +25,9 @@ def _derive_first_order(values: list[tuple[float, float, float]], timestamps: li
     for idx in range(1, count):
         dt = timestamps[idx] - timestamps[idx - 1]
         if dt <= 0:
-            raise RuntimeError("Non-increasing timestamps encountered while deriving kinematics.")
+            raise RuntimeError(
+                "Non-increasing timestamps encountered while deriving kinematics."
+            )
         x0, y0, z0 = values[idx - 1]
         x1, y1, z1 = values[idx]
         out.append(((x1 - x0) / dt, (y1 - y0) / dt, (z1 - z0) / dt))
@@ -60,12 +62,16 @@ def build_trace_with_calculated_kinematics(
     if not object_ids:
         raise RuntimeError("No moving objects found in input trace.")
 
-    positions_by_id: dict[int, list[tuple[float, float, float]]] = {obj_id: [] for obj_id in object_ids}
+    positions_by_id: dict[int, list[tuple[float, float, float]]] = {
+        obj_id: [] for obj_id in object_ids
+    }
     for msg in input_messages:
         for obj_id in object_ids:
             mo = _find_moving_object(msg, obj_id)
             if mo is None:
-                raise KeyError(f"Moving object ID {obj_id} missing in one or more frames.")
+                raise KeyError(
+                    f"Moving object ID {obj_id} missing in one or more frames."
+                )
             positions_by_id[obj_id].append(
                 (mo.base.position.x, mo.base.position.y, mo.base.position.z)
             )

@@ -16,6 +16,7 @@ from .follow_trajectory_future_time_reference import (
     FollowTrajectoryFutureTimeReferenceReferenceRequest,
     build_follow_trajectory_future_time_reference_reference_trace,
 )
+from .trace_kinematics import build_trace_with_calculated_kinematics
 
 __all__ = [
     "InitActionReferenceActor",
@@ -28,4 +29,5 @@ __all__ = [
     "build_follow_trajectory_teleport_reference_trace",
     "FollowTrajectoryFutureTimeReferenceReferenceRequest",
     "build_follow_trajectory_future_time_reference_reference_trace",
+    "build_trace_with_calculated_kinematics",
 ]

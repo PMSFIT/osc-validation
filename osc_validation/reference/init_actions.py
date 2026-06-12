@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from osi3 import osi_sensorview_pb2, osi_version_pb2
 from osi_utilities import ChannelSpecification, open_channel_writer
 
-from osc_validation.generation.trace_kinematics import (
+from osc_validation.reference.trace_kinematics import (
     build_trace_with_calculated_kinematics,
 )
 from osc_validation.utils.osi_channel_specification import with_name_suffix

@@ -9,7 +9,7 @@ from osc_validation.generation import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
-from osc_validation.generation.trace_kinematics import (
+from osc_validation.reference.trace_kinematics import (
     build_trace_with_calculated_kinematics,
 )
 from osc_validation.utils.osi_channel_specification import with_name_suffix

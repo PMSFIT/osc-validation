@@ -10,12 +10,12 @@ from osc_validation.generation import (
     TimeToCollisionPositionTriggerSpec,
     TriggerTransformRequest,
     apply_trigger_transform,
-    build_trace_with_calculated_kinematics,
     find_ttc_position_activation_point,
     osi2osc,
 )
 from osc_validation.generation.init_transforms.models import InitPoseOverride
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
+from osc_validation.reference import build_trace_with_calculated_kinematics
 from osi_utilities import ChannelSpecification, open_channel
 
 from osc_validation.assertions import assert_no_osc_engine_errors
