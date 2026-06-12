@@ -167,3 +167,6 @@ cython_debug/
 
 # VSCode
 .vscode/
+
+open-scenario-docs/
+OpenSCENARIO_1.3.1.xsd
