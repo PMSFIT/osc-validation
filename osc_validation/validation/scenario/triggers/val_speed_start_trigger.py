@@ -63,48 +63,6 @@ export default function script(
 """
 
 
-"""
-Lichtblick User Script:
-
-import { Input, Message } from "./types";
-
-type Output = {
-  speed: number;
-  max_speed: number;
-};
-
-export const inputs = ["tool_trace_speed_start_trigger"];
-
-export const output = "tool";
-let maxSpeed = 0;
-
-export default function script(
-  event: Input<"tool_trace_speed_start_trigger">,
-): Output {
-  const obj = event.message.global_ground_truth.moving_object?.[0];
-
-  if (!obj?.base?.velocity) {
-    return { speed: 0, max_speed: maxSpeed };
-  }
-
-  const v = obj.base.velocity;
-
-  const speed = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) * 3.6;
-
-  // update max
-  if (speed > maxSpeed) {
-    maxSpeed = speed;
-  }
-
-  return {
-    speed: speed,
-    max_speed: maxSpeed,
-  };
-}
-
-"""
-
-
 @pytest.fixture(
     scope="module",
     params=[
@@ -137,24 +95,6 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-def _max_speed_for_object(channel_spec: ChannelSpecification, object_id: int) -> float:
-    with open_channel(channel_spec) as reader:
-        max_speed = 0.0
-        for msg in reader:
-            moving_objects = (
-                msg.global_ground_truth.moving_object
-                if hasattr(msg, "global_ground_truth")
-                else msg.moving_object
-            )
-            target = next((mo for mo in moving_objects if mo.id.value == object_id), None)
-            if target is None:
-                raise KeyError(f"Object ID {object_id} not found in one or more frames.")
-            speed = math.hypot(target.base.velocity.x, target.base.velocity.y)
-            if speed > max_speed:
-                max_speed = speed
-        return max_speed
-
-
 def _run_speed_start_trigger_case(
     osi_trace: Path,
     odr_file: Path,
@@ -164,6 +104,7 @@ def _run_speed_start_trigger_case(
     moving_object_id: int = 2,                  # Moving object to be evaluated for trigger activation and trajectory alignment by this test case
     trigger_object_id: int = 1,                 # Triggering object whose speed is evaluated against the trigger condition
     trigger_speed_mps: float = 50 / 3.6,        # Triggering speed
+    condition_edge: str = "rising",
     post_trigger_guard_time_s: float = 0.05,    # Tolerance parameter to account for small scenario engine discrepancies in the exact activation point of the trigger
     max_alignment_lag_frames: int = 1,          # Maximum lag (+/-) between the tool trajectory and reference trajectory to still be considered valid
     rate: float = 0.05,
@@ -174,6 +115,8 @@ def _run_speed_start_trigger_case(
 
     activation_frame_offset = 1                 # Number of frames for the triggered event to activate after the speed threshold is crossed in the reference trace
     case_name = "speed_start_trigger"
+    if condition_edge != "rising":
+        case_name = f"{case_name}_{condition_edge}_edge"
     if condition_delay_s > 0:
         case_name = f"{case_name}_delay_{condition_delay_s:g}s"
 
@@ -214,6 +157,7 @@ def _run_speed_start_trigger_case(
                 trigger_object_id=trigger_object_id,
                 triggered_object_id=moving_object_id,
                 trigger_rule="greaterOrEqual",
+                condition_edge=condition_edge,
                 condition_delay_s=condition_delay_s,
                 activation_frame_offset=activation_frame_offset,
             ),
@@ -250,6 +194,7 @@ def _run_speed_start_trigger_case(
             trigger_object_id=trigger_object_id,
             trigger_speed_mps=trigger_speed_mps,
             trigger_rule="greaterOrEqual",
+            condition_edge=condition_edge,
         ).time_s + condition_delay_s + post_trigger_guard_time_s,
         time_tolerance=0.01,
         lag_scan_max_frames=max_alignment_lag_frames,
@@ -274,4 +219,40 @@ def test_speed_start_trigger_activates_target_actor(
         odr_file=odr_file,
         generate_tool_trace=generate_tool_trace,
         tmp_path=tmp_path,
+        trigger_speed_mps=50 / 3.6,
+        condition_edge="rising",
+    )
+
+
+def test_speed_start_trigger_condition_edge_none_activates_when_initially_true(
+    osi_trace: Path,
+    odr_file: Path,
+    yaml_ruleset: Path,
+    generate_tool_trace: Callable,
+    tmp_path: Path,
+):
+    _run_speed_start_trigger_case(
+        osi_trace=osi_trace,
+        odr_file=odr_file,
+        generate_tool_trace=generate_tool_trace,
+        tmp_path=tmp_path,
+        trigger_speed_mps=0.0,
+        condition_edge="none",
+    )
+    
+
+def test_speed_start_trigger_condition_edge_falling_activates(
+    osi_trace: Path,
+    odr_file: Path,
+    yaml_ruleset: Path,
+    generate_tool_trace: Callable,
+    tmp_path: Path,
+):
+    _run_speed_start_trigger_case(
+        osi_trace=osi_trace,
+        odr_file=odr_file,
+        generate_tool_trace=generate_tool_trace,
+        tmp_path=tmp_path,
+        trigger_speed_mps=20 / 3.6,
+        condition_edge="falling",
     )

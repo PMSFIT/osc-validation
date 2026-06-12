@@ -5,6 +5,7 @@ from lxml import etree
 
 from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
 from ..init_transforms.models import InitPoseOverride
+from ..init_transforms.init_pose import apply_init_pose_override_to_reference_object
 
 from .common import ActivationPoint, evaluate_rule, find_moving_object
 from .models import (
@@ -235,12 +236,9 @@ def build_ttc_position_triggered_comparison_trace(
                 )
 
             if output_index < shifted_start_index and hold_override is not None:
-                out_trg_obj.base.position.x = hold_override.x
-                out_trg_obj.base.position.y = hold_override.y
-                out_trg_obj.base.position.z = hold_override.z
-                out_trg_obj.base.orientation.yaw = hold_override.yaw
-                out_trg_obj.base.orientation.pitch = hold_override.pitch
-                out_trg_obj.base.orientation.roll = hold_override.roll
+                apply_init_pose_override_to_reference_object(
+                    out_trg_obj, hold_override
+                )
             else:
                 if output_index < shifted_start_index:
                     state_src = initial_state

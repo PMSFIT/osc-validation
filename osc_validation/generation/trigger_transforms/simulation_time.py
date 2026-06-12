@@ -5,6 +5,7 @@ from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
 from osc_validation.utils.utils import timestamp_float_to_osi
 from ..init_transforms.models import InitPoseOverride
+from ..init_transforms.init_pose import apply_init_pose_override_to_reference_object
 from .common import find_moving_object
 
 from .models import (
@@ -142,12 +143,9 @@ def build_delayed_comparison_trace(
                             raise KeyError(
                                 f"Moving object ID {override.object_id} not found while applying pre-trigger hold override."
                             )
-                        moving_object.base.position.x = override.x
-                        moving_object.base.position.y = override.y
-                        moving_object.base.position.z = override.z
-                        moving_object.base.orientation.yaw = override.yaw
-                        moving_object.base.orientation.pitch = override.pitch
-                        moving_object.base.orientation.roll = override.roll
+                        apply_init_pose_override_to_reference_object(
+                            moving_object, override
+                        )
 
             ts = timestamp_float_to_osi(output_time)
             msg_copy.timestamp.seconds = ts.seconds
