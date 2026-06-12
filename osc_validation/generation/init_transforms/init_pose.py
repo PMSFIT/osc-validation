@@ -6,7 +6,7 @@ from lxml import etree
 
 from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
 
-from ..trigger_transforms.common import find_moving_object
+from ...utils.utils import find_moving_object, rotatePointZYX
 from .models import (
     InitPoseOverride,
     InitPoseTransformSpec,
@@ -70,6 +70,26 @@ def _validate_overrides(overrides: list[InitPoseOverride]) -> None:
     entity_refs = [override.entity_ref for override in overrides]
     if len(entity_refs) != len(set(entity_refs)):
         raise ValueError("Init pose overrides must use unique entity_ref values.")
+
+
+def apply_init_pose_override_to_reference_object(
+    moving_object,
+    override: InitPoseOverride,
+) -> None:
+    rx, ry, rz = rotatePointZYX(
+        moving_object.vehicle_attributes.bbcenter_to_rear.x,
+        moving_object.vehicle_attributes.bbcenter_to_rear.y,
+        -moving_object.base.dimension.height / 2,
+        override.yaw,
+        override.pitch,
+        override.roll,
+    )
+    moving_object.base.position.x = override.x - rx
+    moving_object.base.position.y = override.y - ry
+    moving_object.base.position.z = override.z - rz
+    moving_object.base.orientation.yaw = override.yaw
+    moving_object.base.orientation.pitch = override.pitch
+    moving_object.base.orientation.roll = override.roll
 
 
 def apply_init_pose_overrides_to_xosc(
@@ -336,12 +356,9 @@ def build_init_pose_overridden_reference_trace(
                             f"Moving object ID {object_id} not found in frame 0 while applying init pose override."
                         )
 
-                    moving_object.base.position.x = override.x
-                    moving_object.base.position.y = override.y
-                    moving_object.base.position.z = override.z
-                    moving_object.base.orientation.yaw = override.yaw
-                    moving_object.base.orientation.pitch = override.pitch
-                    moving_object.base.orientation.roll = override.roll
+                    apply_init_pose_override_to_reference_object(
+                        moving_object, override
+                    )
 
             writer.write_message(msg_copy)
 

@@ -47,6 +47,22 @@ def get_all_moving_object_ids(osi_trace: ChannelSpecification) -> list[int]:
     return moving_object_ids
 
 
+def get_moving_objects(message):
+    if hasattr(message, "global_ground_truth"):
+        return message.global_ground_truth.moving_object
+    if hasattr(message, "moving_object"):
+        return message.moving_object
+    return []
+
+
+def find_moving_object(message, object_id: int):
+    moving_objects = get_moving_objects(message)
+    for mo in moving_objects:
+        if mo.id.value == object_id:
+            return mo
+    return None
+
+
 def get_trajectory_by_moving_object_id(
     osi_trace: ChannelSpecification,
     moving_object_id: str,

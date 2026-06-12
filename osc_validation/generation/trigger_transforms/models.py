@@ -4,6 +4,7 @@ from typing import Literal, Union
 
 from osi_utilities import ChannelSpecification
 from ..init_transforms.models import InitPoseOverride
+from .common import ConditionEdge
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,7 @@ class SpeedTriggerSpec:
     trigger_object_id: int
     triggered_object_id: int
     trigger_rule: str = "greaterThan"
+    condition_edge: ConditionEdge = "rising"
     condition_delay_s: float = 0.0
     activation_frame_offset: int = 1
 
