@@ -12,11 +12,8 @@ from osc_validation.generation import (
 )
 from osc_validation.metrics import ObjectStateMetric
 from osc_validation.oracles import (
-    TrajectoryInterpolationCaseSpec,
-    build_trajectory_interpolation_case,
-)
-from osc_validation.reference import (
-    TrajectoryInterpolationReferenceMode,
+    FollowTrajectoryTeleportCaseSpec,
+    build_follow_trajectory_teleport_case,
 )
 
 
@@ -54,52 +51,60 @@ def _actor() -> TrajectoryInterpolationActor:
     )
 
 
+def _off_trajectory_init_pose() -> TrajectoryInterpolationVertex:
+    return TrajectoryInterpolationVertex(
+        time_s=0.0,
+        x=-300.0,
+        y=-60.0,
+        z=0.0,
+    )
+
+
 @pytest.mark.trajectory
 @pytest.mark.parametrize(
-    ("interpolation_mode", "initial_speed_mps"),
+    ("case_name", "action_start_time_s"),
     [
-        ("linear_position", 0.0),
-        ("constant_acceleration_from_initial_speed", 0.0),
+        ("exact_trajectory_point", 2.0),
+        ("between_trajectory_points", 1.0),
     ],
 )
-def test_timed_polyline_trajectory_interpolation(
+def test_follow_trajectory_position_mode_teleports_to_current_trajectory_time(
     odr_file: Path,
     generate_tool_trace: Callable,
     tmp_path: Path,
-    interpolation_mode: TrajectoryInterpolationReferenceMode,
-    initial_speed_mps: float,
+    case_name: str,
+    action_start_time_s: float,
 ):
     """
-    Validates that a FollowTrajectoryAction with position mode correctly follows
-    the trajectory and uses the configured interpolation mode.
-    
-    With the release of OpenSCENARIO v1.4.0, the constant-acceleration
-    interpolation mode should be supported. So for older versions, this test is
-    not expected to pass for the constant acceleration mode. The linear position
-    interpolation mode is just added as a possible behavior for older versions,
-    but it is not required for compliance with OpenSCENARIO.
+    Validates that a FollowTrajectoryAction with Position mode and an absolute
+    TimeReference at the beginning of the trajectory teleports the actor to the
+    correct trajectory position when the action starts later, even if the
+    initial pose is off the trajectory. This checks both an exact trajectory
+    point timestamp and a timestamp interpolated between trajectory vertices.
+
+    Validates parts of the edge case specified in OpenSCENARIO v1.4.0, section
+    6.9.3.
     """
-    
+
     rate = 1.0
     actor = _actor()
-    case_name = interpolation_mode
-    case_result = build_trajectory_interpolation_case(
-        TrajectoryInterpolationCaseSpec(
-            output_xosc_path=tmp_path / f"trajectory_interpolation_{case_name}.xosc",
+    case_result = build_follow_trajectory_teleport_case(
+        FollowTrajectoryTeleportCaseSpec(
+            output_xosc_path=tmp_path / f"follow_trajectory_teleport_{case_name}.xosc",
             output_reference_channel_spec=ChannelSpecification(
-                path=tmp_path / f"reference_trajectory_interpolation_{case_name}.mcap",
+                path=tmp_path / f"reference_follow_trajectory_teleport_{case_name}.mcap",
                 message_type="SensorView",
                 metadata={
-                    "net.asam.osi.trace.channel.description": "Reference trace for trajectory interpolation validation"
+                    "net.asam.osi.trace.channel.description": "Reference trace for FollowTrajectoryAction teleport validation"
                 },
             ),
             actor=actor,
+            init_pose=_off_trajectory_init_pose(),
+            action_start_time_s=action_start_time_s,
             stop_time_s=4.0,
             sample_period_s=rate,
             road_network_path=odr_file,
             host_vehicle_id=actor.object_id,
-            interpolation_mode=interpolation_mode,
-            initial_speed_mps=initial_speed_mps,
         )
     )
 
@@ -107,10 +112,10 @@ def test_timed_polyline_trajectory_interpolation(
         osc_path=case_result.xosc_path,
         odr_path=odr_file,
         osi_output_spec=ChannelSpecification(
-            path=tmp_path / f"tool_trace_trajectory_interpolation_{case_name}.mcap",
+            path=tmp_path / f"tool_trace_follow_trajectory_teleport_{case_name}.mcap",
             message_type="SensorView",
             metadata={
-                "net.asam.osi.trace.channel.description": "Tool trace for trajectory interpolation validation"
+                "net.asam.osi.trace.channel.description": "Tool trace for FollowTrajectoryAction teleport validation"
             },
         ),
         log_path=tmp_path,

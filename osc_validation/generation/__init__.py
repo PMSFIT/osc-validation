@@ -24,6 +24,16 @@ from .trajectory_interpolation import (
     TrajectoryInterpolationXoscResult,
     build_trajectory_interpolation_xosc,
 )
+from .follow_trajectory_teleport import (
+    FollowTrajectoryTeleportXoscRequest,
+    FollowTrajectoryTeleportXoscResult,
+    build_follow_trajectory_teleport_xosc,
+)
+from .follow_trajectory_future_time_reference import (
+    FollowTrajectoryFutureTimeReferenceXoscRequest,
+    FollowTrajectoryFutureTimeReferenceXoscResult,
+    build_follow_trajectory_future_time_reference_xosc,
+)
 from .trigger_transforms import (
     DistancePositionTriggerSpec,
     SimulationTimeTriggerSpec,

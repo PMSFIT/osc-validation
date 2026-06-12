@@ -11,6 +11,16 @@ from .trajectory_interpolation import (
     TrajectoryInterpolationCaseSpec,
     build_trajectory_interpolation_case,
 )
+from .follow_trajectory_teleport import (
+    FollowTrajectoryTeleportCaseResult,
+    FollowTrajectoryTeleportCaseSpec,
+    build_follow_trajectory_teleport_case,
+)
+from .follow_trajectory_future_time_reference import (
+    FollowTrajectoryFutureTimeReferenceCaseResult,
+    FollowTrajectoryFutureTimeReferenceCaseSpec,
+    build_follow_trajectory_future_time_reference_case,
+)
 
 __all__ = [
     "InitActionCaseResult",
@@ -22,4 +32,10 @@ __all__ = [
     "TrajectoryInterpolationCaseResult",
     "TrajectoryInterpolationCaseSpec",
     "build_trajectory_interpolation_case",
+    "FollowTrajectoryTeleportCaseResult",
+    "FollowTrajectoryTeleportCaseSpec",
+    "build_follow_trajectory_teleport_case",
+    "FollowTrajectoryFutureTimeReferenceCaseResult",
+    "FollowTrajectoryFutureTimeReferenceCaseSpec",
+    "build_follow_trajectory_future_time_reference_case",
 ]
