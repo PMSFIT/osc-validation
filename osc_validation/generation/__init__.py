@@ -17,6 +17,23 @@ from .init_actions import (
     InitActionsXoscResult,
     build_init_actions_xosc,
 )
+from .trajectory_interpolation import (
+    TrajectoryInterpolationActor,
+    TrajectoryInterpolationVertex,
+    TrajectoryInterpolationXoscRequest,
+    TrajectoryInterpolationXoscResult,
+    build_trajectory_interpolation_xosc,
+)
+from .follow_trajectory_teleport import (
+    FollowTrajectoryTeleportXoscRequest,
+    FollowTrajectoryTeleportXoscResult,
+    build_follow_trajectory_teleport_xosc,
+)
+from .follow_trajectory_future_time_reference import (
+    FollowTrajectoryFutureTimeReferenceXoscRequest,
+    FollowTrajectoryFutureTimeReferenceXoscResult,
+    build_follow_trajectory_future_time_reference_xosc,
+)
 from .trigger_transforms import (
     DistancePositionTriggerSpec,
     SimulationTimeTriggerSpec,
@@ -37,7 +54,6 @@ from .trigger_transforms import (
     find_speed_activation_point,
     build_ttc_position_triggered_comparison_trace,
     find_ttc_position_activation_point,
-    build_trace_with_calculated_kinematics,
     build_traveled_distance_triggered_comparison_trace,
     find_traveled_distance_activation_point,
     ActivationPoint,

@@ -1,5 +1,4 @@
 import argparse
-from datetime import datetime
 from pathlib import Path
 from typing import Literal, Union
 import logging
@@ -14,6 +13,17 @@ from osi_utilities import ChannelSpecification, MessageType, open_channel
 from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointZYX
 from .init_transforms import compute_close_to_trajectory_start_xy
 from .init_transforms.models import InitPoseOverride
+from .xosc_builders import (
+    WorldPosition,
+    XoscHeader,
+    XoscVehicle,
+    append_simulation_time_stop_trigger,
+    append_teleport_private_action,
+    append_vehicle,
+    append_world_position,
+    build_open_scenario_root,
+    write_xosc_tree,
+)
 
 XOSC_VERSION_MAJOR = 1
 XOSC_VERSION_MINOR = 3
@@ -133,52 +143,24 @@ class OSI2OSCMovingObject:
         assert (
             osc_vehicle_category != None
         ), "Missing OSI2OSC mapping for vehicle category."
-        xml_vehicle = etree.SubElement(
+        append_vehicle(
             xml_scenario_object,
-            "Vehicle",
-            name=f"osi_moving_object_vehicle_{self.id}",
-            vehicleCategory=osc_vehicle_category,
-        )
-        xml_bounding_box = etree.SubElement(xml_vehicle, "BoundingBox")
-        xml_center = etree.SubElement(
-            xml_bounding_box,
-            "Center",
-            x=str(-self.bbcenter_to_rear_x),
-            y=str(-self.bbcenter_to_rear_y),
-            z=str(self.height_static / 2),
-        )
-        xml_dimensions = etree.SubElement(
-            xml_bounding_box,
-            "Dimensions",
-            height=str(self.height_static),
-            length=str(self.length_static),
-            width=str(self.width_static),
-        )
-        xml_performance = etree.SubElement(
-            xml_vehicle,
-            "Performance",
-            maxAcceleration="4",
-            maxDeceleration="9",
-            maxSpeed="250",
-        )
-        xml_axles = etree.SubElement(xml_vehicle, "Axles")
-        xml_front_axle = etree.SubElement(
-            xml_axles,
-            "FrontAxle",
-            maxSteering="0.5",
-            positionX="2.7",
-            positionZ="0.4",
-            trackWidth="1.63",
-            wheelDiameter="0.8",
-        )
-        xml_rear_axle = etree.SubElement(
-            xml_axles,
-            "RearAxle",
-            maxSteering="0.5",
-            positionX="0",
-            positionZ="0.4",
-            trackWidth="1.63",
-            wheelDiameter="0.8",
+            XoscVehicle(
+                name=f"osi_moving_object_vehicle_{self.id}",
+                category=osc_vehicle_category,
+                center_x=str(-self.bbcenter_to_rear_x),
+                center_y=str(-self.bbcenter_to_rear_y),
+                center_z=str(self.height_static / 2),
+                height=str(self.height_static),
+                length=str(self.length_static),
+                width=str(self.width_static),
+                max_acceleration="4",
+                max_deceleration="9",
+                max_speed="250",
+                rear_max_steering="0.5",
+                rear_position_x="0",
+                include_properties=False,
+            ),
         )
         return xml_scenario_object
 
@@ -198,15 +180,10 @@ class OSI2OSCMovingObject:
             )
             xml_position = etree.SubElement(xml_vertex, "Position")
             x, y, z, h, p, r = self._to_world_position(point)
-            xml_world_position = etree.SubElement(
+            append_world_position(
                 xml_position,
-                "WorldPosition",
-                x=str(x),
-                y=str(y),
-                z=str(z),
-                h=str(h),
-                p=str(p),
-                r=str(r),
+                WorldPosition(x=x, y=y, z=z, h=h, p=p, r=r),
+                as_float=False,
             )
         return xml_trajectory
 
@@ -321,23 +298,6 @@ class OSI2OSCMovingObject:
         xml_trajectory = self.build_osc_polyline_trajectory()
         xml_trajectory_ref.append(xml_trajectory)
         return xml_act
-
-    def build_init_action(self, init_pose: InitPoseOverride):
-        xml_private = etree.Element("Private", entityRef=self.entity_ref)
-        xml_private_action = etree.SubElement(xml_private, "PrivateAction")
-        xml_teleport_action = etree.SubElement(xml_private_action, "TeleportAction")
-        xml_position = etree.SubElement(xml_teleport_action, "Position")
-        xml_world_position = etree.SubElement(
-            xml_position,
-            "WorldPosition",
-            x=str(init_pose.x),
-            y=str(init_pose.y),
-            z=str(init_pose.z),
-            h=str(init_pose.yaw),
-            p=str(init_pose.pitch),
-            r=str(init_pose.roll),
-        )
-        return xml_private
 
 
 def parse_moving_objects(
@@ -464,27 +424,19 @@ def osi2osc(
         xml_scenario_objects.append(obj.build_osc_scenario_object())
         xml_acts.append(obj.build_act())
 
-    xml_root = etree.Element("OpenSCENARIO")
-    xml_file_header = etree.SubElement(
-        xml_root,
-        "FileHeader",
-        revMajor=str(XOSC_VERSION_MAJOR),
-        revMinor=str(XOSC_VERSION_MINOR),
-        date=datetime.today().strftime("%Y-%m-%dT%H:%M:%S"),
-        author=XOSC_AUTHOR,
-        description=XOSC_DESCRIPTION,
+    xml_root, xml_entities, xml_storyboard = build_open_scenario_root(
+        XoscHeader(
+            rev_major=XOSC_VERSION_MAJOR,
+            rev_minor=XOSC_VERSION_MINOR,
+            author=XOSC_AUTHOR,
+            description=XOSC_DESCRIPTION,
+            license_name=XOSC_LICENSE,
+            license_resource=XOSC_LICENSE_RESOURCE,
+        ),
+        path_xodr,
     )
-    xml_license = etree.SubElement(
-        xml_file_header, "License", name=XOSC_LICENSE, resource=XOSC_LICENSE_RESOURCE
-    )
-    xml_catalog_locations = etree.SubElement(xml_root, "CatalogLocations")
-    xml_road_network = etree.SubElement(xml_root, "RoadNetwork")
-    if path_xodr is not None:
-        xml_road_network.append(etree.Element("LogicFile", filepath=str(path_xodr)))
-    xml_entities = etree.SubElement(xml_root, "Entities")
     for xml_scenario_object in xml_scenario_objects:
         xml_entities.append(xml_scenario_object)
-    xml_storyboard = etree.SubElement(xml_root, "Storyboard")
     xml_init = etree.SubElement(xml_storyboard, "Init")
     xml_init_actions = etree.SubElement(xml_init, "Actions")
     if INITACTIONS:
@@ -536,8 +488,18 @@ def osi2osc(
                 )
             else:
                 raise ValueError(f"Unsupported init_pose_policy '{init_pose_policy}'.")
-            xml_init_actions.append(
-                obj.build_init_action(resolved_override)
+            append_teleport_private_action(
+                xml_init_actions,
+                resolved_override.entity_ref,
+                WorldPosition(
+                    x=resolved_override.x,
+                    y=resolved_override.y,
+                    z=resolved_override.z,
+                    h=resolved_override.yaw,
+                    p=resolved_override.pitch,
+                    r=resolved_override.roll,
+                ),
+                as_float=False,
             )
     story_name = "Story1"
     xml_story = etree.SubElement(xml_storyboard, "Story", name=story_name)
@@ -569,31 +531,14 @@ def osi2osc(
                 state="completeState",
             )
         elif STOPTRIGGER_CONDITION == "SimulationTimeCondition":
-            xml_storyboard_stop_trigger = etree.SubElement(
-                xml_storyboard, "StopTrigger"
-            )
-            xml_stop_trigger_condition_group = etree.SubElement(
-                xml_storyboard_stop_trigger, "ConditionGroup"
-            )
-            xml_stop_trigger_condition = etree.SubElement(
-                xml_stop_trigger_condition_group,
-                "Condition",
-                name="End",
+            append_simulation_time_stop_trigger(
+                xml_storyboard,
+                stop_timestamp,
                 delay="0",
-                conditionEdge="rising",
-            )
-            xml_stop_trigger_byvalue_condition = etree.SubElement(
-                xml_stop_trigger_condition, "ByValueCondition"
-            )
-            xml_stop_trigger_simulation_time_condition = etree.SubElement(
-                xml_stop_trigger_byvalue_condition,
-                "SimulationTimeCondition",
-                value=str(stop_timestamp),
-                rule="greaterOrEqual",
+                as_float=False,
             )
 
-    xml_tree = etree.ElementTree(xml_root)
-    xml_tree.write(path_xosc, encoding="utf-8", xml_declaration=True, pretty_print=True)
+    write_xosc_tree(path_xosc, xml_root)
     return path_xosc
 
 
