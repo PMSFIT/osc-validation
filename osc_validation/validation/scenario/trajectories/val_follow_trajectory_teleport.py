@@ -130,10 +130,10 @@ def test_follow_trajectory_position_mode_teleports_to_current_trajectory_time(
         match_mode="closest_initial_xy",
         ignore_first_speed_sample=True,
     )
-    assert metric_result.sample_count == 5
-    assert metric_result.max_time_error <= 0.01
-    assert metric_result.max_xy_error < 0.1
-    assert metric_result.max_yaw_error < 0.01
-    assert metric_result.max_pitch_error < 0.01
-    assert metric_result.max_roll_error < 0.01
-    assert metric_result.max_dimension_error < 0.01
+    assert metric_result.sample_count == 5, "Trace should have 5 samples at 1 Hz from 0s to 4s inclusive"
+    assert metric_result.max_time_error <= 0.01, "Trace should have max time error <= 0.01s"
+    assert metric_result.max_xy_error < 0.1, "Trace should have max XY error < 0.1m"
+    assert metric_result.max_yaw_error < 0.01, "Trace should have max yaw error < 0.01 rad"
+    assert metric_result.max_pitch_error < 0.01, "Trace should have max pitch error < 0.01 rad"
+    assert metric_result.max_roll_error < 0.01, "Trace should have max roll error < 0.01 rad"
+    assert metric_result.max_dimension_error < 0.01, "Trace should have max dimension error < 0.01m"
