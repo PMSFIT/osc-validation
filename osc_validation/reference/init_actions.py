@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from osi3 import osi_sensorview_pb2, osi_version_pb2
 from osi_utilities import ChannelSpecification, open_channel_writer
 
+from osc_validation.reference.trace_kinematics import (
+    build_trace_with_calculated_kinematics,
+)
+from osc_validation.utils.osi_channel_specification import with_name_suffix
 from osc_validation.utils.utils import rotatePointZYX
 
 
@@ -90,12 +94,6 @@ def _build_sensor_view(
         moving_object.base.dimension.length = actor.length
         moving_object.base.dimension.width = actor.width
         moving_object.base.dimension.height = actor.height
-        moving_object.base.velocity.x = vx
-        moving_object.base.velocity.y = vy
-        moving_object.base.velocity.z = 0.0
-        moving_object.base.acceleration.x = 0.0
-        moving_object.base.acceleration.y = 0.0
-        moving_object.base.acceleration.z = 0.0
         moving_object.type = 2
         moving_object.vehicle_classification.type = 4
 
@@ -113,7 +111,8 @@ def build_init_actions_reference_trace(
         raise ValueError("sample_period_s must be > 0.0.")
 
     frame_count = int(round(request.duration_s / request.sample_period_s)) + 1
-    with open_channel_writer(request.output_channel_spec) as writer:
+    pose_channel_spec = with_name_suffix(request.output_channel_spec, "_poses")
+    with open_channel_writer(pose_channel_spec) as writer:
         for frame_index in range(frame_count):
             timestamp_s = frame_index * request.sample_period_s
             writer.write_message(
@@ -123,4 +122,9 @@ def build_init_actions_reference_trace(
                     host_vehicle_id=request.host_vehicle_id,
                 )
             )
-        return writer.get_channel_specification()
+        pose_channel_spec = writer.get_channel_specification()
+
+    return build_trace_with_calculated_kinematics(
+        input_channel_spec=pose_channel_spec,
+        output_channel_spec=request.output_channel_spec,
+    )

@@ -3,6 +3,11 @@ from pathlib import Path
 
 from lxml import etree
 
+from ..xosc_builders import (
+    append_storyboard_element_state_condition,
+    replace_start_trigger,
+    write_xosc_tree,
+)
 from .models import (
     TrajectorySequencingTransformRequest,
     TrajectorySequencingTransformResult,
@@ -49,9 +54,7 @@ def split_entity_trajectory(
     else:
         raise ValueError(f"Unsupported sequencing_level '{spec.sequencing_level}'.")
 
-    tree.write(
-        str(output_xosc_path), encoding="utf-8", xml_declaration=True, pretty_print=True
-    )
+    write_xosc_tree(output_xosc_path, root)
     return output_xosc_path
 
 
@@ -282,26 +285,14 @@ def _append_storyboard_element_start_trigger(
     storyboard_element_type: str,
     storyboard_element_ref: str,
 ):
-    existing_start = element.find("StartTrigger")
-    if existing_start is not None:
-        element.remove(existing_start)
-
-    start_trigger = etree.SubElement(element, "StartTrigger")
-    condition_group = etree.SubElement(start_trigger, "ConditionGroup")
-    condition = etree.SubElement(
-        condition_group,
-        "Condition",
-        name=condition_name,
-        delay="0",
-        conditionEdge="rising",
-    )
-    by_value = etree.SubElement(condition, "ByValueCondition")
-    etree.SubElement(
-        by_value,
-        "StoryboardElementStateCondition",
-        storyboardElementType=storyboard_element_type,
-        storyboardElementRef=storyboard_element_ref,
-        state="completeState",
+    replace_start_trigger(
+        element,
+        lambda condition_group: append_storyboard_element_state_condition(
+            condition_group,
+            condition_name=condition_name,
+            storyboard_element_type=storyboard_element_type,
+            storyboard_element_ref=storyboard_element_ref,
+        ),
     )
 
 

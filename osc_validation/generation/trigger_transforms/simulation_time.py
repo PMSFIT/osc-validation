@@ -6,6 +6,11 @@ from osi_utilities import ChannelSpecification, open_channel, open_channel_write
 from osc_validation.utils.utils import timestamp_float_to_osi
 from ..init_transforms.models import InitPoseOverride
 from ..init_transforms.init_pose import apply_init_pose_override_to_reference_object
+from ..xosc_builders import (
+    append_simulation_time_condition,
+    replace_start_trigger,
+    write_xosc_tree,
+)
 from .common import find_moving_object
 
 from .models import (
@@ -25,30 +30,17 @@ def apply_simulation_time_start_trigger_to_all_events(
     root = tree.getroot()
     events = root.findall(".//Event")
     for idx, event in enumerate(events):
-        existing_start = event.find("StartTrigger")
-        if existing_start is not None:
-            event.remove(existing_start)
-
-        xml_start_trigger = etree.SubElement(event, "StartTrigger")
-        xml_condition_group = etree.SubElement(xml_start_trigger, "ConditionGroup")
-        xml_condition = etree.SubElement(
-            xml_condition_group,
-            "Condition",
-            name=f"event_start_trigger_condition_{idx}",
-            delay="0",
-            conditionEdge="rising",
-        )
-        xml_by_value = etree.SubElement(xml_condition, "ByValueCondition")
-        etree.SubElement(
-            xml_by_value,
-            "SimulationTimeCondition",
-            value=str(trigger_delay),
-            rule=trigger_rule,
+        replace_start_trigger(
+            event,
+            lambda condition_group, idx=idx: append_simulation_time_condition(
+                condition_group,
+                condition_name=f"event_start_trigger_condition_{idx}",
+                trigger_delay=trigger_delay,
+                trigger_rule=trigger_rule,
+            ),
         )
 
-    tree.write(
-        str(output_xosc_path), encoding="utf-8", xml_declaration=True, pretty_print=True
-    )
+    write_xosc_tree(output_xosc_path, root)
     return output_xosc_path
 
 

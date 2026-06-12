@@ -19,7 +19,6 @@ from .simulation_time import (
     apply_simulation_time_start_trigger_to_all_events,
     build_delayed_comparison_trace,
 )
-from ..trace_kinematics import build_trace_with_calculated_kinematics
 from .speed import (
     SpeedTriggerTransformer,
     apply_speed_start_trigger,
@@ -178,7 +177,6 @@ __all__ = [
     "build_ttc_position_triggered_comparison_trace",
     "find_speed_activation_point",
     "find_ttc_position_activation_point",
-    "build_trace_with_calculated_kinematics",
     "build_traveled_distance_triggered_comparison_trace",
     "find_traveled_distance_activation_point",
     "ActivationPoint",

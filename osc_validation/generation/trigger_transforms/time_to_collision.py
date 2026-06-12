@@ -6,6 +6,12 @@ from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
 from ..init_transforms.models import InitPoseOverride
 from ..init_transforms.init_pose import apply_init_pose_override_to_reference_object
+from ..xosc_builders import (
+    WorldPosition,
+    append_time_to_collision_position_condition,
+    replace_start_trigger,
+    write_xosc_tree,
+)
 
 from .common import ActivationPoint, evaluate_rule, find_moving_object
 from .models import (
@@ -123,52 +129,26 @@ def apply_time_to_collision_position_start_trigger(
     if event is None:
         raise RuntimeError(f"Event '{target_event_name}' not found in {source_xosc_path}.")
 
-    old_start = event.find("StartTrigger")
-    if old_start is not None:
-        event.remove(old_start)
-
-    xml_start_trigger = etree.SubElement(event, "StartTrigger")
-    xml_condition_group = etree.SubElement(xml_start_trigger, "ConditionGroup")
-    xml_condition = etree.SubElement(
-        xml_condition_group,
-        "Condition",
-        name=condition_name,
-        delay="0",
-        conditionEdge="rising",
-    )
-    xml_by_entity_condition = etree.SubElement(xml_condition, "ByEntityCondition")
-    xml_triggering_entities = etree.SubElement(
-        xml_by_entity_condition,
-        "TriggeringEntities",
-        triggeringEntitiesRule="any",
-    )
-    etree.SubElement(xml_triggering_entities, "EntityRef", entityRef=trigger_entity_ref)
-    xml_entity_condition = etree.SubElement(xml_by_entity_condition, "EntityCondition")
-    xml_ttc_condition = etree.SubElement(
-        xml_entity_condition,
-        "TimeToCollisionCondition",
-        value=str(trigger_ttc_s),
-        rule=trigger_rule,
-        freespace="false",
-        coordinateSystem="entity",
-        relativeDistanceType="euclidianDistance",
-    )
-    xml_ttc_target = etree.SubElement(xml_ttc_condition, "TimeToCollisionConditionTarget")
-    xml_position = etree.SubElement(xml_ttc_target, "Position")
-    etree.SubElement(
-        xml_position,
-        "WorldPosition",
-        x=str(target_position_x),
-        y=str(target_position_y),
-        z=str(target_position_z),
-        h="0.0",
-        p="0.0",
-        r="0.0",
+    replace_start_trigger(
+        event,
+        lambda condition_group: append_time_to_collision_position_condition(
+            condition_group,
+            condition_name=condition_name,
+            trigger_entity_ref=trigger_entity_ref,
+            trigger_ttc_s=trigger_ttc_s,
+            trigger_rule=trigger_rule,
+            target_position=WorldPosition(
+                x=target_position_x,
+                y=target_position_y,
+                z=target_position_z,
+                h="0.0",
+                p="0.0",
+                r="0.0",
+            ),
+        ),
     )
 
-    tree.write(
-        str(output_xosc_path), encoding="utf-8", xml_declaration=True, pretty_print=True
-    )
+    write_xosc_tree(output_xosc_path, root)
     return output_xosc_path
 
 

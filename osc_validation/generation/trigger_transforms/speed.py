@@ -6,6 +6,7 @@ from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
 from ..init_transforms.models import InitPoseOverride
 from ..init_transforms.init_pose import apply_init_pose_override_to_reference_object
+from ..xosc_builders import append_speed_condition, replace_start_trigger, write_xosc_tree
 
 from .common import (
     ActivationPoint,
@@ -105,37 +106,20 @@ def apply_speed_start_trigger(
     if event is None:
         raise RuntimeError(f"Event '{target_event_name}' not found in {source_xosc_path}.")
 
-    old_start = event.find("StartTrigger")
-    if old_start is not None:
-        event.remove(old_start)
-
-    xml_start_trigger = etree.SubElement(event, "StartTrigger")
-    xml_condition_group = etree.SubElement(xml_start_trigger, "ConditionGroup")
-    xml_condition = etree.SubElement(
-        xml_condition_group,
-        "Condition",
-        name=condition_name,
-        delay=str(condition_delay_s),
-        conditionEdge=condition_edge,
-    )
-    xml_by_entity_condition = etree.SubElement(xml_condition, "ByEntityCondition")
-    xml_triggering_entities = etree.SubElement(
-        xml_by_entity_condition,
-        "TriggeringEntities",
-        triggeringEntitiesRule="any",
-    )
-    etree.SubElement(xml_triggering_entities, "EntityRef", entityRef=trigger_entity_ref)
-    xml_entity_condition = etree.SubElement(xml_by_entity_condition, "EntityCondition")
-    etree.SubElement(
-        xml_entity_condition,
-        "SpeedCondition",
-        value=str(trigger_speed_mps),
-        rule=trigger_rule,
+    replace_start_trigger(
+        event,
+        lambda condition_group: append_speed_condition(
+            condition_group,
+            condition_name=condition_name,
+            trigger_entity_ref=trigger_entity_ref,
+            trigger_speed_mps=trigger_speed_mps,
+            trigger_rule=trigger_rule,
+            condition_edge=condition_edge,
+            condition_delay_s=condition_delay_s,
+        ),
     )
 
-    tree.write(
-        str(output_xosc_path), encoding="utf-8", xml_declaration=True, pretty_print=True
-    )
+    write_xosc_tree(output_xosc_path, root)
     return output_xosc_path
 
 
