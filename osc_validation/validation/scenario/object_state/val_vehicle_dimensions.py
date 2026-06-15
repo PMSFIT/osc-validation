@@ -26,7 +26,8 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-@pytest.mark.object_state
+@pytest.mark.validation_category("object_state")
+@pytest.mark.validation_feature("Vehicle dimensions")
 @pytest.mark.parametrize("moving_object_id", [1, 2])
 def test_vehicle_dimensions_match_reference(
     osi_trace: Path,
@@ -36,6 +37,14 @@ def test_vehicle_dimensions_match_reference(
     moving_object_id: int,
     tolerance: float = 0.1,
 ):
+    """
+    OpenSCENARIO feature: vehicle/object geometry emitted from scenario entities.
+
+    Converts a reference OSI trace to OpenSCENARIO and checks that replayed vehicle
+    dimensions match the source objects. The validation compares length, width, and
+    height for the tested moving objects.
+    """
+
     reference_trace_channel_spec = ChannelSpecification(
         osi_trace, message_type=MessageType.SENSOR_VIEW
     )

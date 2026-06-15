@@ -34,7 +34,8 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("sequencing")
+@pytest.mark.validation_feature("Trajectory sequencing")
 @pytest.mark.parametrize(
     "sequencing_level",
     ["event", "maneuver", "maneuver_group", "act", "story"],
@@ -52,6 +53,8 @@ def test_split_ego_trajectory_preserves_reference_motion(
     tolerance: float = 0.1,
 ):
     """
+    OpenSCENARIO feature: equivalent trajectory fragments across sequencing levels.
+
     Validates that splitting one actor trajectory into sequential OpenSCENARIO
     elements preserves the same replayed trajectory.
     """

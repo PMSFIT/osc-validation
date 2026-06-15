@@ -51,7 +51,8 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("trigger")
+@pytest.mark.validation_feature("TraveledDistanceCondition")
 @pytest.mark.parametrize("moving_object_id", [2])           # moving object to be evaluated for trigger activation and trajectory alignment
 @pytest.mark.parametrize("trigger_object_id", [1])          # moving object to be triggered for traveled distance trigger condition
 @pytest.mark.parametrize("trigger_distance_m", [55.0])
@@ -71,6 +72,14 @@ def test_traveled_distance_start_trigger_activates_target_actor(
     rate: float,
     tolerance: float,
 ):
+    """
+    OpenSCENARIO feature: StartTrigger using TraveledDistanceCondition.
+
+    Activates a target actor once the triggering object has traveled the configured
+    distance. The post-trigger trajectory is compared with a transformed reference
+    trace after the trigger edge.
+    """
+
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 

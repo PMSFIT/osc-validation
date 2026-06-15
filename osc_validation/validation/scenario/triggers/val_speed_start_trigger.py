@@ -206,7 +206,8 @@ def _run_speed_start_trigger_case(
     assert mae < tolerance
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("trigger")
+@pytest.mark.validation_feature("SpeedCondition")
 def test_speed_start_trigger_activates_target_actor(
     osi_trace: Path,
     odr_file: Path,
@@ -214,6 +215,14 @@ def test_speed_start_trigger_activates_target_actor(
     generate_tool_trace: Callable,
     tmp_path: Path,
 ):
+    """
+    OpenSCENARIO feature: StartTrigger using SpeedCondition with a rising edge.
+
+    Activates a target actor when the trigger object's speed crosses the configured
+    threshold upward. The post-activation trajectory is compared with a reference
+    trace that includes calculated kinematics.
+    """
+
     _run_speed_start_trigger_case(
         osi_trace=osi_trace,
         odr_file=odr_file,
@@ -224,6 +233,8 @@ def test_speed_start_trigger_activates_target_actor(
     )
 
 
+@pytest.mark.validation_category("trigger")
+@pytest.mark.validation_feature("SpeedCondition")
 def test_speed_start_trigger_condition_edge_none_activates_when_initially_true(
     osi_trace: Path,
     odr_file: Path,
@@ -231,6 +242,14 @@ def test_speed_start_trigger_condition_edge_none_activates_when_initially_true(
     generate_tool_trace: Callable,
     tmp_path: Path,
 ):
+    """
+    OpenSCENARIO feature: SpeedCondition with conditionEdge set to none.
+
+    Checks that a speed condition can activate when it is already true at the start
+    of the scenario. The trigger threshold is zero, so activation depends on the
+    condition state rather than an edge transition.
+    """
+
     _run_speed_start_trigger_case(
         osi_trace=osi_trace,
         odr_file=odr_file,
@@ -239,8 +258,9 @@ def test_speed_start_trigger_condition_edge_none_activates_when_initially_true(
         trigger_speed_mps=0.0,
         condition_edge="none",
     )
-    
 
+@pytest.mark.validation_category("trigger")
+@pytest.mark.validation_feature("SpeedCondition")
 def test_speed_start_trigger_condition_edge_falling_activates(
     osi_trace: Path,
     odr_file: Path,
@@ -248,6 +268,14 @@ def test_speed_start_trigger_condition_edge_falling_activates(
     generate_tool_trace: Callable,
     tmp_path: Path,
 ):
+    """
+    OpenSCENARIO feature: SpeedCondition with conditionEdge set to falling.
+
+    Activates a target actor when the triggering object's speed crosses the
+    configured threshold downward. The resulting trajectory is compared with the
+    expected triggered reference behavior.
+    """
+
     _run_speed_start_trigger_case(
         osi_trace=osi_trace,
         odr_file=odr_file,

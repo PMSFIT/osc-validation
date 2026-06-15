@@ -25,13 +25,22 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("trigger")
+@pytest.mark.validation_feature("Condition delay")
 def test_distance_longitudinal_start_trigger_respects_condition_delay(
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
     tmp_path: Path,
 ):
+    """
+    OpenSCENARIO feature: trigger Condition delay on longitudinal distance conditions.
+
+    Reuses the longitudinal distance trigger case with a one-second conditionDelay.
+    The target actor should activate only after the distance condition has held
+    through that delay.
+    """
+
     _run_distance_longitudinal_start_trigger_case(
         osi_trace=osi_trace,
         odr_file=odr_file,
@@ -41,13 +50,22 @@ def test_distance_longitudinal_start_trigger_respects_condition_delay(
     )
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("trigger")
+@pytest.mark.validation_feature("Condition delay")
 def test_speed_start_trigger_respects_condition_delay(
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
     tmp_path: Path,
 ):
+    """
+    OpenSCENARIO feature: trigger Condition delay on speed conditions.
+
+    Reuses the speed start trigger setup with a one-second conditionDelay. The
+    target actor's trajectory should begin after the delayed activation time, not
+    immediately at the threshold crossing.
+    """
+
     _run_speed_start_trigger_case(
         osi_trace=osi_trace,
         odr_file=odr_file,

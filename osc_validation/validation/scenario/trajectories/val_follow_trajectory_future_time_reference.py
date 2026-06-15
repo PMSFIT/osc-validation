@@ -55,13 +55,16 @@ def _off_trajectory_init_pose() -> TrajectoryInterpolationVertex:
     )
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("trajectory")
+@pytest.mark.validation_feature("FollowTrajectoryAction TimeReference")
 def test_follow_trajectory_future_time_reference_continues_init_speed_until_first_vertex(
     odr_file: Path,
     generate_tool_trace: Callable,
     tmp_path: Path,
 ):
     """
+    OpenSCENARIO feature: FollowTrajectoryAction, position mode, absolute future TimeReference.
+
     Validates that a FollowTrajectoryAction with position mode and an absolute
     TimeReference at the beginning of the trajectory continues at the initial
     speed until the first trajectory vertex time is reached, even if the initial
