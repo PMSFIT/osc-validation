@@ -31,21 +31,6 @@ def osi_trace(request, builtin_data_path):
     provider.cleanup()
 
 
-@pytest.fixture(
-    scope="module",
-    params=[
-        "https://raw.githubusercontent.com/OpenSimulationInterface/qc-osi-trace/refs/heads/main/qc_ositrace/checks/osirules/rulesyml/osi_3_7_0.yml"
-    ],
-)
-def yaml_ruleset(request, tmp_path_factory):
-    uri = request.param
-    filename = Path(urlparse(uri).path).name
-    base_path = tmp_path_factory.mktemp("osirules")
-    provider = DownloadDataProvider(uri=uri, base_path=base_path)
-    yield provider.ensure_data_path(filename)
-    provider.cleanup()
-
-
 @pytest.fixture(scope="module")
 def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
@@ -63,7 +48,6 @@ def odr_file(request):
 def test_simulation_time_start_trigger_delays_actor_trajectory(
     osi_trace: Path,
     odr_file: Path,
-    yaml_ruleset: Path,
     generate_tool_trace: Callable,
     assert_osi_trace_compliance: Callable,
     tmp_path: Path,
@@ -155,7 +139,6 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
         channel_spec=tool_trace_channel_spec,
         result_file=tmp_path / "qc_result_trigger_delay.xqar",
         output_config=tmp_path / "qc_config_trigger_delay.xml",
-        ruleset=yaml_ruleset,
     )
 
     metric = TrajectoryAlignmentSimilarityMetric()

@@ -96,9 +96,11 @@ Enable QC OSI trace checks at test case call sites with:
 ```bash
 osc-validate --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --qc-osi-trace --qc-osi-version 3.7.0
 ```
-or
+
+Use the Omega Prime ruleset with:
+
 ```bash
-pytest osc_validation/validation --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --qc-osi-trace --qc-osi-version 3.7.0
+osc-validate --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --qc-omega-prime
 ```
 
 For more information on available command-line options, run:
@@ -253,6 +255,7 @@ def test_example(generate_tool_trace, assert_osi_trace_compliance, tmp_path):
 ```
 
 Use `--qc-osi-version` and `--qc-osi-ruleset` to provide default checker settings for the run.
+Use `--qc-omega-prime` to use the Omega Prime ruleset as the default ruleset.
 A test can override those defaults per call with `osi_version=` and `ruleset=`.
 
 When a QC check fails, the fixture assertion message includes the trace path, checker statuses, issue counts, and the first reported issues.

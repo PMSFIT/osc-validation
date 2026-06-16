@@ -59,11 +59,18 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         metavar="VERSION",
         help="Default OSI version for QC OSI trace checks.",
     )
-    parser.add_argument(
+    ruleset_group = parser.add_mutually_exclusive_group()
+    ruleset_group.add_argument(
         "--qc-osi-ruleset",
         default=None,
         metavar="PATH",
         help="Default OSI ruleset YAML file for QC OSI trace checks.",
+    )
+    ruleset_group.add_argument(
+        "--qc-omega-prime",
+        action="store_true",
+        default=False,
+        help="Use the Omega Prime OSI 3.7.0 ruleset for QC OSI trace checks.",
     )
     return parser.parse_args(argv)
 
@@ -94,6 +101,8 @@ def _pytest_args(args: argparse.Namespace, validation_dir: Path) -> list[str]:
         pytest_args.extend(["--qc-osi-version", args.qc_osi_version])
     if args.qc_osi_ruleset is not None:
         pytest_args.extend(["--qc-osi-ruleset", _resolve_from_cwd(args.qc_osi_ruleset)])
+    if args.qc_omega_prime:
+        pytest_args.append("--qc-omega-prime")
 
     return pytest_args
 

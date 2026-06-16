@@ -111,6 +111,40 @@ def test_osc_validate_main_adds_self_contained_html(monkeypatch):
     assert "--self-contained-html" in captured_command
 
 
+def test_osc_validate_main_adds_omega_prime_qc_option(monkeypatch):
+    captured_command = None
+    validation_dir = Path("installed-validation")
+
+    def fake_subprocess_run(command, check, cwd):
+        nonlocal captured_command
+        captured_command = command
+        assert check is False
+        assert cwd == validation_dir
+        return type("CompletedProcess", (), {"returncode": 0})()
+
+    monkeypatch.setattr(cli_module.subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr(cli_module, "_validation_dir", lambda: validation_dir)
+    monkeypatch.setattr(
+        cli_module.Path,
+        "exists",
+        lambda self: self.name in {"pytest.ini", "scenario"},
+    )
+
+    assert (
+        cli_module.main(
+            [
+                "--tool",
+                "GTGen",
+                "--qc-omega-prime",
+            ]
+        )
+        == 0
+    )
+
+    assert "--qc-osi-trace" not in captured_command
+    assert "--qc-omega-prime" in captured_command
+
+
 def test_osc_validate_main_adds_junitxml(monkeypatch):
     captured_command = None
     validation_dir = Path("installed-validation")
