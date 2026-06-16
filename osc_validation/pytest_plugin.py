@@ -7,7 +7,8 @@ validation runs.
 
 Responsibilities
 ----------------
-* Register CLI options (``--tool``, ``--toolpath``, ``--test-profile``).
+* Register CLI options (``--tool``, ``--toolpath``,
+  ``--tool-wrapper-module``, ``--test-profile``).
 * Initialise the tool under test and expose it via the ``generate_tool_trace``
   session fixture.
 * Expose optional QC OSI trace checking via the
@@ -22,8 +23,12 @@ keeps them from affecting unrelated pytest sessions.
 """
 
 import datetime
+import importlib
+import importlib.util
 import pathlib
 from urllib.parse import urlparse
+import sys
+import uuid
 
 import pytest
 
@@ -44,9 +49,17 @@ class UnknownToolError(ValueError):
     pass
 
 
+class ToolWrapperError(ValueError):
+    pass
+
+
 def _make_tool(config):
     tool_name = config.getoption("--tool")
     toolpath = config.getoption("--toolpath")
+    wrapper_module = config.getoption("--tool-wrapper-module")
+
+    if wrapper_module is not None:
+        return _make_custom_tool(wrapper_module, toolpath)
 
     if tool_name == "ESMini":
         return ESMini(toolpath)
@@ -55,6 +68,75 @@ def _make_tool(config):
     elif tool_name == "OscSimulator":
         return OscSimulator(toolpath)
     raise UnknownToolError(f"Unknown tool: {tool_name}")
+
+
+def _make_custom_tool(wrapper_module: str, toolpath: str | None):
+    module = _load_wrapper_module(wrapper_module)
+    create_tool = getattr(module, "create_tool", None)
+    if not callable(create_tool):
+        raise ToolWrapperError(
+            f"Custom tool wrapper module '{wrapper_module}' must define "
+            "a callable create_tool(toolpath)."
+        )
+
+    try:
+        tool = create_tool(toolpath)
+    except Exception as exc:
+        raise ToolWrapperError(
+            f"Custom tool wrapper module '{wrapper_module}' failed while "
+            f"creating the tool: {exc}"
+        ) from exc
+
+    if not callable(getattr(tool, "run", None)):
+        raise ToolWrapperError(
+            f"Custom tool wrapper module '{wrapper_module}' returned an object "
+            "without a callable run method."
+        )
+    return tool
+
+
+def _load_wrapper_module(wrapper_module: str):
+    module_path = pathlib.Path(wrapper_module)
+    if module_path.suffix == ".py" or module_path.exists():
+        return _load_wrapper_module_from_path(module_path, wrapper_module)
+
+    try:
+        return importlib.import_module(wrapper_module)
+    except Exception as exc:
+        raise ToolWrapperError(
+            f"Could not import custom tool wrapper module '{wrapper_module}': {exc}"
+        ) from exc
+
+
+def _load_wrapper_module_from_path(module_path: pathlib.Path, wrapper_module: str):
+    if not module_path.exists():
+        raise ToolWrapperError(
+            f"Custom tool wrapper module file does not exist: {wrapper_module}"
+        )
+    module_name = f"_osc_validation_custom_tool_{uuid.uuid4().hex}"
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec is None or spec.loader is None:
+        raise ToolWrapperError(
+            f"Could not load custom tool wrapper module from file: {wrapper_module}"
+        )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        sys.modules.pop(module_name, None)
+        raise ToolWrapperError(
+            f"Could not load custom tool wrapper module from file "
+            f"'{wrapper_module}': {exc}"
+        ) from exc
+    return module
+
+
+def _get_tool_version(tool):
+    get_version = getattr(tool, "get_version", None)
+    if not callable(get_version):
+        return ["unknown version"]
+    return get_version()
 
 
 def pytest_addoption(parser):
@@ -70,6 +152,16 @@ def pytest_addoption(parser):
         default=None,
         metavar="PATH",
         help="Path to the tool to validate",
+    )
+    group.addoption(
+        "--tool-wrapper-module",
+        action="store",
+        default=None,
+        metavar="MODULE_OR_PATH",
+        help=(
+            "Python module name or .py file path providing "
+            "create_tool(toolpath) for a custom tool wrapper"
+        ),
     )
     group.addoption(
         "--test-profile",
@@ -119,10 +211,10 @@ def pytest_configure(config):
 
     try:
         tool = _make_tool(config)
-    except (UnknownToolError, FileNotFoundError) as exc:
+    except (UnknownToolError, ToolWrapperError, FileNotFoundError) as exc:
         raise pytest.UsageError(str(exc)) from exc
     config._osc_tool = tool
-    config._osc_tool_version = tool.get_version()
+    config._osc_tool_version = _get_tool_version(tool)
 
     profile_path = config.getoption("--test-profile")
     if profile_path is not None:
