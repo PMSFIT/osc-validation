@@ -14,6 +14,13 @@ def _resolve_from_cwd(path: str) -> str:
     return str(Path(path).resolve())
 
 
+def _resolve_wrapper_module(value: str) -> str:
+    wrapper_path = Path(value)
+    if wrapper_path.suffix == ".py" or wrapper_path.exists():
+        return _resolve_from_cwd(value)
+    return value
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="osc-validate",
@@ -22,8 +29,20 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--tool",
         required=True,
-        choices=["ESMini", "GTGen", "OscSimulator"],
-        help="Tool to validate.",
+        metavar="TOOL",
+        help=(
+            "Tool to validate. Built-in tools: ESMini, GTGen, OscSimulator. "
+            "Other tools require --tool-wrapper-module."
+        ),
+    )
+    parser.add_argument(
+        "--tool-wrapper-module",
+        default=None,
+        metavar="MODULE_OR_PATH",
+        help=(
+            "Python module name or .py file path providing "
+            "create_tool(toolpath) for a custom tool wrapper."
+        ),
     )
     parser.add_argument(
         "--toolpath",
@@ -87,6 +106,10 @@ def _pytest_args(args: argparse.Namespace, validation_dir: Path) -> list[str]:
 
     if args.toolpath is not None:
         pytest_args.extend(["--toolpath", _resolve_from_cwd(args.toolpath)])
+    if args.tool_wrapper_module is not None:
+        pytest_args.extend(
+            ["--tool-wrapper-module", _resolve_wrapper_module(args.tool_wrapper_module)]
+        )
     if args.test_profile is not None:
         pytest_args.extend(["--test-profile", _resolve_from_cwd(args.test_profile)])
     if args.html is not None:

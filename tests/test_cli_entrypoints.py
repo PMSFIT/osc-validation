@@ -179,6 +179,77 @@ def test_osc_validate_main_adds_junitxml(monkeypatch):
     assert f"--junitxml={Path('validation-results.xml').resolve()}" in captured_command
 
 
+def test_osc_validate_main_forwards_tool_wrapper_module(monkeypatch):
+    captured_command = None
+    validation_dir = Path("installed-validation")
+
+    def fake_subprocess_run(command, check, cwd):
+        nonlocal captured_command
+        captured_command = command
+        assert check is False
+        assert cwd == validation_dir
+        return type("CompletedProcess", (), {"returncode": 0})()
+
+    monkeypatch.setattr(cli_module.subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr(cli_module, "_validation_dir", lambda: validation_dir)
+    monkeypatch.setattr(
+        cli_module.Path,
+        "exists",
+        lambda self: self.name in {"pytest.ini", "scenario"},
+    )
+
+    assert (
+        cli_module.main(
+            [
+                "--tool",
+                "CustomTool",
+                "--tool-wrapper-module",
+                "custom_package.wrapper",
+            ]
+        )
+        == 0
+    )
+
+    assert "--tool" in captured_command
+    assert "CustomTool" in captured_command
+    assert "--tool-wrapper-module" in captured_command
+    assert "custom_package.wrapper" in captured_command
+
+
+def test_osc_validate_main_resolves_tool_wrapper_file(monkeypatch):
+    captured_command = None
+    validation_dir = Path("installed-validation")
+
+    def fake_subprocess_run(command, check, cwd):
+        nonlocal captured_command
+        captured_command = command
+        assert check is False
+        assert cwd == validation_dir
+        return type("CompletedProcess", (), {"returncode": 0})()
+
+    monkeypatch.setattr(cli_module.subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr(cli_module, "_validation_dir", lambda: validation_dir)
+    monkeypatch.setattr(
+        cli_module.Path,
+        "exists",
+        lambda self: self.name in {"pytest.ini", "scenario"},
+    )
+
+    assert (
+        cli_module.main(
+            [
+                "--tool",
+                "CustomTool",
+                "--tool-wrapper-module",
+                "custom_wrapper.py",
+            ]
+        )
+        == 0
+    )
+
+    assert str(Path("custom_wrapper.py").resolve()) in captured_command
+
+
 def test_osc_validate_main_rejects_positional_test_paths(monkeypatch):
     monkeypatch.setattr(
         cli_module.subprocess,

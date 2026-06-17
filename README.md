@@ -157,13 +157,14 @@ pytest tests
 ## Tool validation setup
 
 To automate and harmonize the invocation of different tools in the validation process, tool wrapper classes can be created.
-Each tool wrapper must be derived from the base class `OSCTool`:
+Tool wrappers should derive from the base class `OSCTool`:
 
 This wrapper should:
 
 - Launch the tool with the given input files (and desired parameters)
 - Return the `ChannelSpecification` to the tool-generated OSI output
 - Optionally internally post-process traces (e.g., converting formats, fix tool-specific issues)
+- Optionally provide a get_version() method that returns tool version information
 
 Tools already integrated:
 
@@ -171,10 +172,58 @@ Tools already integrated:
 - GTGen Simulator (via gtgen_cli)
 - OscSimulator
 
-To integrate a custom tool:
+To integrate a custom tool without modifying this repository:
 
 - Implement a wrapper subclass of `OSCTool`
-- Register it in `osc_validation/pytest_plugin.py` → `_make_tool`:
+- Expose a `create_tool(toolpath)` function from a Python module or `.py` file:
+
+    ```python
+    from pathlib import Path
+
+    from osi_utilities import ChannelSpecification
+    from osc_validation.tools import OSCTool
+
+
+    class YourToolWrapper(OSCTool):
+        def __init__(self, toolpath):
+            super().__init__(Path(toolpath) if toolpath else None)
+
+        def get_version(self):
+            return ["your-tool 1.0"]
+
+        def run(
+            self,
+            osc_path: Path,
+            odr_path: Path,
+            osi_output_spec: ChannelSpecification,
+            log_path: Path = None,
+            rate: float = 0.05,
+        ) -> ChannelSpecification:
+            # Launch your tool, write or convert the OSI trace, and return
+            # the resulting channel specification.
+            return osi_output_spec
+
+
+    def create_tool(toolpath):
+        return YourToolWrapper(toolpath)
+    ```
+- Pass the module to `osc-validate` with `--tool-wrapper-module`:
+
+    ```bash
+    osc-validate --tool YourToolName --tool-wrapper-module your_package.your_wrapper --toolpath /path/to/your/tool
+    ```
+
+    You can also pass a local `.py` file:
+
+    ```bash
+    osc-validate --tool YourToolName --tool-wrapper-module /path/to/your_wrapper.py --toolpath /path/to/your/tool
+    ```
+
+To integrate a wrapper as a built-in tool in this repository:
+
+- Add the wrapper implementation to `osc_validation/tools/`
+- Register it in `osc_validation/pytest_plugin.py` -> `_make_tool`
+- Add the tool name to the user-facing documentation and CLI tests
 
     ```python
     def _make_tool(config):
@@ -186,17 +235,13 @@ To integrate a custom tool:
         elif tool_name == "GTGen":
             return GTGen_Simulator(toolpath)
         elif tool_name == "YourToolName":
-            return YourToolWrapperClass(toolpath)
+            return YourToolWrapper(toolpath)
         raise ValueError("Tool not found")
     ```
-    The pytest fixture `generate_tool_trace` then yields the `run` function callable of the selected tool wrapper:
-    ```python
-    @pytest.fixture(scope="session")
-    def generate_tool_trace(request):
-        yield request.config._osc_tool.run
-    ```
-    Using the `generate_tool_trace` fixture in a test case function enables to inject the tool execution process into test cases.
-    Note that the fixture `generate_tool_trace` is a callable and accepts the corresponding function parameters of the `run` function.
+
+The pytest fixture `generate_tool_trace` then yields the `run` function callable of the selected tool wrapper.
+Using the `generate_tool_trace` fixture in a test case function enables injecting the tool execution process into test cases.
+The fixture is callable and accepts the corresponding function parameters of the wrapper's `run` function.
 
 ## Test case design
 
