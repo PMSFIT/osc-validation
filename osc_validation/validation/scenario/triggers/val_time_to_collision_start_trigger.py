@@ -76,7 +76,8 @@ def _get_object_position_at_last_frame(
         )
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("trigger")
+@pytest.mark.validation_feature("TimeToCollisionCondition")
 @pytest.mark.parametrize("moving_object_id", [2])
 @pytest.mark.parametrize("trigger_object_id", [1])
 @pytest.mark.parametrize("trigger_ttc_s", [5.0])
@@ -96,6 +97,14 @@ def test_time_to_collision_start_trigger_activates_target_actor(
     rate: float,
     tolerance: float,
 ):
+    """
+    OpenSCENARIO feature: TimeToCollisionCondition to a target position.
+
+    Computes kinematics from the reference trace and activates the target actor
+    when time-to-collision falls below the configured threshold. The post-trigger
+    trajectory is compared with a transformed reference trace.
+    """
+
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 

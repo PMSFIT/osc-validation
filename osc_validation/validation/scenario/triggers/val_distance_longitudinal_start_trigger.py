@@ -219,7 +219,8 @@ def _run_distance_longitudinal_start_trigger_case(
     assert mae < tolerance
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("trigger")
+@pytest.mark.validation_feature("DistanceCondition longitudinal")
 def test_distance_longitudinal_start_trigger_activates_target_actor(
     osi_trace: Path,
     odr_file: Path,
@@ -227,6 +228,14 @@ def test_distance_longitudinal_start_trigger_activates_target_actor(
     generate_tool_trace: Callable,
     tmp_path: Path,
 ):
+    """
+    OpenSCENARIO feature: DistanceCondition with relativeDistanceType longitudinal.
+
+    Activates a target actor when the ego object is within the configured
+    longitudinal distance of a target position. The target actor's post-trigger
+    trajectory is compared with the transformed reference trace.
+    """
+
     _run_distance_longitudinal_start_trigger_case(
         osi_trace=osi_trace,
         odr_file=odr_file,

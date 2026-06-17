@@ -54,7 +54,8 @@ def _actor() -> TrajectoryInterpolationActor:
     )
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("trajectory")
+@pytest.mark.validation_feature("FollowTrajectoryAction interpolation")
 @pytest.mark.parametrize(
     ("interpolation_mode", "initial_speed_mps"),
     [
@@ -70,6 +71,8 @@ def test_timed_polyline_trajectory_interpolation(
     initial_speed_mps: float,
 ):
     """
+    OpenSCENARIO feature: FollowTrajectoryAction with timed vertices and interpolation.
+
     Validates that a FollowTrajectoryAction with position mode correctly follows
     the trajectory and uses the configured interpolation mode.
     

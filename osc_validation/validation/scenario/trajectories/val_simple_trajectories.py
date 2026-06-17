@@ -28,7 +28,8 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("trajectory")
+@pytest.mark.validation_feature("FollowTrajectoryAction")
 @pytest.mark.parametrize("moving_object_id", [1, 2])
 def test_trajectory_and_osi_compliance(
     osi_trace: Path,
@@ -40,21 +41,13 @@ def test_trajectory_and_osi_compliance(
     tolerance=1e-1,
 ):
     """
+    OpenSCENARIO feature: generated FollowTrajectoryAction replay from an OSI trace.
+
     Validates that a tool-generated trajectory closely matches the original OSI trace
     for a given moving object, using similarity metrics within a specified tolerance.
 
     Also runs qc_osi_trace on the tool-generated trace and checks if it complies with
     the OSI 3.7.0 ruleset.
-
-    Args:
-        osi_trace (Path): Path to the original OSI trace file (pytest module fixture).
-        odr_file (Path): Path to the OpenDRIVE (.odr) file (pytest module fixture).
-        generate_tool_trace (Callable): Function to generate an OSI trace from an OpenSCENARIO file (pytest session fixture).
-        tmp_path (Path): Temporary directory for intermediate files (built-in pytest fixture).
-        moving_object_id (int): ID of the moving object (in the reference trace) selected for trajectory comparison (pytest parameter).
-        tolerance (float, optional): Maximum allowed value for similarity metrics. Defaults to 1e-6.
-    Raises:
-        AssertionError: If any similarity metric exceeds the specified tolerance.
     """
 
     logger = logging.getLogger()

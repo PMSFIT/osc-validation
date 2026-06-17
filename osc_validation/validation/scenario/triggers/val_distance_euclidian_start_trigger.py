@@ -53,7 +53,8 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("trigger")
+@pytest.mark.validation_feature("DistanceCondition euclidianDistance")
 @pytest.mark.parametrize("moving_object_id", [2])
 @pytest.mark.parametrize("trigger_object_id", [1])
 @pytest.mark.parametrize("trigger_distance_m", [10.0])
@@ -73,6 +74,14 @@ def test_distance_euclidian_start_trigger_activates_target_actor(
     rate: float,
     tolerance: float,
 ):
+    """
+    OpenSCENARIO feature: DistanceCondition with relativeDistanceType euclidianDistance.
+
+    Activates a target actor based on Euclidean distance from the trigger object to
+    a target position. The validation evaluates the trajectory after the trigger
+    edge because the exact first activation frame is not fully constrained.
+    """
+
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 

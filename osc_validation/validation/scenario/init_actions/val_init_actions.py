@@ -59,11 +59,21 @@ def _compute_object_state_metric(
     )
 
 
+@pytest.mark.validation_category("init_action")
+@pytest.mark.validation_feature("Init TeleportAction")
 def test_init_teleport_action_places_actor_at_expected_pose(
     odr_file: Path,
     generate_tool_trace: Callable,
     tmp_path: Path,
 ):
+    """
+    OpenSCENARIO feature: Init actions using TeleportAction.
+
+    Creates an oracle scenario where the actor is placed at a known position and
+    orientation during initialization. The resulting OSI trace must match the
+    expected position and full orientation.
+    """
+
     rate = 0.05
     case_result = build_init_teleport_action_case(
         InitActionCaseSpec(
@@ -110,11 +120,21 @@ def test_init_teleport_action_places_actor_at_expected_pose(
     assert metric_result.max_orientation_error < 0.01
 
 
+@pytest.mark.validation_category("init_action")
+@pytest.mark.validation_feature("Init AddEntityAction")
 def test_init_add_entity_action_places_actor_at_expected_pose(
     odr_file: Path,
     generate_tool_trace: Callable,
     tmp_path: Path,
 ):
+    """
+    OpenSCENARIO feature: Init actions using AddEntityAction.
+
+    Creates an oracle scenario where an entity is added during initialization at a
+    known pose. The validation checks that the generated object state matches the
+    expected position and orientation.
+    """
+
     rate = 0.05
     case_result = build_init_add_entity_action_case(
         InitActionCaseSpec(
@@ -161,11 +181,21 @@ def test_init_add_entity_action_places_actor_at_expected_pose(
     assert metric_result.max_orientation_error < 0.01
 
 
+@pytest.mark.validation_category("init_action")
+@pytest.mark.validation_feature("Init SpeedAction")
 def test_init_speed_action_sets_expected_motion(
     odr_file: Path,
     generate_tool_trace: Callable,
     tmp_path: Path,
 ):
+    """
+    OpenSCENARIO feature: Init actions using SpeedAction.
+
+    Initializes an actor with a configured speed and compares the generated motion
+    with an oracle reference trace. The validation focuses on the initialized
+    planar speed rather than complete trajectory replay.
+    """
+
     rate = 0.05
     speed_mps = 5.0
     case_result = build_init_speed_action_case(

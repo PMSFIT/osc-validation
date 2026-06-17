@@ -60,7 +60,8 @@ def _off_trajectory_init_pose() -> TrajectoryInterpolationVertex:
     )
 
 
-@pytest.mark.trajectory
+@pytest.mark.validation_category("trajectory")
+@pytest.mark.validation_feature("FollowTrajectoryAction TimeReference")
 @pytest.mark.parametrize(
     ("case_name", "action_start_time_s"),
     [
@@ -76,6 +77,8 @@ def test_follow_trajectory_position_mode_teleports_to_current_trajectory_time(
     action_start_time_s: float,
 ):
     """
+    OpenSCENARIO feature: FollowTrajectoryAction, position mode, absolute TimeReference.
+
     Validates that a FollowTrajectoryAction with Position mode and an absolute
     TimeReference at the beginning of the trajectory teleports the actor to the
     correct trajectory position when the action starts later, even if the
