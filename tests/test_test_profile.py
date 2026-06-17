@@ -18,6 +18,21 @@ def test_xfail_entry_exact_match():
     assert entry.matches("validation/scenario/foo.py::test_bar")
 
 
+def test_xfail_entry_exact_parameterized_match_with_unescaped_brackets():
+    entry = XFailEntry(
+        test="validation/scenario/foo.py::test_bar[param-value]", reason="r"
+    )
+    assert entry.matches("validation/scenario/foo.py::test_bar[param-value]")
+
+
+def test_xfail_entry_parameterized_glob_match_with_unescaped_brackets():
+    entry = XFailEntry(
+        test="validation/scenario/foo.py::test_bar[param-*]", reason="r"
+    )
+    assert entry.matches("validation/scenario/foo.py::test_bar[param-value]")
+    assert not entry.matches("validation/scenario/foo.py::test_bar[other-value]")
+
+
 def test_xfail_entry_unparameterized_node_id_matches_parameterized_item():
     entry = XFailEntry(test="validation/scenario/foo.py::test_bar", reason="r")
     assert entry.matches("validation/scenario/foo.py::test_bar[data-set-1]")

@@ -5,3 +5,7 @@ reason = "TTC not supported by Tool v0.0.1"
 [[xfail]]
 test = "scenario/sequencing/val_split_*.py::*"
 reason = "Sequencing not implemented by Tool v0.0.1"
+
+[[xfail]]
+test = "scenario/trajectories/val_interpolation.py::test_timed_polyline_trajectory_interpolation[constant_acceleration_from_initial_speed-*]"
+reason = "Linear position interpolation is expected to fail for this tool"
