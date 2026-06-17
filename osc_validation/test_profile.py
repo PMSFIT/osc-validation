@@ -41,8 +41,10 @@ class XFailEntry:
     def matches(self, node_id: str) -> bool:
         """Return True if *node_id* matches this entry's test pattern."""
         return (
-            fnmatch(node_id, self.test)
+            node_id == self.test
             or _unparameterized_node_id(node_id) == self.test
+            or fnmatch(node_id, self.test)
+            or fnmatch(node_id, _escape_parameter_bracket_glob(self.test))
         )
 
 
@@ -54,6 +56,16 @@ def _unparameterized_node_id(node_id: str) -> str:
     if separator and "::" in base_node_id:
         return base_node_id
     return node_id
+
+
+def _escape_parameter_bracket_glob(pattern: str) -> str:
+    """Escape pytest's parameter ``[`` suffix for fnmatch patterns."""
+    if not pattern.endswith("]"):
+        return pattern
+    base_pattern, separator, parameters = pattern.rpartition("[")
+    if separator and "::" in base_pattern:
+        return f"{base_pattern}[[]{parameters}"
+    return pattern
 
 
 @dataclass
