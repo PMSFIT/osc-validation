@@ -144,7 +144,11 @@ def pytest_addoption(parser):
     group.addoption(
         "--tool",
         action="store",
-        help="Tool to Validate: ESMini, GTGen, OscSimulator",
+        metavar="TOOL",
+        help=(
+            "Tool to validate. Built-in tools: ESMini, GTGen, OscSimulator. "
+            "Other tools require --tool-wrapper-module"
+        ),
     )
     group.addoption(
         "--toolpath",

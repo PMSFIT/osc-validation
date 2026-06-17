@@ -29,7 +29,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--tool",
         required=True,
-        help="Tool to validate.",
+        metavar="TOOL",
+        help=(
+            "Tool to validate. Built-in tools: ESMini, GTGen, OscSimulator. "
+            "Other tools require --tool-wrapper-module."
+        ),
     )
     parser.add_argument(
         "--tool-wrapper-module",
