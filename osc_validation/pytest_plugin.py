@@ -23,15 +23,21 @@ keeps them from affecting unrelated pytest sessions.
 
 import datetime
 import pathlib
+from urllib.parse import urlparse
 
 import pytest
 
 from osc_validation import __version__ as osc_validation_version
 from osc_validation.assertions import make_assert_osi_trace_compliance
+from osc_validation.dataproviders import DownloadDataProvider
 from osc_validation.test_profile import load_test_profile
 from osc_validation.tools.esmini import ESMini
 from osc_validation.tools.gtgen_cli import GTGen_Simulator
 from osc_validation.tools.osc_simulator import OscSimulator
+
+OMEGA_PRIME_OSI_370_RULESET_URL = (
+    "https://raw.githubusercontent.com/thomassedlmayer/omega-prime/7ed09192ffeaa12bfab04281d17a5b5dc2702197/docs/osirules/omega-prime-osi_3-7-0.yml"
+)
 
 
 class UnknownToolError(ValueError):
@@ -91,6 +97,12 @@ def pytest_addoption(parser):
         default=None,
         metavar="PATH",
         help="Default OSI ruleset YAML file for QC OSI trace checks",
+    )
+    group.addoption(
+        "--qc-omega-prime",
+        action="store_true",
+        default=False,
+        help="Use the Omega Prime OSI 3.7.0 ruleset for QC OSI trace checks",
     )
 
 
@@ -159,6 +171,14 @@ def pytest_report_header(config):
     return [f"{key}: {value}" for key, value in metadata.items()]
 
 
+def _download_omega_prime_ruleset(tmp_path_factory):
+    uri = OMEGA_PRIME_OSI_370_RULESET_URL
+    filename = pathlib.Path(urlparse(uri).path).name
+    base_path = tmp_path_factory.mktemp("osirules")
+    provider = DownloadDataProvider(uri=uri, base_path=base_path)
+    return provider.ensure_data_path(filename)
+
+
 def pytest_collection_modifyitems(config, items):
     profile = getattr(config, "_osc_test_profile", None)
     if profile is None:
@@ -174,12 +194,21 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(scope="session")
-def assert_osi_trace_compliance(request):
-    """Assert OSI trace QC compliance when enabled by ``--qc-osi-trace``."""
+def assert_osi_trace_compliance(request, tmp_path_factory):
+    """Assert OSI trace QC compliance when enabled by a QC option."""
+    qc_enabled = request.config.getoption("--qc-osi-trace") or request.config.getoption(
+        "--qc-omega-prime"
+    )
+    default_osi_version = request.config.getoption("--qc-osi-version")
+    default_ruleset = request.config.getoption("--qc-osi-ruleset")
+
+    if request.config.getoption("--qc-omega-prime"):
+        default_ruleset = _download_omega_prime_ruleset(tmp_path_factory)
+
     return make_assert_osi_trace_compliance(
-        qc_enabled=request.config.getoption("--qc-osi-trace"),
-        default_osi_version=request.config.getoption("--qc-osi-version"),
-        default_ruleset=request.config.getoption("--qc-osi-ruleset"),
+        qc_enabled=qc_enabled,
+        default_osi_version=default_osi_version,
+        default_ruleset=default_ruleset,
     )
 
 

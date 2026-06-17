@@ -1,12 +1,11 @@
 import logging
 from pathlib import Path
 from typing import Callable
-from urllib.parse import urlparse
 
 import pytest
 
 from osi_utilities import MessageType
-from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
+from osc_validation.dataproviders import BuiltinDataProvider
 from osc_validation.generation import osi2osc
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
 from osi_utilities import ChannelSpecification
@@ -24,21 +23,6 @@ def osi_trace(request, builtin_data_path):
     provider.cleanup()
 
 
-@pytest.fixture(
-    scope="module",
-    params=[
-        "https://raw.githubusercontent.com/OpenSimulationInterface/qc-osi-trace/refs/heads/main/qc_ositrace/checks/osirules/rulesyml/osi_3_7_0.yml"
-    ],
-)
-def yaml_ruleset(request, tmp_path_factory):
-    uri = request.param
-    filename = Path(urlparse(uri).path).name
-    base_path = tmp_path_factory.mktemp("osirules")
-    provider = DownloadDataProvider(uri=uri, base_path=base_path)
-    yield provider.ensure_data_path(filename)
-    provider.cleanup()
-
-
 @pytest.fixture(scope="module")
 def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
@@ -49,7 +33,6 @@ def odr_file(request):
 def test_trajectory_and_osi_compliance(
     osi_trace: Path,
     odr_file: Path,
-    yaml_ruleset: Path,
     generate_tool_trace: Callable,
     assert_osi_trace_compliance: Callable,
     tmp_path: Path,
@@ -66,7 +49,6 @@ def test_trajectory_and_osi_compliance(
     Args:
         osi_trace (Path): Path to the original OSI trace file (pytest module fixture).
         odr_file (Path): Path to the OpenDRIVE (.odr) file (pytest module fixture).
-        yaml_ruleset (Path): Path to the YAML ruleset for OSITrace quality checks (pytest module fixture).
         generate_tool_trace (Callable): Function to generate an OSI trace from an OpenSCENARIO file (pytest session fixture).
         tmp_path (Path): Temporary directory for intermediate files (built-in pytest fixture).
         moving_object_id (int): ID of the moving object (in the reference trace) selected for trajectory comparison (pytest parameter).
@@ -107,7 +89,6 @@ def test_trajectory_and_osi_compliance(
         channel_spec=tool_trace_channel_spec,
         result_file=tmp_path / "qc_result.xqar",
         output_config=tmp_path / "qc_config.xml",
-        ruleset=yaml_ruleset,
     )
 
     # Calculate trajectory similarity metrics
