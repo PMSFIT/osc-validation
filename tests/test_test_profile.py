@@ -67,6 +67,53 @@ def test_xfail_entry_strict_default():
     assert entry.strict is False
 
 
+def test_xfail_entry_bare_except_exempts_matching_parameter_id():
+    entry = XFailEntry(
+        test="validation/scenario/foo.py::test_bar",
+        reason="r",
+        except_patterns=["data-set-1"],
+    )
+    assert not entry.matches("validation/scenario/foo.py::test_bar[data-set-1]")
+
+
+def test_xfail_entry_bare_except_supports_glob_parameter_id():
+    entry = XFailEntry(
+        test="validation/scenario/foo.py::test_bar",
+        reason="r",
+        except_patterns=["constant_velocity_*"],
+    )
+    assert not entry.matches(
+        "validation/scenario/foo.py::test_bar[constant_velocity_forward]"
+    )
+
+
+def test_xfail_entry_full_node_id_except_uses_node_id_matching():
+    entry = XFailEntry(
+        test="validation/scenario/foo.py::test_bar",
+        reason="r",
+        except_patterns=["validation/scenario/foo.py::test_bar[case-*]"],
+    )
+    assert not entry.matches("validation/scenario/foo.py::test_bar[case-1]")
+
+
+def test_xfail_entry_non_excepted_parametrization_still_matches():
+    entry = XFailEntry(
+        test="validation/scenario/foo.py::test_bar",
+        reason="r",
+        except_patterns=["passing-case"],
+    )
+    assert entry.matches("validation/scenario/foo.py::test_bar[failing-case]")
+
+
+def test_xfail_entry_unparameterized_item_not_exempted_by_bare_except():
+    entry = XFailEntry(
+        test="validation/scenario/foo.py::test_bar",
+        reason="r",
+        except_patterns=["test_bar"],
+    )
+    assert entry.matches("validation/scenario/foo.py::test_bar")
+
+
 # ---------------------------------------------------------------------------
 # TestProfile.xfail_for
 # ---------------------------------------------------------------------------
@@ -131,6 +178,20 @@ def test_load_valid_profile(tmp_path):
     assert profile.xfails[1].strict is True
 
 
+def test_load_valid_profile_with_except(tmp_path):
+    path = _write_toml(
+        tmp_path,
+        """\
+        [[xfail]]
+        test = "validation/scenario/foo.py::test_bar"
+        except = ["passing-*"]
+        reason = "Known bug"
+    """,
+    )
+    profile = load_test_profile(path)
+    assert profile.xfails[0].except_patterns == ["passing-*"]
+
+
 def test_load_empty_profile(tmp_path):
     path = _write_toml(tmp_path, "")
     profile = load_test_profile(path)
@@ -170,6 +231,34 @@ def test_load_missing_reason_field(tmp_path):
     """,
     )
     with pytest.raises(ValueError, match="missing required field 'reason'"):
+        load_test_profile(path)
+
+
+def test_load_rejects_except_when_not_list(tmp_path):
+    path = _write_toml(
+        tmp_path,
+        """\
+        [[xfail]]
+        test = "validation/scenario/foo.py::test_bar"
+        except = "passing-*"
+        reason = "Known bug"
+    """,
+    )
+    with pytest.raises(ValueError, match="field 'except' must be a list of strings"):
+        load_test_profile(path)
+
+
+def test_load_rejects_except_when_list_contains_non_string(tmp_path):
+    path = _write_toml(
+        tmp_path,
+        """\
+        [[xfail]]
+        test = "validation/scenario/foo.py::test_bar"
+        except = ["passing-*", 1]
+        reason = "Known bug"
+    """,
+    )
+    with pytest.raises(ValueError, match="field 'except' must be a list of strings"):
         load_test_profile(path)
 
 
