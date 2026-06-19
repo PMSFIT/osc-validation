@@ -37,15 +37,42 @@ class XFailEntry:
     test: str
     reason: str
     strict: bool = False
+    except_patterns: list[str] = field(default_factory=list)
 
     def matches(self, node_id: str) -> bool:
         """Return True if *node_id* matches this entry's test pattern."""
-        return (
-            node_id == self.test
-            or _unparameterized_node_id(node_id) == self.test
-            or fnmatch(node_id, self.test)
-            or fnmatch(node_id, _escape_parameter_bracket_glob(self.test))
+        return _matches_node_id_pattern(node_id, self.test) and not any(
+            _matches_except_pattern(node_id, pattern) for pattern in self.except_patterns
         )
+
+
+def _matches_node_id_pattern(node_id: str, pattern: str) -> bool:
+    """Return True if *node_id* matches a full pytest node ID pattern."""
+    return (
+        node_id == pattern
+        or _unparameterized_node_id(node_id) == pattern
+        or fnmatch(node_id, pattern)
+        or fnmatch(node_id, _escape_parameter_bracket_glob(pattern))
+    )
+
+
+def _parameter_id(node_id: str) -> str | None:
+    """Return the trailing pytest parameter ID, if present."""
+    if not node_id.endswith("]"):
+        return None
+    base_node_id, separator, parameter_id = node_id.rpartition("[")
+    if separator and "::" in base_node_id:
+        return parameter_id[:-1]
+    return None
+
+
+def _matches_except_pattern(node_id: str, pattern: str) -> bool:
+    """Return True if *pattern* exempts *node_id* from an xfail entry."""
+    if "::" in pattern:
+        return _matches_node_id_pattern(node_id, pattern)
+
+    parameter_id = _parameter_id(node_id)
+    return parameter_id is not None and fnmatch(parameter_id, pattern)
 
 
 def _unparameterized_node_id(node_id: str) -> str:
@@ -106,11 +133,19 @@ def load_test_profile(path: str | Path) -> Profile:
             raise ValueError(
                 f"xfail entry {i} in '{path}' is missing required field 'reason'"
             )
+        except_patterns = entry.get("except", [])
+        if not isinstance(except_patterns, list) or not all(
+            isinstance(pattern, str) for pattern in except_patterns
+        ):
+            raise ValueError(
+                f"xfail entry {i} in '{path}' field 'except' must be a list of strings"
+            )
         xfails.append(
             XFailEntry(
                 test=entry["test"],
                 reason=entry["reason"],
                 strict=entry.get("strict", False),
+                except_patterns=except_patterns,
             )
         )
 

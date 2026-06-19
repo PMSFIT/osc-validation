@@ -7,5 +7,6 @@ test = "scenario/sequencing/val_split_*.py::*"
 reason = "Sequencing not implemented by Tool v0.0.1"
 
 [[xfail]]
-test = "scenario/trajectories/val_interpolation.py::test_timed_polyline_trajectory_interpolation[constant_acceleration_from_initial_speed-*]"
-reason = "Linear position interpolation is expected to fail for this tool"
+test = "scenario/trajectories/val_interpolation.py::test_timed_polyline_trajectory_interpolation"
+except = ["linear_position-*"]
+reason = "Only linear position interpolation variants are expected to pass for this tool"

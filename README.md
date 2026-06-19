@@ -134,6 +134,11 @@ reason = "ConditionDelay not supported in v1.2"
 test = "scenario/sequencing/val_split_*.py::*"
 reason = "Sequencing not implemented"
 strict = true  # optional, default false — if true, an unexpected pass is a failure
+
+[[xfail]]
+test = "scenario/trajectories/val_interpolation.py::test_timed_polyline_trajectory_interpolation"
+except = ["linear_position-*"]
+reason = "Only linear position variants are expected to pass"
 ```
 
 Each `[[xfail]]` entry requires:
@@ -145,6 +150,7 @@ For example, `scenario/foo.py::test_bar` matches collected items such as `scenar
 
 Optional:
 - `strict` (bool, default `false`) — when `true`, the test is marked as failed if it unexpectedly passes
+- `except` (list of strings) — patterns selected by `test` that should not be marked xfail. Patterns containing `::` match full pytest node IDs; bare patterns match only parametrization IDs inside `[...]`.
 
 ### Development checks
 
