@@ -33,6 +33,7 @@ def test_vehicle_dimensions_match_reference(
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
     moving_object_id: int,
     tolerance: float = 0.1,
@@ -66,6 +67,10 @@ def test_vehicle_dimensions_match_reference(
         ),
         log_path=tmp_path,
         rate=0.05,
+    )
+    assert_osi_compliance(
+        tool_trace_channel_spec,
+        result_file=tmp_path / f"qc_result_vehicle_dimensions_{moving_object_id}.xqar",
     )
 
     result = ObjectStateMetric().compute(

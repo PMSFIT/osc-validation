@@ -94,13 +94,13 @@ osc-validate --tool <TOOL_NAME> --junitxml validation-results.xml
 Enable QC OSI trace checks at test case call sites with:
 
 ```bash
-osc-validate --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --qc-osi-trace --qc-osi-version 3.7.0
+osc-validate --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --assert-osi-compliance --assert-osi-compliance-version 3.7.0
 ```
 
 Use the Omega Prime ruleset with:
 
 ```bash
-osc-validate --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --qc-omega-prime
+osc-validate --tool ESMini --toolpath C:/path/to/esmini/bin/esmini.exe --assert-osi-compliance-ruleset-preset omega-prime
 ```
 
 For more information on available command-line options, run:
@@ -292,21 +292,21 @@ Checker Bundles already integrated:
 - [qc-osi-trace - OSI Trace Checker](https://github.com/OpenSimulationInterface/qc-osi-trace)
 
 QC trace checks are opt-in for a validation run.
-Test cases call the `assert_osi_trace_compliance` fixture where a generated trace should be checked.
-The fixture is a no-op by default and runs qc-osi-trace only when `--qc-osi-trace` is passed.
+Test cases call the `assert_osi_compliance` fixture where a generated trace should be checked.
+The fixture is a no-op by default and runs qc-osi-trace only when `--assert-osi-compliance` or `--assert-osi-compliance-ruleset-preset omega-prime` is passed.
 
 ```python
-def test_example(generate_tool_trace, assert_osi_trace_compliance, tmp_path):
+def test_example(generate_tool_trace, assert_osi_compliance, tmp_path):
     tool_trace_channel_spec = generate_tool_trace(...)
-    assert_osi_trace_compliance(
+    assert_osi_compliance(
         tool_trace_channel_spec,
         result_file=tmp_path / "qc_result.xqar",
         output_config=tmp_path / "qc_config.xml",
     )
 ```
 
-Use `--qc-osi-version` and `--qc-osi-ruleset` to provide default checker settings for the run.
-Use `--qc-omega-prime` to use the Omega Prime ruleset as the default ruleset.
+Use `--assert-osi-compliance-version` and `--assert-osi-compliance-ruleset` to provide default checker settings for the run.
+Use `--assert-osi-compliance-ruleset-preset omega-prime` to use the Omega Prime ruleset as the default ruleset.
 A test can override those defaults per call with `osi_version=` and `ruleset=`.
 
 When a QC check fails, the fixture assertion message includes the trace path, checker statuses, issue counts, and the first reported issues.
@@ -343,7 +343,7 @@ def example_test_case(osi_trace, odr_file, generate_tool_trace, tmp_path, moving
 - Integrate pytest fixtures' names in the test case function as function parameters
     - Resource fixtures (e.g., `osi_trace`, `odr_file`)
     - Tool execution fixture (`generate_tool_trace`)
-    - Optional QC fixture (`assert_osi_trace_compliance`)
+    - Optional QC fixture (`assert_osi_compliance`)
     - Pytest built-in fixtures (e.g., `tmp_path`, pytest markers such as `moving_object_id`)
 - Integrate a reference implementation (e.g., the OSI to OpenSCENARIO XML Converter osi2osc) to generate an OpenSCENARIO file from a baseline OSI reference trace
 - Use `generate_tool_trace` callable and the OpenSCENARIO file to generate the corresponding OSI tool trace

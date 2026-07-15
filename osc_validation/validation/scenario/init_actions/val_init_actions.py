@@ -64,6 +64,7 @@ def _compute_object_state_metric(
 def test_init_teleport_action_places_actor_at_expected_pose(
     odr_file: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
 ):
     """
@@ -106,6 +107,10 @@ def test_init_teleport_action_places_actor_at_expected_pose(
         rate=rate,
     )
     assert_no_osc_engine_errors(tool_trace_channel_spec)
+    assert_osi_compliance(
+        tool_trace_channel_spec,
+        result_file=tmp_path / "qc_result_init_teleport_action.xqar",
+    )
 
     metric_result = _compute_object_state_metric(
         reference_channel_spec=case_result.reference_channel_spec,
@@ -125,6 +130,7 @@ def test_init_teleport_action_places_actor_at_expected_pose(
 def test_init_add_entity_action_places_actor_at_expected_pose(
     odr_file: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
 ):
     """
@@ -167,6 +173,10 @@ def test_init_add_entity_action_places_actor_at_expected_pose(
         rate=rate,
     )
     assert_no_osc_engine_errors(tool_trace_channel_spec)
+    assert_osi_compliance(
+        tool_trace_channel_spec,
+        result_file=tmp_path / "qc_result_init_add_entity_action.xqar",
+    )
 
     metric_result = _compute_object_state_metric(
         reference_channel_spec=case_result.reference_channel_spec,
@@ -186,6 +196,7 @@ def test_init_add_entity_action_places_actor_at_expected_pose(
 def test_init_speed_action_sets_expected_motion(
     odr_file: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
 ):
     """
@@ -229,6 +240,10 @@ def test_init_speed_action_sets_expected_motion(
         rate=rate,
     )
     assert_no_osc_engine_errors(tool_trace_channel_spec)
+    assert_osi_compliance(
+        tool_trace_channel_spec,
+        result_file=tmp_path / "qc_result_init_speed_action.xqar",
+    )
 
     metric_result = _compute_object_state_metric(
         reference_channel_spec=case_result.reference_channel_spec,

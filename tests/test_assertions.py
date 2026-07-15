@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from osc_validation.assertions import make_assert_osi_trace_compliance
+from osc_validation.assertions import make_assert_osi_compliance
 
 
 class _FakeCheckResult:
@@ -37,19 +37,19 @@ def _reset_fake_checker():
     _FakeChecker.instances = []
 
 
-def test_assert_osi_trace_compliance_noops_when_disabled():
-    assert_osi_trace_compliance = make_assert_osi_trace_compliance(
+def test_assert_osi_compliance_noops_when_disabled():
+    assert_osi_compliance = make_assert_osi_compliance(
         qc_enabled=False,
         checker_cls=_FakeChecker,
     )
 
-    assert_osi_trace_compliance(object())
+    assert_osi_compliance(object())
 
     assert _FakeChecker.instances == []
 
 
-def test_assert_osi_trace_compliance_uses_cli_defaults_when_enabled():
-    assert_osi_trace_compliance = make_assert_osi_trace_compliance(
+def test_assert_osi_compliance_uses_cli_defaults_when_enabled():
+    assert_osi_compliance = make_assert_osi_compliance(
         qc_enabled=True,
         default_osi_version="3.7.0",
         default_ruleset="rules.yml",
@@ -59,7 +59,7 @@ def test_assert_osi_trace_compliance_uses_cli_defaults_when_enabled():
     channel_spec = object()
     result_file = Path("result.xqar")
     output_config = Path("config.xml")
-    assert_osi_trace_compliance(
+    assert_osi_compliance(
         channel_spec,
         result_file=result_file,
         output_config=output_config,
@@ -77,15 +77,15 @@ def test_assert_osi_trace_compliance_uses_cli_defaults_when_enabled():
     ]
 
 
-def test_assert_osi_trace_compliance_call_options_override_cli_defaults():
-    assert_osi_trace_compliance = make_assert_osi_trace_compliance(
+def test_assert_osi_compliance_call_options_override_cli_defaults():
+    assert_osi_compliance = make_assert_osi_compliance(
         qc_enabled=True,
         default_osi_version="3.6.0",
         default_ruleset="default.yml",
         checker_cls=_FakeChecker,
     )
 
-    assert_osi_trace_compliance(
+    assert_osi_compliance(
         object(),
         osi_version="3.7.0",
         ruleset=Path("override.yml"),
@@ -96,7 +96,7 @@ def test_assert_osi_trace_compliance_call_options_override_cli_defaults():
     assert checker.ruleset == Path("override.yml")
 
 
-def test_assert_osi_trace_compliance_fails_when_qc_fails():
+def test_assert_osi_compliance_fails_when_qc_fails():
     class _FailingChecker(_FakeChecker):
         def __init__(self, osi_version=None, ruleset=None):
             super().__init__(osi_version=osi_version, ruleset=ruleset)
@@ -105,16 +105,16 @@ def test_assert_osi_trace_compliance_fails_when_qc_fails():
                 summary="QC OSI trace check failed.\n- deserialization: issue",
             )
 
-    assert_osi_trace_compliance = make_assert_osi_trace_compliance(
+    assert_osi_compliance = make_assert_osi_compliance(
         qc_enabled=True,
         checker_cls=_FailingChecker,
     )
 
     with pytest.raises(AssertionError, match="deserialization: issue"):
-        assert_osi_trace_compliance(object())
+        assert_osi_compliance(object())
 
 
-def test_assert_osi_trace_compliance_supports_legacy_boolean_checker():
+def test_assert_osi_compliance_supports_legacy_boolean_checker():
     class _FakeLegacyChecker:
         def __init__(self, osi_version=None, ruleset=None):
             self.osi_version = osi_version
@@ -123,10 +123,10 @@ def test_assert_osi_trace_compliance_supports_legacy_boolean_checker():
         def check(self, channel_spec, result_file=None, output_config=None):
             return False
 
-    assert_osi_trace_compliance = make_assert_osi_trace_compliance(
+    assert_osi_compliance = make_assert_osi_compliance(
         qc_enabled=True,
         checker_cls=_FakeLegacyChecker,
     )
 
     with pytest.raises(AssertionError, match="QC OSI trace check failed"):
-        assert_osi_trace_compliance(object())
+        assert_osi_compliance(object())

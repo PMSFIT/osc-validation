@@ -11,8 +11,8 @@ Responsibilities
   ``--tool-wrapper-module``, ``--test-profile``).
 * Initialise the tool under test and expose it via the ``generate_tool_trace``
   session fixture.
-* Expose optional QC OSI trace checking via the
-  ``assert_osi_trace_compliance`` session fixture.
+* Expose optional OSI compliance assertions via the
+  ``assert_osi_compliance`` session fixture.
 * Apply xfail markers from an optional test-profile file.
 * Add validation metadata to the pytest report header.
 
@@ -33,16 +33,14 @@ import uuid
 import pytest
 
 from osc_validation import __version__ as osc_validation_version
-from osc_validation.assertions import make_assert_osi_trace_compliance
+from osc_validation.assertions import make_assert_osi_compliance
 from osc_validation.dataproviders import DownloadDataProvider
 from osc_validation.test_profile import load_test_profile
 from osc_validation.tools.esmini import ESMini
 from osc_validation.tools.gtgen_cli import GTGen_Simulator
 from osc_validation.tools.osc_simulator import OscSimulator
 
-OMEGA_PRIME_OSI_370_RULESET_URL = (
-    "https://raw.githubusercontent.com/thomassedlmayer/omega-prime/7ed09192ffeaa12bfab04281d17a5b5dc2702197/docs/osirules/omega-prime-osi_3-7-0.yml"
-)
+OMEGA_PRIME_OSI_370_RULESET_URL = "https://raw.githubusercontent.com/thomassedlmayer/omega-prime/7ed09192ffeaa12bfab04281d17a5b5dc2702197/docs/osirules/omega-prime-osi_3-7-0.yml"
 
 
 class UnknownToolError(ValueError):
@@ -175,30 +173,31 @@ def pytest_addoption(parser):
         help="Path to a TOML test profile file declaring expected failures for this run",
     )
     group.addoption(
-        "--qc-osi-trace",
+        "--assert-osi-compliance",
         action="store_true",
         default=False,
-        help="Enable QC OSI trace checks at assert_osi_trace_compliance fixture call sites",
+        help="Enable OSI compliance assertions at assert_osi_compliance fixture call sites",
     )
     group.addoption(
-        "--qc-osi-version",
+        "--assert-osi-compliance-version",
         action="store",
         default=None,
         metavar="VERSION",
-        help="Default OSI version for QC OSI trace checks",
+        help="Default OSI version for OSI compliance assertions",
     )
     group.addoption(
-        "--qc-osi-ruleset",
+        "--assert-osi-compliance-ruleset",
         action="store",
         default=None,
         metavar="PATH",
-        help="Default OSI ruleset YAML file for QC OSI trace checks",
+        help="Default OSI ruleset YAML file for OSI compliance assertions",
     )
     group.addoption(
-        "--qc-omega-prime",
-        action="store_true",
-        default=False,
-        help="Use the Omega Prime OSI 3.7.0 ruleset for QC OSI trace checks",
+        "--assert-osi-compliance-ruleset-preset",
+        action="store",
+        default=None,
+        metavar="PRESET",
+        help="Use a named OSI ruleset preset for OSI compliance assertions",
     )
 
 
@@ -290,18 +289,25 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(scope="session")
-def assert_osi_trace_compliance(request, tmp_path_factory):
-    """Assert OSI trace QC compliance when enabled by a QC option."""
-    qc_enabled = request.config.getoption("--qc-osi-trace") or request.config.getoption(
-        "--qc-omega-prime"
-    )
-    default_osi_version = request.config.getoption("--qc-osi-version")
-    default_ruleset = request.config.getoption("--qc-osi-ruleset")
+def assert_osi_compliance(request, tmp_path_factory):
+    """Assert OSI trace compliance when enabled by an assertion option."""
+    ruleset_preset = request.config.getoption("--assert-osi-compliance-ruleset-preset")
+    if ruleset_preset not in {None, "omega-prime"}:
+        raise pytest.UsageError(
+            "Unsupported OSI compliance ruleset preset: "
+            f"{ruleset_preset}. Supported presets: omega-prime."
+        )
 
-    if request.config.getoption("--qc-omega-prime"):
+    qc_enabled = request.config.getoption("--assert-osi-compliance") or (
+        ruleset_preset is not None
+    )
+    default_osi_version = request.config.getoption("--assert-osi-compliance-version")
+    default_ruleset = request.config.getoption("--assert-osi-compliance-ruleset")
+
+    if ruleset_preset == "omega-prime":
         default_ruleset = _download_omega_prime_ruleset(tmp_path_factory)
 
-    return make_assert_osi_trace_compliance(
+    return make_assert_osi_compliance(
         qc_enabled=qc_enabled,
         default_osi_version=default_osi_version,
         default_ruleset=default_ruleset,
