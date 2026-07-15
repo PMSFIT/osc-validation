@@ -44,10 +44,10 @@ def test_osc_validate_main_runs_installed_validation_suite(monkeypatch):
                 "C:/tools/esmini.exe",
                 "--test-profile",
                 "profile.toml",
-                "--qc-osi-trace",
-                "--qc-osi-version",
+                "--assert-osi-compliance",
+                "--assert-osi-compliance-version",
                 "3.7.0",
-                "--qc-osi-ruleset",
+                "--assert-osi-compliance-ruleset",
                 "rules.yml",
             ]
         )
@@ -68,10 +68,10 @@ def test_osc_validate_main_runs_installed_validation_suite(monkeypatch):
         str(Path("C:/tools/esmini.exe").resolve()),
         "--test-profile",
         str(Path("profile.toml").resolve()),
-        "--qc-osi-trace",
-        "--qc-osi-version",
+        "--assert-osi-compliance",
+        "--assert-osi-compliance-version",
         "3.7.0",
-        "--qc-osi-ruleset",
+        "--assert-osi-compliance-ruleset",
         str(Path("rules.yml").resolve()),
     ]
 
@@ -111,7 +111,7 @@ def test_osc_validate_main_adds_self_contained_html(monkeypatch):
     assert "--self-contained-html" in captured_command
 
 
-def test_osc_validate_main_adds_omega_prime_qc_option(monkeypatch):
+def test_osc_validate_main_adds_omega_prime_ruleset_preset(monkeypatch):
     captured_command = None
     validation_dir = Path("installed-validation")
 
@@ -135,14 +135,16 @@ def test_osc_validate_main_adds_omega_prime_qc_option(monkeypatch):
             [
                 "--tool",
                 "GTGen",
-                "--qc-omega-prime",
+                "--assert-osi-compliance-ruleset-preset",
+                "omega-prime",
             ]
         )
         == 0
     )
 
-    assert "--qc-osi-trace" not in captured_command
-    assert "--qc-omega-prime" in captured_command
+    assert "--assert-osi-compliance" not in captured_command
+    assert "--assert-osi-compliance-ruleset-preset" in captured_command
+    assert "omega-prime" in captured_command
 
 
 def test_osc_validate_main_adds_junitxml(monkeypatch):
@@ -262,7 +264,9 @@ def test_osc_validate_main_rejects_positional_test_paths(monkeypatch):
 
 
 def test_osc_validate_main_requires_installed_validation_suite(monkeypatch):
-    monkeypatch.setattr(cli_module, "_validation_dir", lambda: Path("missing-validation"))
+    monkeypatch.setattr(
+        cli_module, "_validation_dir", lambda: Path("missing-validation")
+    )
     monkeypatch.setattr(cli_module.Path, "exists", lambda self: False)
     monkeypatch.setattr(
         cli_module.subprocess,

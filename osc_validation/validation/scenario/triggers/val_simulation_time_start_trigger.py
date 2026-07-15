@@ -50,7 +50,7 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
-    assert_osi_trace_compliance: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
     moving_object_id: int,
     ego_object_id: int,
@@ -138,7 +138,7 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
     )
     assert_no_osc_engine_errors(tool_trace_channel_spec)
 
-    assert_osi_trace_compliance(
+    assert_osi_compliance(
         channel_spec=tool_trace_channel_spec,
         result_file=tmp_path / "qc_result_trigger_delay.xqar",
         output_config=tmp_path / "qc_config_trigger_delay.xml",

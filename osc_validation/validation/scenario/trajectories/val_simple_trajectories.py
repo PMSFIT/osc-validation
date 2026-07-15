@@ -35,7 +35,7 @@ def test_trajectory_and_osi_compliance(
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
-    assert_osi_trace_compliance: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
     moving_object_id: int,
     tolerance=1e-1,
@@ -78,7 +78,7 @@ def test_trajectory_and_osi_compliance(
         rate=0.05,
     )
 
-    assert_osi_trace_compliance(
+    assert_osi_compliance(
         channel_spec=tool_trace_channel_spec,
         result_file=tmp_path / "qc_result.xqar",
         output_config=tmp_path / "qc_config.xml",

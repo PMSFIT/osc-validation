@@ -16,7 +16,7 @@ def _optional_path(path):
     return pathlib.Path(path)
 
 
-def make_assert_osi_trace_compliance(
+def make_assert_osi_compliance(
     *,
     qc_enabled: bool,
     default_osi_version: str | None = None,
@@ -25,7 +25,7 @@ def make_assert_osi_trace_compliance(
 ):
     default_ruleset = _optional_path(default_ruleset)
 
-    def assert_osi_trace_compliance(
+    def assert_osi_compliance(
         channel_spec,
         *,
         result_file=None,
@@ -65,4 +65,4 @@ def make_assert_osi_trace_compliance(
         )
         assert result, "QC OSI trace check failed."
 
-    return assert_osi_trace_compliance
+    return assert_osi_compliance

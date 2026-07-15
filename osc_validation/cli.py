@@ -67,29 +67,30 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="Write a JUnit XML report to PATH.",
     )
     parser.add_argument(
-        "--qc-osi-trace",
+        "--assert-osi-compliance",
         action="store_true",
         default=False,
-        help="Enable QC OSI trace checks at test case call sites.",
+        help="Enable OSI compliance assertions at test case call sites.",
     )
     parser.add_argument(
-        "--qc-osi-version",
+        "--assert-osi-compliance-version",
         default=None,
         metavar="VERSION",
-        help="Default OSI version for QC OSI trace checks.",
+        help="Default OSI version for OSI compliance assertions.",
     )
     ruleset_group = parser.add_mutually_exclusive_group()
     ruleset_group.add_argument(
-        "--qc-osi-ruleset",
+        "--assert-osi-compliance-ruleset",
         default=None,
         metavar="PATH",
-        help="Default OSI ruleset YAML file for QC OSI trace checks.",
+        help="Default OSI ruleset YAML file for OSI compliance assertions.",
     )
     ruleset_group.add_argument(
-        "--qc-omega-prime",
-        action="store_true",
-        default=False,
-        help="Use the Omega Prime OSI 3.7.0 ruleset for QC OSI trace checks.",
+        "--assert-osi-compliance-ruleset-preset",
+        choices=["omega-prime"],
+        default=None,
+        metavar="PRESET",
+        help="Use a named OSI ruleset preset for OSI compliance assertions.",
     )
     return parser.parse_args(argv)
 
@@ -118,14 +119,26 @@ def _pytest_args(args: argparse.Namespace, validation_dir: Path) -> list[str]:
         )
     if args.junitxml is not None:
         pytest_args.append(f"--junitxml={_resolve_from_cwd(args.junitxml)}")
-    if args.qc_osi_trace:
-        pytest_args.append("--qc-osi-trace")
-    if args.qc_osi_version is not None:
-        pytest_args.extend(["--qc-osi-version", args.qc_osi_version])
-    if args.qc_osi_ruleset is not None:
-        pytest_args.extend(["--qc-osi-ruleset", _resolve_from_cwd(args.qc_osi_ruleset)])
-    if args.qc_omega_prime:
-        pytest_args.append("--qc-omega-prime")
+    if args.assert_osi_compliance:
+        pytest_args.append("--assert-osi-compliance")
+    if args.assert_osi_compliance_version is not None:
+        pytest_args.extend(
+            ["--assert-osi-compliance-version", args.assert_osi_compliance_version]
+        )
+    if args.assert_osi_compliance_ruleset is not None:
+        pytest_args.extend(
+            [
+                "--assert-osi-compliance-ruleset",
+                _resolve_from_cwd(args.assert_osi_compliance_ruleset),
+            ]
+        )
+    if args.assert_osi_compliance_ruleset_preset is not None:
+        pytest_args.extend(
+            [
+                "--assert-osi-compliance-ruleset-preset",
+                args.assert_osi_compliance_ruleset_preset,
+            ]
+        )
 
     return pytest_args
 
@@ -133,9 +146,10 @@ def _pytest_args(args: argparse.Namespace, validation_dir: Path) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     validation_dir = _validation_dir()
-    if not (validation_dir / "pytest.ini").exists() or not (
-        validation_dir / "scenario"
-    ).exists():
+    if (
+        not (validation_dir / "pytest.ini").exists()
+        or not (validation_dir / "scenario").exists()
+    ):
         raise FileNotFoundError(
             "Installed validation suite not found at "
             f"'{validation_dir}'. "
