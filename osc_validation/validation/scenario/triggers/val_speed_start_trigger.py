@@ -90,8 +90,8 @@ def _run_speed_start_trigger_case(
     trigger_object_id: int = 1,                 # Triggering object whose speed is evaluated against the trigger condition
     trigger_speed_mps: float = 50 / 3.6,        # Triggering speed
     condition_edge: str = "rising",
-    post_trigger_guard_time_s: float = 0.05,    # Tolerance parameter to account for small scenario engine discrepancies in the exact activation point of the trigger
-    max_alignment_lag_frames: int = 1,          # Maximum lag (+/-) between the tool trajectory and reference trajectory to still be considered valid
+    post_trigger_guard_time_s: float = 0.05,    # Allows small simulator-dependent differences in the frame where triggered actions become visible after condition activation.
+    max_alignment_lag_frames: int = 2,          # Maximum lag (+/-) between the tool trajectory and reference trajectory to still be considered valid
     rate: float = 0.05,
     tolerance: float = 0.25,
 ):

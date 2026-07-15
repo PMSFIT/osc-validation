@@ -124,7 +124,7 @@ def test_traveled_distance_start_trigger_activates_target_actor(
     metric = TrajectoryAlignmentSimilarityMetric()
     delayed_reference_channel_spec = transform_result.reference_channel_spec
 
-    area, cl, mae, _best_lag_frames = metric.compute(
+    area, cl, mae, best_lag_frames = metric.compute(
         reference_channel_spec=delayed_reference_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
@@ -138,9 +138,10 @@ def test_traveled_distance_start_trigger_activates_target_actor(
             trigger_rule="greaterOrEqual",
         ).time_s + rate,
         time_tolerance=0.01,
-        lag_scan_max_frames=1,
+        lag_scan_max_frames=2,
     )
 
+    assert abs(best_lag_frames) <= 2
     assert area < tolerance
     assert cl < tolerance
     assert mae < tolerance

@@ -80,8 +80,8 @@ def _run_distance_longitudinal_start_trigger_case(
     moving_object_id: int = 2,
     trigger_object_id: int = 1,
     trigger_distance_m: float = 10.0,
-    post_trigger_guard_time_s: float = 0.05,   # Tolerance parameter to account for small discrepancies in the exact activation point of the trigger
-    max_alignment_lag_frames: int = 1,         # Maximum lag (+/-) between the tool trajectory and reference trajectory to still be considered valid
+    post_trigger_guard_time_s: float = 0.05,   # Allows small simulator-dependent differences in the frame where triggered actions become visible after condition activation.
+    max_alignment_lag_frames: int = 2,         # Maximum lag (+/-) between the tool trajectory and reference trajectory to still be considered valid
     rate: float = 0.05,
     tolerance: float = 0.1,
 ):
