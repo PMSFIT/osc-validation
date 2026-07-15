@@ -66,6 +66,7 @@ def _actor() -> TrajectoryInterpolationActor:
 def test_timed_polyline_trajectory_interpolation(
     odr_file: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
     interpolation_mode: TrajectoryInterpolationReferenceMode,
     initial_speed_mps: float,
@@ -120,6 +121,10 @@ def test_timed_polyline_trajectory_interpolation(
         rate=rate,
     )
     assert_no_osc_engine_errors(tool_trace_channel_spec)
+    assert_osi_compliance(
+        tool_trace_channel_spec,
+        result_file=tmp_path / f"qc_result_trajectory_interpolation_{case_name}.xqar",
+    )
 
     metric_result = ObjectStateMetric().compute(
         reference_channel_spec=case_result.reference_channel_spec,

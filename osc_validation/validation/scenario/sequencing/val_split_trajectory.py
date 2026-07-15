@@ -44,6 +44,7 @@ def test_split_ego_trajectory_preserves_reference_motion(
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
     sequencing_level: str,
     entity_ref: str = "Ego",
@@ -97,6 +98,10 @@ def test_split_ego_trajectory_preserves_reference_motion(
         rate=rate,
     )
     assert_no_osc_engine_errors(tool_trace_channel_spec)
+    assert_osi_compliance(
+        tool_trace_channel_spec,
+        result_file=tmp_path / f"qc_result_split_{sequencing_level}.xqar",
+    )
 
     metric = TrajectorySimilarityMetric(
         name="TrajectorySimilarityMetric", plot_path=tmp_path

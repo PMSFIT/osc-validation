@@ -31,6 +31,7 @@ def test_distance_longitudinal_start_trigger_respects_condition_delay(
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
 ):
     """
@@ -45,6 +46,7 @@ def test_distance_longitudinal_start_trigger_respects_condition_delay(
         osi_trace=osi_trace,
         odr_file=odr_file,
         generate_tool_trace=generate_tool_trace,
+        assert_osi_compliance=assert_osi_compliance,
         tmp_path=tmp_path,
         condition_delay_s=1.0,
     )
@@ -56,6 +58,7 @@ def test_speed_start_trigger_respects_condition_delay(
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
 ):
     """
@@ -70,6 +73,7 @@ def test_speed_start_trigger_respects_condition_delay(
         osi_trace=osi_trace,
         odr_file=odr_file,
         generate_tool_trace=generate_tool_trace,
+        assert_osi_compliance=assert_osi_compliance,
         tmp_path=tmp_path,
         condition_delay_s=1.0,
     )

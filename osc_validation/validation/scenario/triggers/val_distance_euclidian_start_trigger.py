@@ -1,11 +1,10 @@
 import logging
 from pathlib import Path
 from typing import Callable
-from urllib.parse import urlparse
 
 import pytest
 
-from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
+from osc_validation.dataproviders import BuiltinDataProvider
 from osc_validation.generation import (
     DistancePositionTriggerSpec,
     TriggerTransformRequest,
@@ -33,21 +32,6 @@ def osi_trace(request, builtin_data_path):
     provider.cleanup()
 
 
-@pytest.fixture(
-    scope="module",
-    params=[
-        "https://raw.githubusercontent.com/OpenSimulationInterface/qc-osi-trace/refs/heads/main/qc_ositrace/checks/osirules/rulesyml/osi_3_7_0.yml"
-    ],
-)
-def yaml_ruleset(request, tmp_path_factory):
-    uri = request.param
-    filename = Path(urlparse(uri).path).name
-    base_path = tmp_path_factory.mktemp("osirules")
-    provider = DownloadDataProvider(uri=uri, base_path=base_path)
-    yield provider.ensure_data_path(filename)
-    provider.cleanup()
-
-
 @pytest.fixture(scope="module")
 def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
@@ -64,8 +48,8 @@ def odr_file(request):
 def test_distance_euclidian_start_trigger_activates_target_actor(
     osi_trace: Path,
     odr_file: Path,
-    yaml_ruleset: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
     moving_object_id: int,
     trigger_object_id: int,
@@ -138,6 +122,10 @@ def test_distance_euclidian_start_trigger_activates_target_actor(
         rate=rate,
     )
     assert_no_osc_engine_errors(tool_trace_channel_spec)
+    assert_osi_compliance(
+        tool_trace_channel_spec,
+        result_file=tmp_path / "qc_result_distance_euclidian_start_trigger.xqar",
+    )
 
     metric = TrajectoryAlignmentSimilarityMetric()
     reference_triggered_channel_spec = transform_result.reference_channel_spec

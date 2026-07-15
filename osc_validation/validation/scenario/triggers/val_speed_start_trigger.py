@@ -2,11 +2,10 @@ import logging
 import math
 from pathlib import Path
 from typing import Callable
-from urllib.parse import urlparse
 
 import pytest
 
-from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
+from osc_validation.dataproviders import BuiltinDataProvider
 from osc_validation.generation import (
     SpeedTriggerSpec,
     TriggerTransformRequest,
@@ -75,21 +74,6 @@ def osi_trace(request, builtin_data_path):
     provider.cleanup()
 
 
-@pytest.fixture(
-    scope="module",
-    params=[
-        "https://raw.githubusercontent.com/OpenSimulationInterface/qc-osi-trace/refs/heads/main/qc_ositrace/checks/osirules/rulesyml/osi_3_7_0.yml"
-    ],
-)
-def yaml_ruleset(request, tmp_path_factory):
-    uri = request.param
-    filename = Path(urlparse(uri).path).name
-    base_path = tmp_path_factory.mktemp("osirules")
-    provider = DownloadDataProvider(uri=uri, base_path=base_path)
-    yield provider.ensure_data_path(filename)
-    provider.cleanup()
-
-
 @pytest.fixture(scope="module")
 def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
@@ -99,6 +83,7 @@ def _run_speed_start_trigger_case(
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
     condition_delay_s: float = 0.0,
     moving_object_id: int = 2,                  # Moving object to be evaluated for trigger activation and trajectory alignment by this test case
@@ -180,6 +165,10 @@ def _run_speed_start_trigger_case(
         rate=rate,
     )
     assert_no_osc_engine_errors(tool_trace_channel_spec)
+    assert_osi_compliance(
+        tool_trace_channel_spec,
+        result_file=tmp_path / f"qc_result_{case_name}.xqar",
+    )
 
     metric = TrajectoryAlignmentSimilarityMetric()
     reference_triggered_channel_spec = transform_result.reference_channel_spec
@@ -211,8 +200,8 @@ def _run_speed_start_trigger_case(
 def test_speed_start_trigger_activates_target_actor(
     osi_trace: Path,
     odr_file: Path,
-    yaml_ruleset: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
 ):
     """
@@ -227,6 +216,7 @@ def test_speed_start_trigger_activates_target_actor(
         osi_trace=osi_trace,
         odr_file=odr_file,
         generate_tool_trace=generate_tool_trace,
+        assert_osi_compliance=assert_osi_compliance,
         tmp_path=tmp_path,
         trigger_speed_mps=50 / 3.6,
         condition_edge="rising",
@@ -238,8 +228,8 @@ def test_speed_start_trigger_activates_target_actor(
 def test_speed_start_trigger_condition_edge_none_activates_when_initially_true(
     osi_trace: Path,
     odr_file: Path,
-    yaml_ruleset: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
 ):
     """
@@ -254,6 +244,7 @@ def test_speed_start_trigger_condition_edge_none_activates_when_initially_true(
         osi_trace=osi_trace,
         odr_file=odr_file,
         generate_tool_trace=generate_tool_trace,
+        assert_osi_compliance=assert_osi_compliance,
         tmp_path=tmp_path,
         trigger_speed_mps=0.0,
         condition_edge="none",
@@ -264,8 +255,8 @@ def test_speed_start_trigger_condition_edge_none_activates_when_initially_true(
 def test_speed_start_trigger_condition_edge_falling_activates(
     osi_trace: Path,
     odr_file: Path,
-    yaml_ruleset: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
 ):
     """
@@ -280,6 +271,7 @@ def test_speed_start_trigger_condition_edge_falling_activates(
         osi_trace=osi_trace,
         odr_file=odr_file,
         generate_tool_trace=generate_tool_trace,
+        assert_osi_compliance=assert_osi_compliance,
         tmp_path=tmp_path,
         trigger_speed_mps=20 / 3.6,
         condition_edge="falling",

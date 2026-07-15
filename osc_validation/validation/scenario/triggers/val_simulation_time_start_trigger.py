@@ -1,11 +1,10 @@
 import logging
 from pathlib import Path
 from typing import Callable
-from urllib.parse import urlparse
 
 import pytest
 
-from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
+from osc_validation.dataproviders import BuiltinDataProvider
 from osc_validation.generation import (
     InitPoseOverride,
     SimulationTimeTriggerSpec,

@@ -60,6 +60,7 @@ def _off_trajectory_init_pose() -> TrajectoryInterpolationVertex:
 def test_follow_trajectory_future_time_reference_continues_init_speed_until_first_vertex(
     odr_file: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
 ):
     """
@@ -114,6 +115,10 @@ def test_follow_trajectory_future_time_reference_continues_init_speed_until_firs
         rate=rate,
     )
     assert_no_osc_engine_errors(tool_trace_channel_spec)
+    assert_osi_compliance(
+        tool_trace_channel_spec,
+        result_file=tmp_path / "qc_result_follow_trajectory_future_time_reference.xqar",
+    )
 
     full_trace_result = ObjectStateMetric().compute(
         reference_channel_spec=case_result.reference_channel_spec,

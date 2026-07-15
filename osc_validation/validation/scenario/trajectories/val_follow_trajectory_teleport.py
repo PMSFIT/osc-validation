@@ -72,6 +72,7 @@ def _off_trajectory_init_pose() -> TrajectoryInterpolationVertex:
 def test_follow_trajectory_position_mode_teleports_to_current_trajectory_time(
     odr_file: Path,
     generate_tool_trace: Callable,
+    assert_osi_compliance: Callable,
     tmp_path: Path,
     case_name: str,
     action_start_time_s: float,
@@ -125,6 +126,10 @@ def test_follow_trajectory_position_mode_teleports_to_current_trajectory_time(
         rate=rate,
     )
     assert_no_osc_engine_errors(tool_trace_channel_spec)
+    assert_osi_compliance(
+        tool_trace_channel_spec,
+        result_file=tmp_path / f"qc_result_follow_trajectory_teleport_{case_name}.xqar",
+    )
 
     metric_result = ObjectStateMetric().compute(
         reference_channel_spec=case_result.reference_channel_spec,
