@@ -3,6 +3,8 @@ from pathlib import Path
 
 from osi_utilities import ChannelSpecification
 
+from osc_validation.generation.xosc_builders import Position
+
 from osc_validation.generation.init_actions import (
     InitActionActor,
     InitActionsXoscRequest,
@@ -19,7 +21,8 @@ from osc_validation.reference import (
 class InitActionOracleActor:
     """
     Actor pose uses OpenSCENARIO semantics: x/y/z/yaw/pitch/roll describe the
-    rear-axle ground-projected pose written to Init placement actions.
+    expected rear-axle ground-projected world pose. The optional position field
+    supplies the Init placement independently of that expected pose.
     Generated OSI reference traces convert this pose to MovingObject.base.position
     by applying the specified bounding-box center offset.
     """
@@ -39,6 +42,8 @@ class InitActionOracleActor:
     length: float = 4.5
     width: float = 1.8
     height: float = 1.5
+    # Optional XOSC placement; x/y/z/yaw remain the explicit world-pose oracle.
+    position: Position | None = None
 
 
 @dataclass(frozen=True)
@@ -61,6 +66,7 @@ class InitActionCaseResult:
 def _to_generation_actor(actor: InitActionOracleActor) -> InitActionActor:
     return InitActionActor(
         entity_ref=actor.entity_ref,
+        position=actor.position,
         object_id=actor.object_id,
         x=actor.x,
         y=actor.y,
@@ -133,6 +139,7 @@ def build_init_teleport_action_case(spec: InitActionCaseSpec) -> InitActionCaseR
     actors = [
         InitActionOracleActor(
             entity_ref=actor.entity_ref,
+            position=actor.position,
             object_id=actor.object_id,
             x=actor.x,
             y=actor.y,
@@ -167,6 +174,7 @@ def build_init_add_entity_action_case(spec: InitActionCaseSpec) -> InitActionCas
     actors = [
         InitActionOracleActor(
             entity_ref=actor.entity_ref,
+            position=actor.position,
             object_id=actor.object_id,
             x=actor.x,
             y=actor.y,

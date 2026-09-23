@@ -8,7 +8,7 @@ from ..xosc_builders import (
     XoscVehicle,
     append_simulation_time_stop_trigger,
     append_vehicle,
-    append_world_position,
+    append_position,
     build_open_scenario_root,
     write_xosc_tree,
 )
@@ -35,16 +35,20 @@ def _build_vehicle(actor: InitActionActor) -> etree._Element:
     )
 
 
-def _append_world_position(xml_position: etree._Element, actor: InitActionActor) -> None:
-    append_world_position(
+def _append_position(xml_position: etree._Element, actor: InitActionActor) -> None:
+    append_position(
         xml_position,
-        WorldPosition(
-            x=actor.x,
-            y=actor.y,
-            z=actor.z,
-            h=actor.yaw,
-            p=actor.pitch,
-            r=actor.roll,
+        (
+            actor.position
+            if actor.position is not None
+            else WorldPosition(
+                x=actor.x,
+                y=actor.y,
+                z=actor.z,
+                h=actor.yaw,
+                p=actor.pitch,
+                r=actor.roll,
+            )
         ),
     )
 
@@ -55,7 +59,7 @@ def _append_teleport_action(
     xml_private_action = etree.SubElement(xml_private, "PrivateAction")
     xml_teleport_action = etree.SubElement(xml_private_action, "TeleportAction")
     xml_position = etree.SubElement(xml_teleport_action, "Position")
-    _append_world_position(xml_position, actor)
+    _append_position(xml_position, actor)
 
 
 def _append_add_entity_action(
@@ -67,7 +71,7 @@ def _append_add_entity_action(
     )
     xml_add_entity_action = etree.SubElement(xml_entity_action, "AddEntityAction")
     xml_position = etree.SubElement(xml_add_entity_action, "Position")
-    _append_world_position(xml_position, actor)
+    _append_position(xml_position, actor)
 
 
 def _append_speed_action(xml_private: etree._Element, actor: InitActionActor) -> None:

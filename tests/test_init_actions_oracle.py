@@ -1,7 +1,13 @@
+from dataclasses import replace
+
+import pytest
+
 import math
 
 from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel
+
+from osc_validation.generation.xosc_builders import LanePosition, RoadPosition
 
 from osc_validation.oracles import (
     InitActionCaseSpec,
@@ -47,7 +53,9 @@ def test_init_teleport_action_case_generates_xosc_and_stationary_reference(tmp_p
     private = tree.find(".//Storyboard/Init/Actions/Private[@entityRef='Ego']")
     speed_action = tree.find(".//Storyboard/Init/Actions//SpeedAction")
     world_position = private.find(".//TeleportAction//WorldPosition")
-    bounding_box_center = tree.find(".//ScenarioObject[@name='Ego']//BoundingBox/Center")
+    bounding_box_center = tree.find(
+        ".//ScenarioObject[@name='Ego']//BoundingBox/Center"
+    )
     story = tree.find(".//Storyboard/Story")
 
     assert private is not None
@@ -117,3 +125,52 @@ def test_init_speed_action_case_generates_speed_action_and_moving_reference(tmp_
         abs_tol=1e-12,
     )
     assert math.isclose(last_object.base.velocity.x, math.cos(0.25) * speed_mps)
+
+
+@pytest.mark.parametrize(
+    "position", [RoadPosition("1", 20, 2), LanePosition("1", 1, 20, -4)]
+)
+def test_init_position_is_independent_of_explicit_world_oracle(tmp_path, position):
+    # Deliberately arbitrary world pose: this tests oracle plumbing without
+    # resolving a map, not the heading semantics of the supplied position.
+    actor = replace(
+        _actor(speed_mps=3),
+        position=position,
+        x=20,
+        y=-2,
+        z=0,
+        yaw=math.pi,
+        pitch=0,
+        roll=0,
+        bounding_box_center_x=0,
+        bounding_box_center_y=0,
+        bounding_box_center_z=0,
+    )
+    result = build_init_teleport_action_case(
+        InitActionCaseSpec(
+            output_xosc_path=tmp_path / "position.xosc",
+            output_reference_channel_spec=ChannelSpecification(
+                path=tmp_path / "reference.mcap",
+                message_type="SensorView",
+            ),
+            actors=[actor],
+            duration_s=0.1,
+            sample_period_s=0.05,
+        )
+    )
+    tree = etree.parse(str(result.xosc_path))
+    placement = tree.find(".//TeleportAction/Position")
+    assert len(placement) == 1
+    assert placement[0].tag == type(position).__name__
+    assert placement.find(".//Orientation") is None
+    assert tree.find(".//SpeedAction") is None
+    with open_channel(result.reference_channel_spec) as reader:
+        messages = list(reader)
+    assert len(messages) == 3
+    for message in messages:
+        state = message.global_ground_truth.moving_object[0].base
+        assert state.position.x == 20
+        assert state.position.y == -2
+        assert state.orientation.yaw == math.pi
+        assert state.velocity.x == 0
+        assert state.velocity.y == 0

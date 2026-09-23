@@ -1,7 +1,14 @@
+import pytest
+
 from lxml import etree
 
 from osc_validation.generation.xosc_builders import (
     WorldPosition,
+    Orientation,
+    RoadPosition,
+    LanePosition,
+    append_position,
+    append_teleport_private_action,
     XoscVehicle,
     append_simulation_time_condition,
     append_simulation_time_stop_trigger,
@@ -91,3 +98,51 @@ def test_replace_start_trigger_removes_existing_start_trigger():
     simulation_time = event.find(".//SimulationTimeCondition")
     assert simulation_time is not None
     assert simulation_time.get("value") == "1.5"
+
+
+@pytest.mark.parametrize(
+    "position, tag, attributes",
+    [
+        (
+            RoadPosition("road", 20, 2),
+            "RoadPosition",
+            {"roadId": "road", "s": "20.0", "t": "2.0"},
+        ),
+        (
+            LanePosition("road", 1, 20, -4),
+            "LanePosition",
+            {"roadId": "road", "laneId": "1", "s": "20.0", "offset": "-4.0"},
+        ),
+    ],
+)
+def test_teleport_road_lane_position_omits_orientation(position, tag, attributes):
+    parent = etree.Element("Actions")
+    append_teleport_private_action(parent, "Ego", position)
+    container = parent.find("Private/PrivateAction/TeleportAction/Position")
+    assert len(container) == 1
+    assert container[0].tag == tag
+    assert dict(container[0].attrib) == attributes
+    assert container.find(".//Orientation") is None
+
+
+@pytest.mark.parametrize("position_type", [RoadPosition, LanePosition])
+@pytest.mark.parametrize("orientation_type", ["relative", "absolute"])
+@pytest.mark.parametrize("as_float", [True, False])
+def test_road_lane_orientation_serialization(position_type, orientation_type, as_float):
+    orientation = Orientation(h="3.14", p="0", r="-0.25", type=orientation_type)
+    position = (
+        RoadPosition("1", "20", "2", orientation)
+        if position_type is RoadPosition
+        else LanePosition("1", "-1", "20", "0", orientation)
+    )
+    parent = etree.Element("Position")
+    element = append_position(parent, position, as_float=as_float)
+    assert len(element) == 1
+    assert element[0].tag == "Orientation"
+    assert dict(element[0].attrib) == {
+        "type": orientation_type,
+        "h": "3.14",
+        "p": "0.0" if as_float else "0",
+        "r": "-0.25",
+    }
+    assert element.get("s") == ("20.0" if as_float else "20")

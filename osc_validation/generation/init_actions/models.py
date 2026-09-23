@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..xosc_builders import Position
+
 
 @dataclass(frozen=True)
 class InitActionActor:
@@ -20,6 +22,7 @@ class InitActionActor:
     width: float = 1.8
     height: float = 1.5
     vehicle_category: str = "car"
+    position: Position | None = None
 
 
 @dataclass(frozen=True)

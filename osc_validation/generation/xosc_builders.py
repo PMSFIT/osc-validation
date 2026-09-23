@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal
 
 from lxml import etree
 
@@ -50,6 +50,34 @@ class WorldPosition:
     h: float | str = 0.0
     p: float | str = 0.0
     r: float | str = 0.0
+
+
+@dataclass(frozen=True)
+class Orientation:
+    h: float | str = 0.0
+    p: float | str = 0.0
+    r: float | str = 0.0
+    type: Literal["relative", "absolute"] = "relative"
+
+
+@dataclass(frozen=True)
+class RoadPosition:
+    road_id: str
+    s: float | str
+    t: float | str
+    orientation: Orientation | None = None
+
+
+@dataclass(frozen=True)
+class LanePosition:
+    road_id: str
+    lane_id: int | str
+    s: float | str
+    offset: float | str = 0.0
+    orientation: Orientation | None = None
+
+
+Position = WorldPosition | RoadPosition | LanePosition
 
 
 ElementBuilder = Callable[[etree._Element], etree._Element]
@@ -170,10 +198,60 @@ def append_world_position(
     )
 
 
+def append_orientation(
+    parent: etree._Element,
+    orientation: Orientation,
+    *,
+    as_float: bool = True,
+) -> etree._Element:
+    serialize = _float if as_float else _string
+    return etree.SubElement(
+        parent,
+        "Orientation",
+        type=orientation.type,
+        h=serialize(orientation.h),
+        p=serialize(orientation.p),
+        r=serialize(orientation.r),
+    )
+
+
+def append_position(
+    parent: etree._Element,
+    position: Position,
+    *,
+    as_float: bool = True,
+) -> etree._Element:
+    serialize = _float if as_float else _string
+    if isinstance(position, WorldPosition):
+        return append_world_position(parent, position, as_float=as_float)
+    if isinstance(position, RoadPosition):
+        element = etree.SubElement(
+            parent,
+            "RoadPosition",
+            roadId=str(position.road_id),
+            s=serialize(position.s),
+            t=serialize(position.t),
+        )
+    elif isinstance(position, LanePosition):
+        element = etree.SubElement(
+            parent,
+            "LanePosition",
+            roadId=str(position.road_id),
+            laneId=str(position.lane_id),
+            s=serialize(position.s),
+            offset=serialize(position.offset),
+        )
+    else:
+        raise TypeError(f"Unsupported position: {type(position).__name__}")
+    if position.orientation is not None:
+        append_orientation(element, position.orientation, as_float=as_float)
+    return element
+
+
 def append_teleport_private_action(
     parent: etree._Element,
     entity_ref: str,
-    position: WorldPosition,
+    position: Position,
     *,
     as_float: bool = True,
 ) -> etree._Element:
@@ -181,7 +259,7 @@ def append_teleport_private_action(
     private_action = etree.SubElement(private, "PrivateAction")
     teleport_action = etree.SubElement(private_action, "TeleportAction")
     xml_position = etree.SubElement(teleport_action, "Position")
-    append_world_position(xml_position, position, as_float=as_float)
+    append_position(xml_position, position, as_float=as_float)
     return private
 
 
