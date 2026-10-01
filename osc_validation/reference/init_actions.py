@@ -1,5 +1,7 @@
 import math
 from dataclasses import dataclass
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from osi3 import osi_sensorview_pb2, osi_version_pb2
 from osi_utilities import ChannelSpecification, open_channel_writer
@@ -7,7 +9,6 @@ from osi_utilities import ChannelSpecification, open_channel_writer
 from osc_validation.reference.trace_kinematics import (
     build_trace_with_calculated_kinematics,
 )
-from osc_validation.utils.osi_channel_specification import with_name_suffix
 from osc_validation.utils.utils import rotatePointZYX
 
 
@@ -111,20 +112,26 @@ def build_init_actions_reference_trace(
         raise ValueError("sample_period_s must be > 0.0.")
 
     frame_count = int(round(request.duration_s / request.sample_period_s)) + 1
-    pose_channel_spec = with_name_suffix(request.output_channel_spec, "_poses")
-    with open_channel_writer(pose_channel_spec) as writer:
-        for frame_index in range(frame_count):
-            timestamp_s = frame_index * request.sample_period_s
-            writer.write_message(
-                _build_sensor_view(
-                    actors=request.actors,
-                    timestamp_s=timestamp_s,
-                    host_vehicle_id=request.host_vehicle_id,
+    with TemporaryDirectory(prefix="osc-init-poses-") as pose_dir:
+        pose_channel_spec = ChannelSpecification(
+            path=Path(pose_dir) / request.output_channel_spec.path.name,
+            message_type=request.output_channel_spec.message_type,
+            topic=request.output_channel_spec.topic,
+            metadata=dict(request.output_channel_spec.metadata),
+        )
+        with open_channel_writer(pose_channel_spec) as writer:
+            for frame_index in range(frame_count):
+                timestamp_s = frame_index * request.sample_period_s
+                writer.write_message(
+                    _build_sensor_view(
+                        actors=request.actors,
+                        timestamp_s=timestamp_s,
+                        host_vehicle_id=request.host_vehicle_id,
+                    )
                 )
-            )
-        pose_channel_spec = writer.get_channel_specification()
+            pose_channel_spec = writer.get_channel_specification()
 
-    return build_trace_with_calculated_kinematics(
-        input_channel_spec=pose_channel_spec,
-        output_channel_spec=request.output_channel_spec,
-    )
+        return build_trace_with_calculated_kinematics(
+            input_channel_spec=pose_channel_spec,
+            output_channel_spec=request.output_channel_spec,
+        )

@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="4" name="straight_varying_width" version="1.0" date="2026-09-23" north="44" south="-44" east="100" west="0" />
+  <!-- RHT: lane -1 drives +s (+x); lane +1 drives -s (-x). -->
+  <road name="Straight road with widening lanes" length="100" id="1" junction="-1" rule="RHT">
+    <planView>
+      <geometry s="0" x="0" y="0" hdg="0" length="100">
+        <line />
+      </geometry>
+    </planView>
+    <elevationProfile>
+      <elevation s="0" a="0" b="0" c="0" d="0" />
+    </elevationProfile>
+    <lateralProfile />
+    <lanes>
+      <laneSection s="0">
+        <left>
+          <lane id="1" type="driving" level="false">
+            <width sOffset="0" a="4" b="0.4" c="0" d="0" />
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.15" />
+          </lane>
+        </left>
+        <center>
+          <lane id="0" type="none" level="false">
+            <roadMark sOffset="0" type="broken" weight="standard" color="white" width="0.15" />
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="4" b="0.4" c="0" d="0" />
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.15" />
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+</OpenDRIVE>

@@ -77,7 +77,33 @@ class LanePosition:
     orientation: Orientation | None = None
 
 
-Position = WorldPosition | RoadPosition | LanePosition
+@dataclass(frozen=True)
+class Route:
+    name: str
+    waypoints: tuple["Position", ...]
+
+
+@dataclass(frozen=True)
+class FromRoadCoordinates:
+    path_s: float | str
+    t: float | str = 0.0
+
+
+@dataclass(frozen=True)
+class FromLaneCoordinates:
+    path_s: float | str
+    lane_id: int | str
+    lane_offset: float | str = 0.0
+
+
+@dataclass(frozen=True)
+class RoutePosition:
+    route: Route
+    in_route_position: FromRoadCoordinates | FromLaneCoordinates
+    orientation: Orientation | None = None
+
+
+Position = WorldPosition | RoadPosition | LanePosition | RoutePosition
 
 
 ElementBuilder = Callable[[etree._Element], etree._Element]
@@ -241,6 +267,43 @@ def append_position(
             s=serialize(position.s),
             offset=serialize(position.offset),
         )
+    elif isinstance(position, RoutePosition):
+        element = etree.SubElement(parent, "RoutePosition")
+        route_ref = etree.SubElement(element, "RouteRef")
+        route = etree.SubElement(
+            route_ref, "Route", name=position.route.name, closed="false"
+        )
+        for waypoint_position in position.route.waypoints:
+            waypoint = etree.SubElement(route, "Waypoint", routeStrategy="shortest")
+            append_position(
+                etree.SubElement(waypoint, "Position"),
+                waypoint_position,
+                as_float=as_float,
+            )
+        if position.orientation is not None:
+            append_orientation(element, position.orientation, as_float=as_float)
+        in_route = etree.SubElement(element, "InRoutePosition")
+        coordinates = position.in_route_position
+        if isinstance(coordinates, FromRoadCoordinates):
+            etree.SubElement(
+                in_route,
+                "FromRoadCoordinates",
+                pathS=serialize(coordinates.path_s),
+                t=serialize(coordinates.t),
+            )
+        elif isinstance(coordinates, FromLaneCoordinates):
+            etree.SubElement(
+                in_route,
+                "FromLaneCoordinates",
+                pathS=serialize(coordinates.path_s),
+                laneId=str(coordinates.lane_id),
+                laneOffset=serialize(coordinates.lane_offset),
+            )
+        else:
+            raise TypeError(
+                f"Unsupported route coordinates: {type(coordinates).__name__}"
+            )
+        return element
     else:
         raise TypeError(f"Unsupported position: {type(position).__name__}")
     if position.orientation is not None:
