@@ -2,7 +2,7 @@
 
 This repository provides a validation suite for ASAM OpenSCENARIO XML engines based on comparing their OSI GroundTruth/SensorView output to known good references.
 
-The validation is based on a [subset definition](specification/osc_subset_definition.md) that restricts the covered constructs of OpenSCENARIO XML to a minimal, unambiguous, validatable, but useful subset.
+The validation is based on a [subset definition](specification/subset.md) that restricts the covered constructs of OpenSCENARIO XML to a minimal, unambiguous, validatable, but useful subset. The [coverage matrix](specification/coverage.md) maps scope to test assertions, and the [release index](specification/releases.md) binds released definitions to Git commits. Use the specification and tests from the same revision.
 
 It derives from this subset a validation suite of representative test cases and metrics that can then be used to check an implementation for correct OSI ground truth generation for those cases.
 
@@ -281,7 +281,7 @@ A reference implementation is responsible for generating a baseline for correctn
 - Not required to provide full feature coverage beyond the test scope.
 
 The provided [OSI to OpenSCENARIO XML Converter](./osc_validation/generation/osi2osc.py) uses an OSI reference trace (SensorView or GroundTruth) as input and generates a corresponding OpenSCENARIO XML file to be consumed by the tool under test.
-It covers the OpenSCENARIO XML functionality specified by the [OpenSCENARIO subset definition](./specification/osc_subset_definition.md).
+It covers the OpenSCENARIO XML functionality specified by the [OpenSCENARIO subset definition](./specification/subset.md).
 As such, any test cases based on this reference implementation must conform to the specified subset.
 
 ### 3. Quality Checkers
