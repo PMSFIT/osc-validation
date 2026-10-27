@@ -3,12 +3,12 @@ from pathlib import Path
 
 from osi_utilities import ChannelSpecification
 
-from osc_validation.generation.init_actions import (
+from osc_validation.cases.init_actions.models import (
     InitActionActor,
     InitActionsXoscRequest,
-    build_init_actions_xosc,
 )
-from osc_validation.reference import (
+from osc_validation.cases.init_actions.generation import build_init_actions_xosc
+from osc_validation.cases.init_actions.reference import (
     InitActionReferenceActor,
     InitActionReferenceRequest,
     build_init_actions_reference_trace,

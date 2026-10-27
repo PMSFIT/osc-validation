@@ -3,11 +3,11 @@ import math
 from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel
 
-from osc_validation.generation import (
+from osc_validation.cases.trajectory import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
-from osc_validation.oracles import (
+from osc_validation.cases.follow_trajectory_future_time_reference.oracle import (
     FollowTrajectoryFutureTimeReferenceCaseSpec,
     build_follow_trajectory_future_time_reference_case,
 )
@@ -48,7 +48,9 @@ def test_future_time_reference_case_generates_speed_action_and_delayed_teleport_
     tree = etree.parse(str(result.xosc_path))
     speed_action = tree.find(".//Storyboard/Init/Actions//SpeedAction")
     absolute_target_speed = tree.find(".//AbsoluteTargetSpeed")
-    simulation_time_condition = tree.find(".//Event/StartTrigger//SimulationTimeCondition")
+    simulation_time_condition = tree.find(
+        ".//Event/StartTrigger//SimulationTimeCondition"
+    )
     timing = tree.find(".//FollowTrajectoryAction/TimeReference/Timing")
     following_mode = tree.find(".//TrajectoryFollowingMode")
     vertices = tree.findall(".//Polyline/Vertex")

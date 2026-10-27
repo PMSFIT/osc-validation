@@ -7,7 +7,7 @@ from osi_utilities import ChannelSpecification
 from osc_validation.assertions import assert_no_osc_engine_errors
 from osc_validation.dataproviders import BuiltinDataProvider
 from osc_validation.metrics import ObjectStateMetric
-from osc_validation.oracles import (
+from osc_validation.cases.init_actions import (
     InitActionCaseSpec,
     InitActionOracleActor,
     build_init_add_entity_action_case,

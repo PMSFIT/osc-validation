@@ -4,16 +4,18 @@ from lxml import etree
 
 from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
 from osc_validation.utils.utils import timestamp_float_to_osi
-from ..init_transforms.models import InitPoseOverride
-from ..init_transforms.init_pose import apply_init_pose_override_to_reference_object
-from ..xosc_builders import (
+from osc_validation.generation.init_transforms.models import InitPoseOverride
+from osc_validation.generation.init_transforms.init_pose import (
+    apply_init_pose_override_to_reference_object,
+)
+from osc_validation.generation.xosc_builders import (
     append_simulation_time_condition,
     replace_start_trigger,
     write_xosc_tree,
 )
-from .common import find_moving_object
+from osc_validation.cases.triggers.common import find_moving_object
 
-from .models import (
+from osc_validation.cases.triggers.models import (
     SimulationTimeTriggerSpec,
     TriggerTransformRequest,
     TriggerTransformResult,
@@ -99,11 +101,17 @@ def build_delayed_comparison_trace(
         raise RuntimeError("Could not determine valid input trace step size.")
 
     if trigger_delay >= (stop - start):
-        raise ValueError("trigger_delay exceeds or equals the available input trace duration.")
+        raise ValueError(
+            "trigger_delay exceeds or equals the available input trace duration."
+        )
 
     first_msg = input_messages[0]
     activation_index = next(
-        (idx for idx, ts in enumerate(input_timestamps) if _is_condition_true(ts - start)),
+        (
+            idx
+            for idx, ts in enumerate(input_timestamps)
+            if _is_condition_true(ts - start)
+        ),
         None,
     )
     if activation_index is None:

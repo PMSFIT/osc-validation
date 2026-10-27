@@ -3,7 +3,7 @@ import math
 from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel
 
-from osc_validation.oracles import (
+from osc_validation.cases.init_actions.oracle import (
     InitActionCaseSpec,
     InitActionOracleActor,
     build_init_speed_action_case,
@@ -47,7 +47,9 @@ def test_init_teleport_action_case_generates_xosc_and_stationary_reference(tmp_p
     private = tree.find(".//Storyboard/Init/Actions/Private[@entityRef='Ego']")
     speed_action = tree.find(".//Storyboard/Init/Actions//SpeedAction")
     world_position = private.find(".//TeleportAction//WorldPosition")
-    bounding_box_center = tree.find(".//ScenarioObject[@name='Ego']//BoundingBox/Center")
+    bounding_box_center = tree.find(
+        ".//ScenarioObject[@name='Ego']//BoundingBox/Center"
+    )
     story = tree.find(".//Storyboard/Story")
 
     assert private is not None

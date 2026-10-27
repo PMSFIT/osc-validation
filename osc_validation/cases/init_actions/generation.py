@@ -2,7 +2,7 @@ from pathlib import Path
 
 from lxml import etree
 
-from ..xosc_builders import (
+from osc_validation.generation.xosc_builders import (
     WorldPosition,
     XoscHeader,
     XoscVehicle,
@@ -12,7 +12,11 @@ from ..xosc_builders import (
     build_open_scenario_root,
     write_xosc_tree,
 )
-from .models import InitActionActor, InitActionsXoscRequest, InitActionsXoscResult
+from osc_validation.cases.init_actions.models import (
+    InitActionActor,
+    InitActionsXoscRequest,
+    InitActionsXoscResult,
+)
 
 
 def _float(value: float) -> str:
@@ -35,7 +39,9 @@ def _build_vehicle(actor: InitActionActor) -> etree._Element:
     )
 
 
-def _append_world_position(xml_position: etree._Element, actor: InitActionActor) -> None:
+def _append_world_position(
+    xml_position: etree._Element, actor: InitActionActor
+) -> None:
     append_world_position(
         xml_position,
         WorldPosition(

@@ -3,11 +3,11 @@ from pathlib import Path
 
 from lxml import etree
 
-from .trajectory_interpolation import (
+from osc_validation.cases.trajectory import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
-from .xosc_builders import (
+from osc_validation.generation.xosc_builders import (
     WorldPosition,
     XoscHeader,
     XoscVehicle,
@@ -47,9 +47,13 @@ def _validate_request(request: FollowTrajectoryTeleportXoscRequest) -> None:
         if previous.time_s >= current.time_s:
             raise ValueError("Trajectory vertex times must be strictly increasing.")
     if request.action_start_time_s < request.actor.vertices[0].time_s:
-        raise ValueError("action_start_time_s must be at or after the first vertex time.")
+        raise ValueError(
+            "action_start_time_s must be at or after the first vertex time."
+        )
     if request.action_start_time_s > request.actor.vertices[-1].time_s:
-        raise ValueError("action_start_time_s must be at or before the last vertex time.")
+        raise ValueError(
+            "action_start_time_s must be at or before the last vertex time."
+        )
     if request.stop_time_s < request.actor.vertices[-1].time_s:
         raise ValueError("stop_time_s must be at or after the last vertex time.")
 

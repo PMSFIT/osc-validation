@@ -5,7 +5,7 @@ from typing import Literal
 from osi3 import osi_sensorview_pb2, osi_version_pb2
 from osi_utilities import ChannelSpecification, open_channel_writer
 
-from osc_validation.generation import (
+from osc_validation.cases.trajectory import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
@@ -64,9 +64,9 @@ def _interpolate(
             raise ValueError(
                 "Constant-acceleration interpolation requires a non-zero arc length."
             )
-        acceleration_mps2 = 2.0 * (
-            arc_length - initial_speed_mps * duration_s
-        ) / duration_s**2
+        acceleration_mps2 = (
+            2.0 * (arc_length - initial_speed_mps * duration_s) / duration_s**2
+        )
         distance_s = (
             initial_speed_mps * elapsed_s + 0.5 * acceleration_mps2 * elapsed_s**2
         )
@@ -100,9 +100,9 @@ def _segment_kinematics(
             raise ValueError(
                 "Constant-acceleration interpolation requires a non-zero arc length."
             )
-        acceleration_mps2 = 2.0 * (
-            arc_length - initial_speed_mps * duration_s
-        ) / duration_s**2
+        acceleration_mps2 = (
+            2.0 * (arc_length - initial_speed_mps * duration_s) / duration_s**2
+        )
         return arc_length, initial_speed_mps, acceleration_mps2
     raise ValueError(f"Unsupported interpolation_mode '{interpolation_mode}'.")
 

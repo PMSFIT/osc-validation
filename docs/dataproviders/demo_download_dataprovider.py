@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
-from osc_validation.generation import osi2osc
+from osc_validation.generation.osi2osc import osi2osc
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
 from osi_utilities import ChannelSpecification
 

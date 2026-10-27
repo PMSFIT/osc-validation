@@ -4,72 +4,65 @@ from pathlib import Path
 from lxml import etree
 
 from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
-from ..init_transforms.models import InitPoseOverride
-from ..init_transforms.init_pose import apply_init_pose_override_to_reference_object
-from ..xosc_builders import (
+from osc_validation.generation.init_transforms.models import InitPoseOverride
+from osc_validation.generation.init_transforms.init_pose import (
+    apply_init_pose_override_to_reference_object,
+)
+from osc_validation.generation.xosc_builders import (
     WorldPosition,
-    append_time_to_collision_position_condition,
+    append_distance_to_position_condition,
     replace_start_trigger,
     write_xosc_tree,
 )
 
-from .common import ActivationPoint, evaluate_rule, find_moving_object
-from .models import (
-    TimeToCollisionPositionTriggerSpec,
+from osc_validation.cases.triggers.common import (
+    ActivationPoint,
+    evaluate_rule,
+    find_moving_object,
+)
+from osc_validation.cases.triggers.models import (
+    DistancePositionTriggerSpec,
     TriggerTransformRequest,
     TriggerTransformResult,
 )
 
 
-def _compute_ttc_to_position(
-    obj_x: float,
-    obj_y: float,
-    obj_vx: float,
-    obj_vy: float,
-    target_x: float,
-    target_y: float,
-) -> float:
-    dx = target_x - obj_x
-    dy = target_y - obj_y
-    distance = math.hypot(dx, dy)
-    if distance <= 1e-9:
-        return 0.0
-
-    ux = dx / distance
-    uy = dy / distance
-    relative_speed = obj_vx * ux + obj_vy * uy
-    if relative_speed <= 0.0:
-        # TTC cannot be calculated for non-approaching motion and condition evaluates false.
-        return float("inf")
-    return distance / relative_speed
-
-
-def find_ttc_position_activation_point(
+def find_distance_position_activation_point(
     input_channel_spec: ChannelSpecification,
     trigger_object_id: int,
-    trigger_ttc_s: float,
+    trigger_distance_m: float,
+    trigger_rule: str,
     target_position_x: float,
     target_position_y: float,
-    trigger_rule: str = "lessOrEqual",
+    relative_distance_type: str = "euclidianDistance",
 ) -> ActivationPoint:
     """
-    Return the first activation point for a TimeToCollisionCondition-to-position check.
+    Return the first activation point for a DistanceCondition-to-position check.
 
-    The activation point is the earliest frame where the configured TTC rule
-    evaluates to true for `trigger_object_id` against the target position.
+    The activation point is defined as the earliest frame where the configured
+    distance rule evaluates to true for `trigger_object_id` against the target
+    position.
+
+    Typical usage:
+    - Trigger generation/reference logic to derive a deterministic activation
+      frame index.
+    - Test-case metric windowing, e.g. start trajectory similarity evaluation
+      at `activation_time + guard_time` so only the relevant post-trigger
+      interval is scored.
     """
     with open_channel(input_channel_spec) as reader:
         messages = list(reader)
         if not messages:
             raise RuntimeError("Input trace has no messages.")
 
-    activation_index = _find_ttc_position_activation_index_from_messages(
+    activation_index = _find_distance_position_activation_index_from_messages(
         messages=messages,
         trigger_object_id=trigger_object_id,
-        trigger_ttc_s=trigger_ttc_s,
+        trigger_distance_m=trigger_distance_m,
+        trigger_rule=trigger_rule,
         target_position_x=target_position_x,
         target_position_y=target_position_y,
-        trigger_rule=trigger_rule,
+        relative_distance_type=relative_distance_type,
     )
     activation_msg = messages[activation_index]
     activation_time = (
@@ -78,64 +71,79 @@ def find_ttc_position_activation_point(
     return ActivationPoint(index=activation_index, time_s=activation_time)
 
 
-def _find_ttc_position_activation_index_from_messages(
+def _find_distance_position_activation_index_from_messages(
     messages: list,
     trigger_object_id: int,
-    trigger_ttc_s: float,
+    trigger_distance_m: float,
+    trigger_rule: str,
     target_position_x: float,
     target_position_y: float,
-    trigger_rule: str,
+    relative_distance_type: str = "euclidianDistance",
 ) -> int:
+    if relative_distance_type not in ("euclidianDistance", "longitudinal"):
+        raise ValueError(
+            "relative_distance_type must be one of {'euclidianDistance', 'longitudinal'}."
+        )
+
     for idx, msg in enumerate(messages):
         trigger_obj = find_moving_object(msg, trigger_object_id)
         if trigger_obj is None:
             raise KeyError(
                 f"Trigger object ID {trigger_object_id} not found in one or more frames."
             )
-        ttc = _compute_ttc_to_position(
-            obj_x=trigger_obj.base.position.x,
-            obj_y=trigger_obj.base.position.y,
-            obj_vx=trigger_obj.base.velocity.x,
-            obj_vy=trigger_obj.base.velocity.y,
-            target_x=target_position_x,
-            target_y=target_position_y,
-        )
-        if math.isfinite(ttc) and evaluate_rule(ttc, trigger_ttc_s, trigger_rule):
+        dx = trigger_obj.base.position.x - target_position_x
+        dy = trigger_obj.base.position.y - target_position_y
+        if relative_distance_type == "longitudinal":
+            yaw = trigger_obj.base.orientation.yaw
+            distance = abs(dx * math.cos(yaw) + dy * math.sin(yaw))
+        else:
+            distance = math.hypot(dx, dy)
+        if evaluate_rule(distance, trigger_distance_m, trigger_rule):
             return idx
 
     raise RuntimeError(
-        f"TTC position condition not reached: object {trigger_object_id}, rule={trigger_rule}, value={trigger_ttc_s}s."
+        f"Distance position condition not reached: object {trigger_object_id}, rule={trigger_rule}, value={trigger_distance_m}m."
     )
 
 
-def apply_time_to_collision_position_start_trigger(
+def apply_distance_position_start_trigger(
     source_xosc_path: Path,
     output_xosc_path: Path,
     trigger_entity_ref: str,
     target_event_name: str,
     condition_name: str,
-    trigger_ttc_s: float,
+    trigger_distance_m: float,
     trigger_rule: str,
     target_position_x: float,
     target_position_y: float,
     target_position_z: float = 0.0,
+    relative_distance_type: str = "euclidianDistance",
+    condition_delay_s: float = 0.0,
 ) -> Path:
-    if trigger_ttc_s < 0:
-        raise ValueError("trigger_ttc_s must be >= 0.")
+    if trigger_distance_m < 0:
+        raise ValueError("trigger_distance_m must be >= 0.")
+    if condition_delay_s < 0:
+        raise ValueError("condition_delay_s must be >= 0.")
+    if relative_distance_type not in ("euclidianDistance", "longitudinal"):
+        raise ValueError(
+            "relative_distance_type must be one of {'euclidianDistance', 'longitudinal'}."
+        )
 
     tree = etree.parse(str(source_xosc_path))
     root = tree.getroot()
     event = root.find(f".//Event[@name='{target_event_name}']")
     if event is None:
-        raise RuntimeError(f"Event '{target_event_name}' not found in {source_xosc_path}.")
+        raise RuntimeError(
+            f"Event '{target_event_name}' not found in {source_xosc_path}."
+        )
 
     replace_start_trigger(
         event,
-        lambda condition_group: append_time_to_collision_position_condition(
+        lambda condition_group: append_distance_to_position_condition(
             condition_group,
             condition_name=condition_name,
             trigger_entity_ref=trigger_entity_ref,
-            trigger_ttc_s=trigger_ttc_s,
+            trigger_distance_m=trigger_distance_m,
             trigger_rule=trigger_rule,
             target_position=WorldPosition(
                 x=target_position_x,
@@ -145,6 +153,8 @@ def apply_time_to_collision_position_start_trigger(
                 p="0.0",
                 r="0.0",
             ),
+            relative_distance_type=relative_distance_type,
+            condition_delay_s=condition_delay_s,
         ),
     )
 
@@ -152,38 +162,63 @@ def apply_time_to_collision_position_start_trigger(
     return output_xosc_path
 
 
-def build_ttc_position_triggered_comparison_trace(
+def build_distance_position_triggered_comparison_trace(
     input_channel_spec: ChannelSpecification,
     output_channel_spec: ChannelSpecification,
     trigger_object_id: int,
     triggered_object_id: int,
-    trigger_ttc_s: float,
+    trigger_distance_m: float,
     trigger_rule: str,
     target_position_x: float,
     target_position_y: float,
+    relative_distance_type: str = "euclidianDistance",
+    condition_delay_s: float = 0.0,
     activation_frame_offset: int = 1,
     pre_trigger_hold_overrides: list[InitPoseOverride] | None = None,
 ) -> ChannelSpecification:
-    if trigger_ttc_s < 0:
-        raise ValueError("trigger_ttc_s must be >= 0.")
+    if trigger_distance_m < 0:
+        raise ValueError("trigger_distance_m must be >= 0.")
+    if condition_delay_s < 0:
+        raise ValueError("condition_delay_s must be >= 0.")
     if activation_frame_offset < 0:
         raise ValueError("activation_frame_offset must be >= 0.")
+    if relative_distance_type not in ("euclidianDistance", "longitudinal"):
+        raise ValueError(
+            "relative_distance_type must be one of {'euclidianDistance', 'longitudinal'}."
+        )
 
     with open_channel(input_channel_spec) as reader:
         input_messages = list(reader)
         if not input_messages:
             raise RuntimeError("Input trace has no messages.")
 
-    activation_index = _find_ttc_position_activation_index_from_messages(
+    activation_index = _find_distance_position_activation_index_from_messages(
         messages=input_messages,
         trigger_object_id=trigger_object_id,
-        trigger_ttc_s=trigger_ttc_s,
+        trigger_distance_m=trigger_distance_m,
+        trigger_rule=trigger_rule,
         target_position_x=target_position_x,
         target_position_y=target_position_y,
-        trigger_rule=trigger_rule,
+        relative_distance_type=relative_distance_type,
     )
 
-    shifted_start_index = activation_index + activation_frame_offset
+    activation_msg = input_messages[activation_index]
+    activation_time_s = (
+        activation_msg.timestamp.seconds + activation_msg.timestamp.nanos / 1e9
+    )
+    delayed_activation_time_s = activation_time_s + condition_delay_s
+    delayed_activation_index = next(
+        (
+            idx
+            for idx, msg in enumerate(
+                input_messages[activation_index:], activation_index
+            )
+            if msg.timestamp.seconds + msg.timestamp.nanos / 1e9
+            >= delayed_activation_time_s
+        ),
+        len(input_messages) - 1,
+    )
+    shifted_start_index = delayed_activation_index + activation_frame_offset
 
     triggered_source_states = []
     for msg in input_messages:
@@ -216,9 +251,7 @@ def build_ttc_position_triggered_comparison_trace(
                 )
 
             if output_index < shifted_start_index and hold_override is not None:
-                apply_init_pose_override_to_reference_object(
-                    out_trg_obj, hold_override
-                )
+                apply_init_pose_override_to_reference_object(out_trg_obj, hold_override)
             else:
                 if output_index < shifted_start_index:
                     state_src = initial_state
@@ -239,35 +272,39 @@ def build_ttc_position_triggered_comparison_trace(
         return writer.get_channel_specification()
 
 
-class TimeToCollisionPositionTriggerTransformer:
+class DistancePositionTriggerTransformer:
     @staticmethod
     def apply(request: TriggerTransformRequest) -> TriggerTransformResult:
-        if not isinstance(request.spec, TimeToCollisionPositionTriggerSpec):
+        if not isinstance(request.spec, DistancePositionTriggerSpec):
             raise TypeError(
-                "TimeToCollisionPositionTriggerTransformer requires TimeToCollisionPositionTriggerSpec."
+                "DistancePositionTriggerTransformer requires DistancePositionTriggerSpec."
             )
 
-        xosc_path = apply_time_to_collision_position_start_trigger(
+        xosc_path = apply_distance_position_start_trigger(
             source_xosc_path=request.source_xosc_path,
             output_xosc_path=request.output_xosc_path,
             trigger_entity_ref=request.spec.trigger_entity_ref,
             target_event_name=request.spec.target_event_name,
             condition_name=request.spec.condition_name,
-            trigger_ttc_s=request.spec.trigger_ttc_s,
+            trigger_distance_m=request.spec.trigger_distance_m,
             trigger_rule=request.spec.trigger_rule,
             target_position_x=request.spec.target_position_x,
             target_position_y=request.spec.target_position_y,
             target_position_z=request.spec.target_position_z,
+            relative_distance_type=request.spec.relative_distance_type,
+            condition_delay_s=request.spec.condition_delay_s,
         )
-        reference_channel_spec = build_ttc_position_triggered_comparison_trace(
+        reference_channel_spec = build_distance_position_triggered_comparison_trace(
             input_channel_spec=request.source_reference_channel_spec,
             output_channel_spec=request.output_reference_channel_spec,
             trigger_object_id=request.spec.trigger_object_id,
             triggered_object_id=request.spec.triggered_object_id,
-            trigger_ttc_s=request.spec.trigger_ttc_s,
+            trigger_distance_m=request.spec.trigger_distance_m,
             trigger_rule=request.spec.trigger_rule,
             target_position_x=request.spec.target_position_x,
             target_position_y=request.spec.target_position_y,
+            relative_distance_type=request.spec.relative_distance_type,
+            condition_delay_s=request.spec.condition_delay_s,
             activation_frame_offset=request.spec.activation_frame_offset,
             pre_trigger_hold_overrides=request.init_pose_overrides,
         )

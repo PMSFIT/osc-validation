@@ -3,12 +3,12 @@ from pathlib import Path
 
 from osi_utilities import ChannelSpecification
 
-from osc_validation.generation import (
-    TrajectoryInterpolationActor,
+from osc_validation.cases.trajectory import TrajectoryInterpolationActor
+from osc_validation.cases.interpolation.generation import (
     TrajectoryInterpolationXoscRequest,
     build_trajectory_interpolation_xosc,
 )
-from osc_validation.reference import (
+from osc_validation.cases.interpolation.reference import (
     TrajectoryInterpolationReferenceMode,
     TrajectoryInterpolationReferenceRequest,
     build_trajectory_interpolation_reference_trace,

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from ...utils.utils import find_moving_object, get_moving_objects
+from osc_validation.utils.utils import find_moving_object, get_moving_objects
 
 
 ConditionEdge = Literal["falling", "none", "rising", "risingOrFalling"]

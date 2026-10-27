@@ -2,11 +2,11 @@ import math
 
 from osi_utilities import ChannelSpecification, open_channel
 
-from osc_validation.generation import (
+from osc_validation.cases.trajectory import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
-from osc_validation.reference import (
+from osc_validation.cases.interpolation.reference import (
     TrajectoryInterpolationReferenceRequest,
     build_trajectory_interpolation_reference_trace,
 )
@@ -38,10 +38,7 @@ def _bent_actor() -> TrajectoryInterpolationActor:
 def _objects(channel_spec):
     with open_channel(channel_spec) as reader:
         messages = list(reader)
-    return [
-        message.global_ground_truth.moving_object[0]
-        for message in messages
-    ]
+    return [message.global_ground_truth.moving_object[0] for message in messages]
 
 
 def test_linear_reference_interpolates_each_segment(tmp_path):
@@ -114,10 +111,7 @@ def test_constant_acceleration_reference_uses_initial_speed_formula(tmp_path):
     with open_channel(channel_spec) as reader:
         messages = list(reader)
 
-    objects = [
-        message.global_ground_truth.moving_object[0]
-        for message in messages
-    ]
+    objects = [message.global_ground_truth.moving_object[0] for message in messages]
     assert len(objects) == 3
     assert math.isclose(objects[0].base.position.x, 0.0)
     assert math.isclose(objects[1].base.position.x, 3.5)

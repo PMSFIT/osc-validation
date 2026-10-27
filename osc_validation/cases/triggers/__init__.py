@@ -73,7 +73,7 @@ def apply_trigger_transform(request: TriggerTransformRequest) -> TriggerTransfor
     source_xosc_path = request.source_xosc_path
     source_reference_channel_spec = request.source_reference_channel_spec
     if request.init_pose_policy != "keep":
-        from ..init_transforms import (
+        from osc_validation.generation.init_transforms import (
             apply_init_pose_overrides_to_xosc,
             build_init_pose_overrides_from_close_to_trajectory_start,
             build_init_pose_overrides_from_trajectory_start,
@@ -87,10 +87,12 @@ def apply_trigger_transform(request: TriggerTransformRequest) -> TriggerTransfor
         # metadata to the trigger-specific trace builder; the trajectory source
         # trace itself must remain unchanged.
         if request.init_pose_policy == "from_trajectory_start":
-            pre_trigger_hold_overrides = build_init_pose_overrides_from_trajectory_start(
-                source_xosc_path=request.source_xosc_path,
-                input_channel_spec=request.source_reference_channel_spec,
-                entity_refs=request.init_pose_entity_refs,
+            pre_trigger_hold_overrides = (
+                build_init_pose_overrides_from_trajectory_start(
+                    source_xosc_path=request.source_xosc_path,
+                    input_channel_spec=request.source_reference_channel_spec,
+                    entity_refs=request.init_pose_entity_refs,
+                )
             )
             source_xosc_path = apply_init_pose_overrides_to_xosc(
                 source_xosc_path=request.source_xosc_path,
@@ -130,7 +132,9 @@ def apply_trigger_transform(request: TriggerTransformRequest) -> TriggerTransfor
                 f"Unsupported init_pose_policy '{request.init_pose_policy}'."
             )
 
-    from ..init_transforms import build_init_pose_overrides_from_xosc_init
+    from osc_validation.generation.init_transforms import (
+        build_init_pose_overrides_from_xosc_init,
+    )
 
     # Always derive hold overrides from the effective XOSC init. These are used
     # only for pre-trigger hold frames; the original trace remains the trajectory
@@ -142,7 +146,9 @@ def apply_trigger_transform(request: TriggerTransformRequest) -> TriggerTransfor
 
     transformer = TRANSFORMER_BY_SPEC_TYPE.get(type(request.spec))
     if transformer is None:
-        raise TypeError(f"Unsupported trigger transform spec type: {type(request.spec)!r}")
+        raise TypeError(
+            f"Unsupported trigger transform spec type: {type(request.spec)!r}"
+        )
     return transformer.apply(
         TriggerTransformRequest(
             source_xosc_path=source_xosc_path,

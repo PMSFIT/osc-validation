@@ -5,13 +5,13 @@ from typing import Callable
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import (
+from osc_validation.cases.triggers import (
     TraveledDistanceTriggerSpec,
     TriggerTransformRequest,
     apply_trigger_transform,
     find_traveled_distance_activation_point,
-    osi2osc,
 )
+from osc_validation.generation.osi2osc import osi2osc
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification
 
@@ -37,10 +37,16 @@ def odr_file(request):
 
 @pytest.mark.validation_category("trigger")
 @pytest.mark.validation_feature("TraveledDistanceCondition")
-@pytest.mark.parametrize("moving_object_id", [2])           # moving object to be evaluated for trigger activation and trajectory alignment
-@pytest.mark.parametrize("trigger_object_id", [1])          # moving object to be triggered for traveled distance trigger condition
+@pytest.mark.parametrize(
+    "moving_object_id", [2]
+)  # moving object to be evaluated for trigger activation and trajectory alignment
+@pytest.mark.parametrize(
+    "trigger_object_id", [1]
+)  # moving object to be triggered for traveled distance trigger condition
 @pytest.mark.parametrize("trigger_distance_m", [55.0])
-@pytest.mark.parametrize("activation_frame_offset", [1])    # It should take one frame for the triggered event to activate after the distance threshold is crossed
+@pytest.mark.parametrize(
+    "activation_frame_offset", [1]
+)  # It should take one frame for the triggered event to activate after the distance threshold is crossed
 @pytest.mark.parametrize("rate", [0.05])
 @pytest.mark.parametrize("tolerance", [0.2])
 def test_traveled_distance_start_trigger_activates_target_actor(
@@ -136,7 +142,8 @@ def test_traveled_distance_start_trigger_activates_target_actor(
             trigger_object_id=trigger_object_id,
             trigger_distance_m=trigger_distance_m,
             trigger_rule="greaterOrEqual",
-        ).time_s + rate,
+        ).time_s
+        + rate,
         time_tolerance=0.01,
         lag_scan_max_frames=2,
     )

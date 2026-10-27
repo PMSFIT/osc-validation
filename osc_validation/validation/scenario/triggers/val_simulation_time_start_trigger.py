@@ -5,13 +5,13 @@ from typing import Callable
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import (
-    InitPoseOverride,
+from osc_validation.generation.init_transforms import InitPoseOverride
+from osc_validation.cases.triggers import (
     SimulationTimeTriggerSpec,
     TriggerTransformRequest,
     apply_trigger_transform,
-    osi2osc,
 )
+from osc_validation.generation.osi2osc import osi2osc
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification
 
@@ -41,8 +41,12 @@ def odr_file(request):
 @pytest.mark.parametrize("ego_object_id", [1])
 @pytest.mark.parametrize("init_pose_object_id", [2])
 @pytest.mark.parametrize("trigger_delay", [10.0])
-@pytest.mark.parametrize("activation_frame_offset", [0]) # The trigger should activate immediately when the simulation time condition is met
-@pytest.mark.parametrize("max_alignment_lag_frames", [2]) # Allows small simulator-dependent differences in the frame where triggered actions become visible after condition activation.
+@pytest.mark.parametrize(
+    "activation_frame_offset", [0]
+)  # The trigger should activate immediately when the simulation time condition is met
+@pytest.mark.parametrize(
+    "max_alignment_lag_frames", [2]
+)  # Allows small simulator-dependent differences in the frame where triggered actions become visible after condition activation.
 @pytest.mark.parametrize("rate", [0.05])
 @pytest.mark.parametrize("tolerance", [2e-1])
 def test_simulation_time_start_trigger_delays_actor_trajectory(
@@ -95,7 +99,7 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
                 trigger_rule="greaterOrEqual",
                 activation_frame_offset=activation_frame_offset,
             ),
-            init_pose_policy="explicit_overrides", # need explicit override because osi2osc default init position (0,0,0) is not on road (gtgen doesn't support placing objects outside of road)
+            init_pose_policy="explicit_overrides",  # need explicit override because osi2osc default init position (0,0,0) is not on road (gtgen doesn't support placing objects outside of road)
             init_pose_overrides=[
                 InitPoseOverride(
                     entity_ref="Ego",
@@ -153,7 +157,8 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
         moving_object_id=moving_object_id,
         result_file=tmp_path
         / f"trajectory_alignment_similarity_report_{moving_object_id}.txt",
-        start_time=trigger_delay+rate, # Start evaluation slightly after the trigger delay to allow for exact alignment of the post-trigger trajectory portions
+        start_time=trigger_delay
+        + rate,  # Start evaluation slightly after the trigger delay to allow for exact alignment of the post-trigger trajectory portions
         time_tolerance=0.01,
         lag_scan_max_frames=max_alignment_lag_frames,
     )

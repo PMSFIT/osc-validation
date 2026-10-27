@@ -6,12 +6,12 @@ from osi_utilities import ChannelSpecification
 
 from osc_validation.assertions import assert_no_osc_engine_errors
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import (
+from osc_validation.cases.trajectory import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
 from osc_validation.metrics import ObjectStateMetric
-from osc_validation.oracles import (
+from osc_validation.cases.follow_trajectory_teleport import (
     FollowTrajectoryTeleportCaseSpec,
     build_follow_trajectory_teleport_case,
 )
@@ -96,7 +96,8 @@ def test_follow_trajectory_position_mode_teleports_to_current_trajectory_time(
         FollowTrajectoryTeleportCaseSpec(
             output_xosc_path=tmp_path / f"follow_trajectory_teleport_{case_name}.xosc",
             output_reference_channel_spec=ChannelSpecification(
-                path=tmp_path / f"reference_follow_trajectory_teleport_{case_name}.mcap",
+                path=tmp_path
+                / f"reference_follow_trajectory_teleport_{case_name}.mcap",
                 message_type="SensorView",
                 metadata={
                     "net.asam.osi.trace.channel.description": "Reference trace for FollowTrajectoryAction teleport validation"
@@ -138,10 +139,22 @@ def test_follow_trajectory_position_mode_teleports_to_current_trajectory_time(
         match_mode="closest_initial_xy",
         ignore_first_speed_sample=True,
     )
-    assert metric_result.sample_count == 5, "Trace should have 5 samples at 1 Hz from 0s to 4s inclusive"
-    assert metric_result.max_time_error <= 0.01, "Trace should have max time error <= 0.01s"
+    assert (
+        metric_result.sample_count == 5
+    ), "Trace should have 5 samples at 1 Hz from 0s to 4s inclusive"
+    assert (
+        metric_result.max_time_error <= 0.01
+    ), "Trace should have max time error <= 0.01s"
     assert metric_result.max_xy_error < 0.1, "Trace should have max XY error < 0.1m"
-    assert metric_result.max_yaw_error < 0.01, "Trace should have max yaw error < 0.01 rad"
-    assert metric_result.max_pitch_error < 0.01, "Trace should have max pitch error < 0.01 rad"
-    assert metric_result.max_roll_error < 0.01, "Trace should have max roll error < 0.01 rad"
-    assert metric_result.max_dimension_error < 0.01, "Trace should have max dimension error < 0.01m"
+    assert (
+        metric_result.max_yaw_error < 0.01
+    ), "Trace should have max yaw error < 0.01 rad"
+    assert (
+        metric_result.max_pitch_error < 0.01
+    ), "Trace should have max pitch error < 0.01 rad"
+    assert (
+        metric_result.max_roll_error < 0.01
+    ), "Trace should have max roll error < 0.01 rad"
+    assert (
+        metric_result.max_dimension_error < 0.01
+    ), "Trace should have max dimension error < 0.01m"

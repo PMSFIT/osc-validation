@@ -6,15 +6,17 @@ from typing import Callable
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import (
+from osc_validation.cases.triggers import (
     SpeedTriggerSpec,
     TriggerTransformRequest,
     apply_trigger_transform,
-    osi2osc,
 )
-from osc_validation.generation.trigger_transforms.speed import find_speed_activation_point
+from osc_validation.generation.osi2osc import osi2osc
+from osc_validation.cases.triggers.speed import find_speed_activation_point
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
-from osc_validation.reference import build_trace_with_calculated_kinematics
+from osc_validation.reference.trace_kinematics import (
+    build_trace_with_calculated_kinematics,
+)
 from osi_utilities import ChannelSpecification, open_channel
 
 from osc_validation.assertions import assert_no_osc_engine_errors
@@ -86,26 +88,28 @@ def _run_speed_start_trigger_case(
     assert_osi_compliance: Callable,
     tmp_path: Path,
     condition_delay_s: float = 0.0,
-    moving_object_id: int = 2,                  # Moving object to be evaluated for trigger activation and trajectory alignment by this test case
-    trigger_object_id: int = 1,                 # Triggering object whose speed is evaluated against the trigger condition
-    trigger_speed_mps: float = 50 / 3.6,        # Triggering speed
+    moving_object_id: int = 2,  # Moving object to be evaluated for trigger activation and trajectory alignment by this test case
+    trigger_object_id: int = 1,  # Triggering object whose speed is evaluated against the trigger condition
+    trigger_speed_mps: float = 50 / 3.6,  # Triggering speed
     condition_edge: str = "rising",
-    post_trigger_guard_time_s: float = 0.05,    # Allows small simulator-dependent differences in the frame where triggered actions become visible after condition activation.
-    max_alignment_lag_frames: int = 2,          # Maximum lag (+/-) between the tool trajectory and reference trajectory to still be considered valid
+    post_trigger_guard_time_s: float = 0.05,  # Allows small simulator-dependent differences in the frame where triggered actions become visible after condition activation.
+    max_alignment_lag_frames: int = 2,  # Maximum lag (+/-) between the tool trajectory and reference trajectory to still be considered valid
     rate: float = 0.05,
     tolerance: float = 0.25,
 ):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    activation_frame_offset = 1                 # Number of frames for the triggered event to activate after the speed threshold is crossed in the reference trace
+    activation_frame_offset = 1  # Number of frames for the triggered event to activate after the speed threshold is crossed in the reference trace
     case_name = "speed_start_trigger"
     if condition_edge != "rising":
         case_name = f"{case_name}_{condition_edge}_edge"
     if condition_delay_s > 0:
         case_name = f"{case_name}_delay_{condition_delay_s:g}s"
 
-    raw_reference_channel_spec = ChannelSpecification(osi_trace, message_type="SensorView")
+    raw_reference_channel_spec = ChannelSpecification(
+        osi_trace, message_type="SensorView"
+    )
     reference_trace_channel_spec = build_trace_with_calculated_kinematics(
         input_channel_spec=raw_reference_channel_spec,
         output_channel_spec=ChannelSpecification(
@@ -146,7 +150,7 @@ def _run_speed_start_trigger_case(
                 condition_delay_s=condition_delay_s,
                 activation_frame_offset=activation_frame_offset,
             ),
-            init_pose_policy="close_to_trajectory_start", # place at initial trajectory position to prevent unintended large initial speed through teleportation
+            init_pose_policy="close_to_trajectory_start",  # place at initial trajectory position to prevent unintended large initial speed through teleportation
         )
     )
     osc_path = transform_result.xosc_path
@@ -177,14 +181,17 @@ def _run_speed_start_trigger_case(
         reference_channel_spec=reference_triggered_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
-        result_file=tmp_path / f"trajectory_alignment_similarity_report_{case_name}.txt",
+        result_file=tmp_path
+        / f"trajectory_alignment_similarity_report_{case_name}.txt",
         start_time=find_speed_activation_point(
             input_channel_spec=reference_trace_channel_spec,
             trigger_object_id=trigger_object_id,
             trigger_speed_mps=trigger_speed_mps,
             trigger_rule="greaterOrEqual",
             condition_edge=condition_edge,
-        ).time_s + condition_delay_s + post_trigger_guard_time_s,
+        ).time_s
+        + condition_delay_s
+        + post_trigger_guard_time_s,
         time_tolerance=0.01,
         lag_scan_max_frames=max_alignment_lag_frames,
     )
@@ -249,6 +256,7 @@ def test_speed_start_trigger_condition_edge_none_activates_when_initially_true(
         trigger_speed_mps=0.0,
         condition_edge="none",
     )
+
 
 @pytest.mark.validation_category("trigger")
 @pytest.mark.validation_feature("SpeedCondition")

@@ -11,6 +11,7 @@ It derives from this subset a validation suite of representative test cases and 
 The repository separates reusable validation support from concrete validation test cases:
 
 - `osc_validation/` is the installable Python package. It provides low-level validation functionality such as tool wrappers, data providers, generation utilities, metrics, the pytest plugin entry point, and the packaged validation suite.
+- `osc_validation/cases/` groups feature-specific scenario generation, reference calculations, and oracle builders. See the [case architecture](docs/oracle_generated_cases.md).
 - `tests/` contains unit and smoke tests for the reusable `osc_validation` package and plugin behavior. These tests do not run the first-level OpenSCENARIO validation suite against a tool.
 - `osc_validation/validation/` contains the actual validation test cases and any built-in local data needed by those cases. The validation suite is pytest-based, uses the `osc_validation` pytest plugin, and keeps its standalone pytest configuration in `osc_validation/validation/pytest.ini`.
 

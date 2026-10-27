@@ -5,13 +5,13 @@ from typing import Callable
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import (
+from osc_validation.cases.triggers import (
     DistancePositionTriggerSpec,
     TriggerTransformRequest,
     apply_trigger_transform,
-    osi2osc,
 )
-from osc_validation.generation.trigger_transforms.distance_to_position import (
+from osc_validation.generation.osi2osc import osi2osc
+from osc_validation.cases.triggers.distance_to_position import (
     find_distance_position_activation_point,
 )
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
@@ -69,8 +69,14 @@ def test_distance_euclidian_start_trigger_activates_target_actor(
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    reference_trace_channel_spec = ChannelSpecification(osi_trace, message_type="SensorView")
-    target_position_x, target_position_y, target_position_z = (-275.37930040547195, -52.90668516705058, 0.29707853723620486)
+    reference_trace_channel_spec = ChannelSpecification(
+        osi_trace, message_type="SensorView"
+    )
+    target_position_x, target_position_y, target_position_z = (
+        -275.37930040547195,
+        -52.90668516705058,
+        0.29707853723620486,
+    )
 
     osc_path = osi2osc(
         osi_trace_spec=reference_trace_channel_spec,
@@ -84,7 +90,8 @@ def test_distance_euclidian_start_trigger_activates_target_actor(
             source_reference_channel_spec=reference_trace_channel_spec,
             output_xosc_path=osc_path,
             output_reference_channel_spec=ChannelSpecification(
-                path=tmp_path / "reference_distance_euclidian_start_trigger_comparison.mcap",
+                path=tmp_path
+                / "reference_distance_euclidian_start_trigger_comparison.mcap",
                 message_type="SensorView",
                 metadata={
                     "net.asam.osi.trace.channel.description": "Reference trace with euclidian distance start trigger applied"
@@ -146,7 +153,8 @@ def test_distance_euclidian_start_trigger_activates_target_actor(
             target_position_x=target_position_x,
             target_position_y=target_position_y,
             relative_distance_type="euclidianDistance",
-        ).time_s + rate,
+        ).time_s
+        + rate,
         time_tolerance=0.01,
         lag_scan_max_frames=2,
     )

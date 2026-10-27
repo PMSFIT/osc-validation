@@ -5,14 +5,16 @@ from typing import Callable
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import (
+from osc_validation.cases.triggers import (
     DistancePositionTriggerSpec,
     TriggerTransformRequest,
     apply_trigger_transform,
-    osi2osc,
 )
+from osc_validation.generation.osi2osc import osi2osc
 from osc_validation.generation.init_transforms.models import InitPoseOverride
-from osc_validation.generation.trigger_transforms.distance_to_position import find_distance_position_activation_point
+from osc_validation.cases.triggers.distance_to_position import (
+    find_distance_position_activation_point,
+)
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osi_utilities import ChannelSpecification
 
@@ -53,6 +55,7 @@ export default function script(
 
 """
 
+
 @pytest.fixture(
     scope="module",
     params=[
@@ -80,16 +83,18 @@ def _run_distance_longitudinal_start_trigger_case(
     moving_object_id: int = 2,
     trigger_object_id: int = 1,
     trigger_distance_m: float = 10.0,
-    post_trigger_guard_time_s: float = 0.05,   # Allows small simulator-dependent differences in the frame where triggered actions become visible after condition activation.
-    max_alignment_lag_frames: int = 2,         # Maximum lag (+/-) between the tool trajectory and reference trajectory to still be considered valid
+    post_trigger_guard_time_s: float = 0.05,  # Allows small simulator-dependent differences in the frame where triggered actions become visible after condition activation.
+    max_alignment_lag_frames: int = 2,  # Maximum lag (+/-) between the tool trajectory and reference trajectory to still be considered valid
     rate: float = 0.05,
     tolerance: float = 0.1,
 ):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    reference_trace_channel_spec = ChannelSpecification(osi_trace, message_type="SensorView")
-    activation_frame_offset = 1                 # Number of frames for the triggered event to activate after the distance threshold is crossed
+    reference_trace_channel_spec = ChannelSpecification(
+        osi_trace, message_type="SensorView"
+    )
+    activation_frame_offset = 1  # Number of frames for the triggered event to activate after the distance threshold is crossed
     target_position_x, target_position_y, target_position_z = (
         -275.37930040547195,
         -52.90668516705058,
@@ -110,8 +115,7 @@ def _run_distance_longitudinal_start_trigger_case(
             source_reference_channel_spec=reference_trace_channel_spec,
             output_xosc_path=osc_path,
             output_reference_channel_spec=ChannelSpecification(
-                path=tmp_path
-                / f"reference_{case_name}_comparison.mcap",
+                path=tmp_path / f"reference_{case_name}_comparison.mcap",
                 message_type="SensorView",
                 metadata={
                     "net.asam.osi.trace.channel.description": (
@@ -134,7 +138,7 @@ def _run_distance_longitudinal_start_trigger_case(
                 condition_delay_s=condition_delay_s,
                 activation_frame_offset=activation_frame_offset,
             ),
-            init_pose_policy="explicit_overrides", # need explicit override because osi2osc default init position (0,0,0) is not on road (gtgen doesn't support placing objects outside of road)
+            init_pose_policy="explicit_overrides",  # need explicit override because osi2osc default init position (0,0,0) is not on road (gtgen doesn't support placing objects outside of road)
             init_pose_overrides=[
                 InitPoseOverride(
                     entity_ref="Ego",
@@ -196,8 +200,10 @@ def _run_distance_longitudinal_start_trigger_case(
             trigger_rule="lessOrEqual",
             target_position_x=target_position_x,
             target_position_y=target_position_y,
-            relative_distance_type="longitudinal"
-        ).time_s + condition_delay_s + post_trigger_guard_time_s,
+            relative_distance_type="longitudinal",
+        ).time_s
+        + condition_delay_s
+        + post_trigger_guard_time_s,
         time_tolerance=0.01,
         lag_scan_max_frames=max_alignment_lag_frames,
     )

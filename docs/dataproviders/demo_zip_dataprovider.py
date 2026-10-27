@@ -5,7 +5,7 @@ from typing import Callable
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider, DownloadZIPDataProvider
-from osc_validation.generation import osi2osc
+from osc_validation.generation.osi2osc import osi2osc
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
 from osi_utilities import ChannelSpecification
 from osc_validation.utils.utils import get_all_moving_object_ids

@@ -6,12 +6,12 @@ from osi_utilities import ChannelSpecification
 
 from osc_validation.assertions import assert_no_osc_engine_errors
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import (
+from osc_validation.cases.trajectory import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
 from osc_validation.metrics import ObjectStateMetric
-from osc_validation.oracles import (
+from osc_validation.cases.follow_trajectory_future_time_reference import (
     FollowTrajectoryFutureTimeReferenceCaseSpec,
     build_follow_trajectory_future_time_reference_case,
 )
@@ -84,7 +84,8 @@ def test_follow_trajectory_future_time_reference_continues_init_speed_until_firs
         FollowTrajectoryFutureTimeReferenceCaseSpec(
             output_xosc_path=tmp_path / "follow_trajectory_future_time_reference.xosc",
             output_reference_channel_spec=ChannelSpecification(
-                path=tmp_path / "reference_follow_trajectory_future_time_reference.mcap",
+                path=tmp_path
+                / "reference_follow_trajectory_future_time_reference.mcap",
                 message_type="SensorView",
                 metadata={
                     "net.asam.osi.trace.channel.description": "Reference trace for FollowTrajectoryAction future TimeReference validation"
@@ -127,13 +128,27 @@ def test_follow_trajectory_future_time_reference_continues_init_speed_until_firs
         match_mode="closest_initial_xy",
         ignore_first_speed_sample=True,
     )
-    assert full_trace_result.sample_count == 7, "Full trace should have 7 samples at 1 Hz from 0s to 6s inclusive"
-    assert full_trace_result.max_time_error <= 0.01, "Full trace should have max time error <= 0.01s"
-    assert full_trace_result.max_xy_error < 0.1, "Full trace should have max XY error < 0.1m"
-    assert full_trace_result.max_yaw_error < 0.01, "Full trace should have max yaw error < 0.01 rad"
-    assert full_trace_result.max_pitch_error < 0.01, "Full trace should have max pitch error < 0.01 rad"
-    assert full_trace_result.max_roll_error < 0.01, "Full trace should have max roll error < 0.01 rad"
-    assert full_trace_result.max_dimension_error < 0.01, "Full trace should have max dimension error < 0.01m"
+    assert (
+        full_trace_result.sample_count == 7
+    ), "Full trace should have 7 samples at 1 Hz from 0s to 6s inclusive"
+    assert (
+        full_trace_result.max_time_error <= 0.01
+    ), "Full trace should have max time error <= 0.01s"
+    assert (
+        full_trace_result.max_xy_error < 0.1
+    ), "Full trace should have max XY error < 0.1m"
+    assert (
+        full_trace_result.max_yaw_error < 0.01
+    ), "Full trace should have max yaw error < 0.01 rad"
+    assert (
+        full_trace_result.max_pitch_error < 0.01
+    ), "Full trace should have max pitch error < 0.01 rad"
+    assert (
+        full_trace_result.max_roll_error < 0.01
+    ), "Full trace should have max roll error < 0.01 rad"
+    assert (
+        full_trace_result.max_dimension_error < 0.01
+    ), "Full trace should have max dimension error < 0.01m"
 
     pre_teleport_result = ObjectStateMetric().compute(
         reference_channel_spec=case_result.reference_channel_spec,
@@ -143,9 +158,15 @@ def test_follow_trajectory_future_time_reference_continues_init_speed_until_firs
         ignore_first_speed_sample=True,
         time_range_s=(0.0, 1.0),
     )
-    assert pre_teleport_result.sample_count == 2, "Pre-teleport section should have 2 samples"
-    assert pre_teleport_result.max_xy_error < 0.1, "Pre-teleport section should have max XY error < 0.1m"
-    assert pre_teleport_result.max_planar_speed_error < 0.75, "Pre-teleport section should have max planar speed error < 0.75 m/s"
+    assert (
+        pre_teleport_result.sample_count == 2
+    ), "Pre-teleport section should have 2 samples"
+    assert (
+        pre_teleport_result.max_xy_error < 0.1
+    ), "Pre-teleport section should have max XY error < 0.1m"
+    assert (
+        pre_teleport_result.max_planar_speed_error < 0.75
+    ), "Pre-teleport section should have max planar speed error < 0.75 m/s"
 
     teleport_result = ObjectStateMetric().compute(
         reference_channel_spec=case_result.reference_channel_spec,
@@ -155,5 +176,9 @@ def test_follow_trajectory_future_time_reference_continues_init_speed_until_firs
         ignore_first_speed_sample=True,
         time_range_s=(4.0, 4.0),
     )
-    assert teleport_result.sample_count == 1, "Teleport frame should have 1 sample at the teleport time"
-    assert teleport_result.max_xy_error < 0.1, "Teleport frame should have max XY error < 0.1m"
+    assert (
+        teleport_result.sample_count == 1
+    ), "Teleport frame should have 1 sample at the teleport time"
+    assert (
+        teleport_result.max_xy_error < 0.1
+    ), "Teleport frame should have max XY error < 0.1m"

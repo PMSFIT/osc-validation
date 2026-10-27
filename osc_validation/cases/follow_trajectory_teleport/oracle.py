@@ -3,13 +3,15 @@ from pathlib import Path
 
 from osi_utilities import ChannelSpecification
 
-from osc_validation.generation import (
+from osc_validation.cases.follow_trajectory_teleport.generation import (
     FollowTrajectoryTeleportXoscRequest,
-    TrajectoryInterpolationActor,
-    TrajectoryInterpolationVertex,
     build_follow_trajectory_teleport_xosc,
 )
-from osc_validation.reference import (
+from osc_validation.cases.trajectory import (
+    TrajectoryInterpolationActor,
+    TrajectoryInterpolationVertex,
+)
+from osc_validation.cases.follow_trajectory_teleport.reference import (
     FollowTrajectoryTeleportReferenceRequest,
     build_follow_trajectory_teleport_reference_trace,
 )

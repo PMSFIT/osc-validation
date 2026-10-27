@@ -3,12 +3,12 @@ from pathlib import Path
 
 from lxml import etree
 
-from ..xosc_builders import (
+from osc_validation.generation.xosc_builders import (
     append_storyboard_element_state_condition,
     replace_start_trigger,
     write_xosc_tree,
 )
-from .models import (
+from osc_validation.cases.sequencing.models import (
     TrajectorySequencingTransformRequest,
     TrajectorySequencingTransformResult,
     TrajectorySequencingTransformSpec,

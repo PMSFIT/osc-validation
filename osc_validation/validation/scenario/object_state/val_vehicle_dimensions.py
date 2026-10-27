@@ -5,7 +5,7 @@ import pytest
 from osi_utilities import ChannelSpecification, MessageType
 
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import osi2osc
+from osc_validation.generation.osi2osc import osi2osc
 from osc_validation.metrics import ObjectStateMetric
 
 

@@ -6,12 +6,12 @@ import pytest
 
 from osi_utilities import ChannelSpecification, MessageType
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import (
+from osc_validation.cases.sequencing import (
     TrajectorySequencingTransformRequest,
     TrajectorySequencingTransformSpec,
     apply_trajectory_sequencing_transform,
-    osi2osc,
 )
+from osc_validation.generation.osi2osc import osi2osc
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
 
 from osc_validation.assertions import assert_no_osc_engine_errors

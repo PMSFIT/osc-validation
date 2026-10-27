@@ -1,10 +1,10 @@
-from .models import (
+from osc_validation.cases.sequencing.models import (
     SequencingLevel,
     TrajectorySequencingTransformRequest,
     TrajectorySequencingTransformResult,
     TrajectorySequencingTransformSpec,
 )
-from .trajectory import (
+from osc_validation.cases.sequencing.trajectory import (
     apply_trajectory_sequencing_transform,
     split_entity_trajectory,
 )
