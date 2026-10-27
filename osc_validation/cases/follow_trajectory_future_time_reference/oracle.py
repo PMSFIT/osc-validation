@@ -7,7 +7,7 @@ from osc_validation.cases.follow_trajectory_future_time_reference.generation imp
     FollowTrajectoryFutureTimeReferenceXoscRequest,
     build_follow_trajectory_future_time_reference_xosc,
 )
-from osc_validation.cases.trajectory import (
+from osc_validation.cases.shared.trajectory_models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )

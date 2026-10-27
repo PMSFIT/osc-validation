@@ -4,8 +4,8 @@ import pytest
 
 from tests.conftest import _make_sensor_view
 
-from osc_validation.generation.init_transforms import InitPoseOverride
-from osc_validation.generation.init_transforms.init_pose import (
+from osc_validation.cases.shared.init_pose import InitPoseOverride
+from osc_validation.cases.shared.init_pose.reference import (
     apply_init_pose_override_to_reference_object,
 )
 

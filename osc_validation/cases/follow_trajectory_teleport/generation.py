@@ -3,7 +3,7 @@ from pathlib import Path
 
 from lxml import etree
 
-from osc_validation.cases.trajectory import (
+from osc_validation.cases.shared.trajectory_models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )

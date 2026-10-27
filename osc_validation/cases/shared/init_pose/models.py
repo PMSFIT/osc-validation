@@ -34,3 +34,16 @@ class InitPoseTransformRequest:
 class InitPoseTransformResult:
     xosc_path: Path
     reference_channel_spec: ChannelSpecification
+
+
+def _validate_overrides(overrides: list[InitPoseOverride]) -> None:
+    if not overrides:
+        raise ValueError("Init pose transform requires at least one override.")
+
+    object_ids = [override.object_id for override in overrides]
+    if len(object_ids) != len(set(object_ids)):
+        raise ValueError("Init pose overrides must use unique object_id values.")
+
+    entity_refs = [override.entity_ref for override in overrides]
+    if len(entity_refs) != len(set(entity_refs)):
+        raise ValueError("Init pose overrides must use unique entity_ref values.")

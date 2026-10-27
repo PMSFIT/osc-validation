@@ -15,7 +15,7 @@ from osc_validation.generation.xosc_builders import (
     write_xosc_tree,
 )
 
-from osc_validation.cases.trajectory import (
+from osc_validation.cases.shared.trajectory_models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )

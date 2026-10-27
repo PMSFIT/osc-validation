@@ -7,7 +7,7 @@ from osc_validation.cases.follow_trajectory_teleport.generation import (
     FollowTrajectoryTeleportXoscRequest,
     build_follow_trajectory_teleport_xosc,
 )
-from osc_validation.cases.trajectory import (
+from osc_validation.cases.shared.trajectory_models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )

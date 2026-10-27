@@ -1,4 +1,5 @@
 from pathlib import Path
+import math
 
 from lxml import etree
 import pytest
@@ -11,6 +12,43 @@ from osc_validation.generation.osi2osc import (
     parse_moving_objects,
 )
 from tests.conftest import _make_ground_truth, _make_sensor_view
+
+
+@pytest.mark.parametrize(
+    "policy", ["origin", "from_trajectory_start", "close_to_trajectory_start"]
+)
+def test_converter_init_pose_policies_preserve_placement(tmp_path, policy):
+    trace = ChannelSpecification(path=tmp_path / "input.osi", message_type="SensorView")
+    with open_channel_writer(trace) as writer:
+        for time, x in [(0.0, 10.0), (0.1, 11.0)]:
+            writer.write_message(_make_sensor_view_frame(time, 2, x, x - 10))
+    output = osi2osc(
+        trace,
+        tmp_path / "scenario.xosc",
+        init_pose_policy=policy,
+        init_pose_close_threshold_m=0.75,
+    )
+    tree = etree.parse(str(output))
+    for entity in ["Ego", "osi_moving_object_1"]:
+        init = tree.find(
+            f".//Init/Actions/Private[@entityRef='{entity}']//WorldPosition"
+        )
+        start = tree.find(
+            f".//Event[@name='{entity}_maneuver_event']//Vertex/Position/WorldPosition"
+        )
+        if policy == "origin":
+            assert [float(init.get(a)) for a in ["x", "y", "z", "h", "p", "r"]] == [
+                0
+            ] * 6
+        elif policy == "from_trajectory_start":
+            assert init.attrib == start.attrib
+        else:
+            assert math.hypot(
+                float(init.get("x")) - float(start.get("x")),
+                float(init.get("y")) - float(start.get("y")),
+            ) == pytest.approx(0.75)
+            for attribute in ["z", "h", "p", "r"]:
+                assert init.get(attribute) == start.get(attribute)
 
 
 def _configure_vehicle(moving_object, obj_id: int, x: float, y: float) -> None:

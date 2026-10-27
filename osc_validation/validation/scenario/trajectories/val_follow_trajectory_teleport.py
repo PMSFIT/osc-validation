@@ -6,7 +6,7 @@ from osi_utilities import ChannelSpecification
 
 from osc_validation.assertions import assert_no_osc_engine_errors
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.cases.trajectory import (
+from osc_validation.cases.shared.trajectory_models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )

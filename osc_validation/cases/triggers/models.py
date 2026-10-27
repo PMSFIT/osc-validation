@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Literal, Union
 
 from osi_utilities import ChannelSpecification
-from osc_validation.generation.init_transforms.models import InitPoseOverride
+from osc_validation.cases.shared.init_pose.models import InitPoseOverride
 from osc_validation.cases.triggers.common import ConditionEdge
 
 

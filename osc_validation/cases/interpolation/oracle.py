@@ -3,7 +3,7 @@ from pathlib import Path
 
 from osi_utilities import ChannelSpecification
 
-from osc_validation.cases.trajectory import TrajectoryInterpolationActor
+from osc_validation.cases.shared.trajectory_models import TrajectoryInterpolationActor
 from osc_validation.cases.interpolation.generation import (
     TrajectoryInterpolationXoscRequest,
     build_trajectory_interpolation_xosc,

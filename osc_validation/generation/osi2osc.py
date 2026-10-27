@@ -11,8 +11,7 @@ from osi3 import osi_object_pb2
 
 from osi_utilities import ChannelSpecification, MessageType, open_channel
 from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointZYX
-from .init_transforms import compute_close_to_trajectory_start_xy
-from .init_transforms.models import InitPoseOverride
+from osc_validation.utils.utils import compute_close_to_trajectory_start_xy
 from .xosc_builders import (
     WorldPosition,
     XoscHeader,
@@ -207,22 +206,18 @@ class OSI2OSCMovingObject:
         z = z + rz
         return x, y, z, h, p, r
 
-    def build_trajectory_start_override(self) -> InitPoseOverride:
+    def build_trajectory_start_position(self) -> WorldPosition:
         if self.trajectory.empty:
-            raise RuntimeError(
-                f"Object '{self.entity_ref}' has no trajectory samples."
-            )
+            raise RuntimeError(f"Object '{self.entity_ref}' has no trajectory samples.")
         first_point = self.trajectory.iloc[0]
         x, y, z, h, p, r = self._to_world_position(first_point)
-        return InitPoseOverride(
-            entity_ref=self.entity_ref,
-            object_id=int(self.id),
+        return WorldPosition(
             x=float(x),
             y=float(y),
             z=float(z),
-            yaw=float(h),
-            pitch=float(p),
-            roll=float(r),
+            h=float(h),
+            p=float(p),
+            r=float(r),
         )
 
     def build_act(self):
@@ -441,64 +436,36 @@ def osi2osc(
     xml_init_actions = etree.SubElement(xml_init, "Actions")
     if INITACTIONS:
         for obj in my_moving_objects:
-            origin_override = InitPoseOverride(
-                entity_ref=obj.entity_ref,
-                object_id=int(obj.id),
-                x=0.0,
-                y=0.0,
-                z=0.0,
-                yaw=0.0,
-                pitch=0.0,
-                roll=0.0,
-            )
+            origin = WorldPosition(x=0.0, y=0.0, z=0.0, h=0.0, p=0.0, r=0.0)
             if init_pose_policy == "origin":
-                resolved_override = origin_override
+                position = origin
             elif init_pose_policy == "from_trajectory_start":
-                trajectory_start_override = obj.build_trajectory_start_override()
-                resolved_override = InitPoseOverride(
-                    entity_ref=origin_override.entity_ref,
-                    object_id=origin_override.object_id,
-                    x=trajectory_start_override.x,
-                    y=trajectory_start_override.y,
-                    z=trajectory_start_override.z,
-                    yaw=trajectory_start_override.yaw,
-                    pitch=trajectory_start_override.pitch,
-                    roll=trajectory_start_override.roll,
-                )
+                position = obj.build_trajectory_start_position()
             elif init_pose_policy == "close_to_trajectory_start":
                 if init_pose_close_threshold_m is None:
                     init_pose_close_threshold_m = 0.5
-                trajectory_start_override = obj.build_trajectory_start_override()
+                start = obj.build_trajectory_start_position()
                 target_x, target_y = compute_close_to_trajectory_start_xy(
-                    init_x=origin_override.x,
-                    init_y=origin_override.y,
-                    start_x=trajectory_start_override.x,
-                    start_y=trajectory_start_override.y,
+                    init_x=origin.x,
+                    init_y=origin.y,
+                    start_x=start.x,
+                    start_y=start.y,
                     threshold_m=init_pose_close_threshold_m,
                 )
-                resolved_override = InitPoseOverride(
-                    entity_ref=origin_override.entity_ref,
-                    object_id=origin_override.object_id,
+                position = WorldPosition(
                     x=target_x,
                     y=target_y,
-                    z=trajectory_start_override.z,
-                    yaw=trajectory_start_override.yaw,
-                    pitch=trajectory_start_override.pitch,
-                    roll=trajectory_start_override.roll,
+                    z=start.z,
+                    h=start.h,
+                    p=start.p,
+                    r=start.r,
                 )
             else:
                 raise ValueError(f"Unsupported init_pose_policy '{init_pose_policy}'.")
             append_teleport_private_action(
                 xml_init_actions,
-                resolved_override.entity_ref,
-                WorldPosition(
-                    x=resolved_override.x,
-                    y=resolved_override.y,
-                    z=resolved_override.z,
-                    h=resolved_override.yaw,
-                    p=resolved_override.pitch,
-                    r=resolved_override.roll,
-                ),
+                obj.entity_ref,
+                position,
                 as_float=False,
             )
     story_name = "Story1"

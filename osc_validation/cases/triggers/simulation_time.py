@@ -4,8 +4,8 @@ from lxml import etree
 
 from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
 from osc_validation.utils.utils import timestamp_float_to_osi
-from osc_validation.generation.init_transforms.models import InitPoseOverride
-from osc_validation.generation.init_transforms.init_pose import (
+from osc_validation.cases.shared.init_pose.models import InitPoseOverride
+from osc_validation.cases.shared.init_pose.reference import (
     apply_init_pose_override_to_reference_object,
 )
 from osc_validation.generation.xosc_builders import (

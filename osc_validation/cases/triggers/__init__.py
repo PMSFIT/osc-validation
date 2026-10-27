@@ -73,7 +73,7 @@ def apply_trigger_transform(request: TriggerTransformRequest) -> TriggerTransfor
     source_xosc_path = request.source_xosc_path
     source_reference_channel_spec = request.source_reference_channel_spec
     if request.init_pose_policy != "keep":
-        from osc_validation.generation.init_transforms import (
+        from osc_validation.cases.shared.init_pose import (
             apply_init_pose_overrides_to_xosc,
             build_init_pose_overrides_from_close_to_trajectory_start,
             build_init_pose_overrides_from_trajectory_start,
@@ -132,7 +132,7 @@ def apply_trigger_transform(request: TriggerTransformRequest) -> TriggerTransfor
                 f"Unsupported init_pose_policy '{request.init_pose_policy}'."
             )
 
-    from osc_validation.generation.init_transforms import (
+    from osc_validation.cases.shared.init_pose import (
         build_init_pose_overrides_from_xosc_init,
     )
 

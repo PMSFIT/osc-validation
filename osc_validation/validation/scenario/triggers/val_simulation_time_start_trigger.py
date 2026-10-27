@@ -5,7 +5,7 @@ from typing import Callable
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation.init_transforms import InitPoseOverride
+from osc_validation.cases.shared.init_pose import InitPoseOverride
 from osc_validation.cases.triggers import (
     SimulationTimeTriggerSpec,
     TriggerTransformRequest,

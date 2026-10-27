@@ -2,7 +2,7 @@ import math
 
 from osi_utilities import ChannelSpecification, open_channel
 
-from osc_validation.cases.trajectory import (
+from osc_validation.cases.shared.trajectory_models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )

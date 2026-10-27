@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from osi3 import osi_sensorview_pb2
 from osi_utilities import ChannelSpecification, open_channel_writer
 
-from osc_validation.cases.trajectory import (
+from osc_validation.cases.shared.trajectory_models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )

@@ -13,13 +13,15 @@ osc_validation/
     init_actions/                   # models.py, generation.py, reference.py, oracle.py
     triggers/                       # one module per trigger plus shared dispatch/models
     sequencing/                     # trajectory splitting and models
-    trajectory.py                   # neutral data shared by trajectory features
+    shared/
+      init_pose/                    # coordinated init-pose edits and expectations
+      trajectory_models.py          # neutral data shared by trajectory features
   generation/
     osi2osc.py                      # reusable converter
     xosc_builders.py                # reusable XML construction
-    init_transforms/                # pose utilities used by converter and trigger cases
   reference/
     trace_kinematics.py              # reusable trace utility
+  utils/utils.py                    # shared geometry, including near-start placement
   metrics/                          # generic comparisons
   validation/scenario/              # stable pytest entry points and case assertions
 ```
@@ -28,7 +30,9 @@ osc_validation/
 
 Keep code used by one feature inside that feature. Small features may use a
 single module with clearly separated functions; split files when that improves
-readability. Extract shared code only when several features need it.
+readability. Extract shared code into `cases/shared/` only when several features need it.
+Keep general utilities outside `cases/`; for example, numeric geometry belongs
+in `utils/`, not in shared case support.
 
 - `generation.py` creates or modifies XOSC inputs.
 - `reference.py` independently calculates expected behavior or trace data.
@@ -46,7 +50,7 @@ from osc_validation.cases.interpolation import (
     TrajectoryInterpolationCaseSpec,
     build_trajectory_interpolation_case,
 )
-from osc_validation.cases.trajectory import (
+from osc_validation.cases.shared.trajectory_models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
@@ -54,8 +58,14 @@ from osc_validation.cases.trajectory import (
 
 The existing trigger modules already keep their XML edits, reference derivation,
 and coordinating transformer adjacent. They remain intact within `cases/triggers/`;
-relocation does not require splitting their internals. Init-pose transforms remain
-shared because both the converter and trigger cases consume them.
+relocation does not require splitting their internals. Init-pose transforms live
+in `cases/shared/init_pose/`, with XML edits, reference changes, and coordination kept
+adjacent. Their `InitPoseOverride` model stays inside the case package.
+
+The converter uses the XML builder's `WorldPosition` directly. Its only shared
+near-start-placement dependency is `compute_close_to_trajectory_start_xy` in
+`utils/utils.py`, which accepts numbers and returns an XY tuple. The converter
+has no dependency on case-specific models or code.
 
 ## Test flow
 

@@ -12,7 +12,7 @@ from osc_validation.cases.triggers import (
     find_ttc_position_activation_point,
 )
 from osc_validation.generation.osi2osc import osi2osc
-from osc_validation.generation.init_transforms.models import InitPoseOverride
+from osc_validation.cases.shared.init_pose.models import InitPoseOverride
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 from osc_validation.reference.trace_kinematics import (
     build_trace_with_calculated_kinematics,

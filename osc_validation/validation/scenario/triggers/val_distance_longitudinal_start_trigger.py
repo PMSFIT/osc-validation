@@ -11,7 +11,7 @@ from osc_validation.cases.triggers import (
     apply_trigger_transform,
 )
 from osc_validation.generation.osi2osc import osi2osc
-from osc_validation.generation.init_transforms.models import InitPoseOverride
+from osc_validation.cases.shared.init_pose.models import InitPoseOverride
 from osc_validation.cases.triggers.distance_to_position import (
     find_distance_position_activation_point,
 )
