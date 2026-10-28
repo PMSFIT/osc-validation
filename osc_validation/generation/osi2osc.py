@@ -10,7 +10,7 @@ from lxml import etree
 from osi3 import osi_object_pb2
 
 from osi_utilities import ChannelSpecification, MessageType, open_channel
-from osc_validation.versioning import ScenarioContract
+from osc_validation.versioning import OscVersion, ScenarioContract
 from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointZYX
 from osc_validation.utils.utils import compute_close_to_trajectory_start_xy
 from .xosc_builders import (
@@ -25,9 +25,9 @@ from .xosc_builders import (
     write_xosc_tree,
 )
 
-# Retained as the standalone converter's historical default for API users.
-XOSC_VERSION_MAJOR = 1
-XOSC_VERSION_MINOR = 3
+DEFAULT_OSI2OSC_CONTRACT = ScenarioContract(OscVersion.V1_3_0)
+SUPPORTED_OSI2OSC_VERSIONS = (OscVersion.V1_3_0, OscVersion.V1_3_1, OscVersion.V1_4_0)
+InterpolationPolicy = Literal["standard_default", "custom"]
 XOSC_AUTHOR = "OSC Validation OSI2OSC Converter"
 XOSC_DESCRIPTION = ""
 XOSC_LICENSE = ""
@@ -165,7 +165,9 @@ class OSI2OSCMovingObject:
         )
         return xml_scenario_object
 
-    def build_osc_polyline_trajectory(self):
+    def build_osc_polyline_trajectory(
+        self, interpolation_policy: InterpolationPolicy | None = None
+    ):
         """
         Return OpenSCENARIO XML Trajectory element for this moving object
         """
@@ -186,6 +188,8 @@ class OSI2OSCMovingObject:
                 WorldPosition(x=x, y=y, z=z, h=h, p=p, r=r),
                 as_float=False,
             )
+        if interpolation_policy == "custom":
+            etree.SubElement(xml_polyline, "Interpolation")
         return xml_trajectory
 
     def _to_world_position(self, point):
@@ -222,7 +226,7 @@ class OSI2OSCMovingObject:
             r=float(r),
         )
 
-    def build_act(self):
+    def build_act(self, interpolation_policy: InterpolationPolicy | None = None):
         """
         Return OpenSCENARIO XML Act element for this moving object
 
@@ -292,7 +296,7 @@ class OSI2OSCMovingObject:
             "TrajectoryFollowingMode",
             followingMode="position",
         )
-        xml_trajectory = self.build_osc_polyline_trajectory()
+        xml_trajectory = self.build_osc_polyline_trajectory(interpolation_policy)
         xml_trajectory_ref.append(xml_trajectory)
         return xml_act
 
@@ -372,7 +376,8 @@ def osi2osc(
         "close_to_trajectory_start",
     ] = "origin",
     init_pose_close_threshold_m: float | None = None,
-    contract: ScenarioContract = ScenarioContract(),
+    contract: ScenarioContract = DEFAULT_OSI2OSC_CONTRACT,
+    interpolation_policy: InterpolationPolicy | None = None,
 ) -> Path:
     """
     Converts an OSI GroundTruth or SensorView trace to an OpenSCENARIO XML file
@@ -383,14 +388,38 @@ def osi2osc(
         path_xosc (Path): Output OpenSCENARIO file path.
         path_xodr (Path, optional): Optional OpenDRIVE map path to be integrated in the output OpenSCENARIO file.
         contract: Target OpenSCENARIO XML version (standalone default: 1.3.0).
+        interpolation_policy: For 1.4.0, "standard_default" uses the
+            standard's interpolation rules, "custom" leaves interpolation to
+            the implementation and is the default. Omit for 1.3.x.
         init_pose_policy: Optional init pose policy. Default "origin" preserves
             converter defaults (`0,0,0` teleport init).
         init_pose_close_threshold_m: Threshold distance in meters for the "close_to_trajectory_start" init pose policy. Default is 0.5 meters.
     Returns:
         Path: Valid path to the output OpenSCENARIO file if the conversion was successful.
     Raises:
+        ValueError: If the requested OpenSCENARIO release is not supported.
         AssertionError: If the input OSI trace is not of type SensorView or GroundTruth.
     """
+
+    if contract.osc_version not in SUPPORTED_OSI2OSC_VERSIONS:
+        supported = ", ".join(str(version) for version in SUPPORTED_OSI2OSC_VERSIONS)
+        raise ValueError(
+            f"osi2osc does not support OpenSCENARIO XML {contract.osc_version}. "
+            f"Supported releases: {supported}."
+        )
+
+    if contract.osc_version == OscVersion.V1_4_0:
+        if interpolation_policy is None:
+            interpolation_policy = "custom"
+        if interpolation_policy not in ("standard_default", "custom"):
+            raise ValueError(
+                "osi2osc accepts interpolation_policy='standard_default' or "
+                "'custom' for OpenSCENARIO XML 1.4.0."
+            )
+    elif interpolation_policy is not None:
+        raise ValueError(
+            "interpolation_policy is only supported for OpenSCENARIO XML 1.4.0."
+        )
 
     with open_channel(osi_trace_spec) as osi_trace_channel_reader:
         resolved_spec = osi_trace_channel_reader.get_channel_specification()
@@ -421,12 +450,11 @@ def osi2osc(
     xml_acts = []
     for obj in my_moving_objects:
         xml_scenario_objects.append(obj.build_osc_scenario_object())
-        xml_acts.append(obj.build_act())
+        xml_acts.append(obj.build_act(interpolation_policy))
 
     xml_root, xml_entities, xml_storyboard = build_open_scenario_root(
         XoscHeader(
-            rev_major=contract.osc_version.major,
-            rev_minor=contract.osc_version.minor,
+            contract=contract,
             author=XOSC_AUTHOR,
             description=XOSC_DESCRIPTION,
             license_name=XOSC_LICENSE,
@@ -528,6 +556,18 @@ def create_argparser():
     )
     parser.add_argument("xosc", help="Path to the output OpenScenario XML file.")
     parser.add_argument(
+        "--osc-version",
+        choices=[version.value for version in SUPPORTED_OSI2OSC_VERSIONS],
+        default=DEFAULT_OSI2OSC_CONTRACT.osc_version.value,
+        help="OpenSCENARIO XML release (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--interpolation-policy",
+        choices=["standard_default", "custom"],
+        default=None,
+        help="For 1.4.0: standard_default or custom (default: custom).",
+    )
+    parser.add_argument(
         "--init-pose-policy",
         choices=["origin", "from_trajectory_start", "close_to_trajectory_start"],
         default="origin",
@@ -570,6 +610,8 @@ def main():
         osi2osc(
             osi_trace_spec=osi_trace_spec,
             path_xosc=path_xosc,
+            contract=ScenarioContract(OscVersion(args.osc_version)),
+            interpolation_policy=args.interpolation_policy,
             init_pose_policy=args.init_pose_policy,
             init_pose_close_threshold_m=args.init_pose_close_threshold_m,
         )

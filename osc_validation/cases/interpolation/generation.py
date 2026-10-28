@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from lxml import etree
@@ -28,7 +28,7 @@ class TrajectoryInterpolationXoscRequest:
     actor: TrajectoryInterpolationActor
     stop_time_s: float
     road_network_path: Path | None = None
-    contract: ScenarioContract = ScenarioContract()
+    contract: ScenarioContract = field(kw_only=True)
 
 
 @dataclass(frozen=True)
@@ -190,8 +190,7 @@ def build_trajectory_interpolation_xosc(
 
     xml_root, xml_entities, xml_storyboard = build_open_scenario_root(
         XoscHeader(
-            rev_major=request.contract.osc_version.major,
-            rev_minor=request.contract.osc_version.minor,
+            contract=request.contract,
             author="OSC Validation Trajectory Interpolation Oracle",
             description="Trajectory interpolation validation scenario",
         ),

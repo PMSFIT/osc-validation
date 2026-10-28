@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from osi_utilities import ChannelSpecification
@@ -27,7 +27,7 @@ class TrajectoryInterpolationCaseSpec:
     host_vehicle_id: int | None = None
     interpolation_mode: TrajectoryInterpolationReferenceMode = "linear_position"
     initial_speed_mps: float = 0.0
-    contract: ScenarioContract = ScenarioContract()
+    contract: ScenarioContract = field(kw_only=True)
 
 
 @dataclass(frozen=True)

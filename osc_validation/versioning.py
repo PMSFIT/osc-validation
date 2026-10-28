@@ -31,9 +31,7 @@ class OscVersion(str, Enum):
 
 @dataclass(frozen=True)
 class ScenarioContract:
-    # Preserve the existing standalone generation API default. Validation runs
-    # always supply their explicitly selected contract instead.
-    osc_version: OscVersion = OscVersion.V1_3_0
+    osc_version: OscVersion
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "osc_version", OscVersion(self.osc_version))

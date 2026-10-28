@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from osc_validation.versioning import ScenarioContract
 
@@ -31,7 +31,7 @@ class InitActionsXoscRequest:
     road_network_path: Path | None = None
     include_teleport_actions: bool = True
     include_add_entity_actions: bool = False
-    contract: ScenarioContract = ScenarioContract()
+    contract: ScenarioContract = field(kw_only=True)
 
 
 @dataclass(frozen=True)

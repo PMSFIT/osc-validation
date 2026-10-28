@@ -8,6 +8,7 @@ from osi_utilities import MessageType
 from osc_validation.dataproviders import BuiltinDataProvider
 from osc_validation.generation.osi2osc import osi2osc
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
+from osc_validation.versioning import OscVersion
 from osi_utilities import ChannelSpecification
 
 
@@ -47,6 +48,8 @@ def test_trajectory_and_osi_compliance(
 
     Validates that a tool-generated trajectory closely matches the original OSI trace
     for a given moving object, using similarity metrics within a specified tolerance.
+    In 1.4, custom interpolation is implementation-defined. The metric compares
+    trajectory samples by index and does not enforce exact vertex timestamps.
 
     Also runs qc_osi_trace on the tool-generated trace and checks if it complies with
     the OSI 3.7.0 ruleset.
@@ -61,6 +64,9 @@ def test_trajectory_and_osi_compliance(
     )
     osc_path = osi2osc(
         contract=scenario_contract,
+        interpolation_policy=(
+            "custom" if scenario_contract.osc_version == OscVersion.V1_4_0 else None
+        ),
         osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc.xosc",
         path_xodr=odr_file,

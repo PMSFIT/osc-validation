@@ -1,3 +1,5 @@
+from osc_validation.versioning import OscVersion, ScenarioContract
+
 import math
 
 from lxml import etree
@@ -32,6 +34,7 @@ def _actor(speed_mps: float | None = None) -> InitActionOracleActor:
 def test_init_teleport_action_case_generates_xosc_and_stationary_reference(tmp_path):
     result = build_init_teleport_action_case(
         InitActionCaseSpec(
+            contract=ScenarioContract(OscVersion.V1_3_0),
             output_xosc_path=tmp_path / "init_teleport.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path / "reference_init_teleport.mcap",
@@ -88,6 +91,7 @@ def test_init_speed_action_case_generates_speed_action_and_moving_reference(tmp_
     speed_mps = 4.0
     result = build_init_speed_action_case(
         InitActionCaseSpec(
+            contract=ScenarioContract(OscVersion.V1_3_0),
             output_xosc_path=tmp_path / "init_speed.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path / "reference_init_speed.mcap",

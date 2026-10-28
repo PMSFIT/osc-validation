@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from osi_utilities import ChannelSpecification
@@ -51,7 +51,7 @@ class InitActionCaseSpec:
     sample_period_s: float
     road_network_path: Path | None = None
     host_vehicle_id: int | None = None
-    contract: ScenarioContract = ScenarioContract()
+    contract: ScenarioContract = field(kw_only=True)
 
 
 @dataclass(frozen=True)

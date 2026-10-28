@@ -167,12 +167,21 @@ strict = true
     assert report.xpath("//property[@name='osc_version']/@value") == ["1.3.0", "1.4.0"]
 
 
-@pytest.mark.parametrize("version,expected", [("1.3.1", "XPASS"), ("1.4.0", "PASSED")])
+@pytest.mark.parametrize(
+    "version,expected", [("1.3.1", "XPASS"), ("1.4.0", "DESELECTED")]
+)
 @pytest.mark.parametrize("root_mode", ["repository", "validation"])
-def test_packaged_profile_matches_with_both_rootdirs(
+def test_profile_matches_with_both_rootdirs(
     tmp_path, version, expected, root_mode
 ):
     repo = Path(__file__).resolve().parents[1]
+    profile = tmp_path / "profile.toml"
+    profile.write_text(
+        '[[xfail]]\n'
+        'test = "scenario/trajectories/val_interpolation.py::test_legacy_linear_polyline_interpolation"\n'
+        'reason = "Example profile for legacy interpolation"\n',
+        encoding="utf-8",
+    )
     wrapper = tmp_path / "wrapper.py"
     wrapper.write_text(
         textwrap.dedent(
@@ -219,14 +228,18 @@ def test_packaged_profile_matches_with_both_rootdirs(
         version,
         "--include-exploratory",
         "--test-profile",
-        str(repo / "docs/example_test_profile/interpolation_1_3_1.toml"),
+        str(profile),
         "-v",
     ]
     result = subprocess.run(
         command, cwd=repo, env=env, capture_output=True, text=True, timeout=60
     )
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert f"[osc-{version}] {expected}" in result.stdout
+    if expected == "DESELECTED":
+        assert result.returncode == 5, result.stdout + result.stderr
+        assert "0 selected" in result.stdout
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert f"[osc-{version}] {expected}" in result.stdout
     assert "PytestUnknownMarkWarning" not in result.stdout
 
 
@@ -255,7 +268,14 @@ def test_contract_reaches_generated_xml(tmp_path, version, case):
                     0
                 ].vehicle_classification.type = 4
                 writer.write_message(message)
-        osi2osc(trace, output, contract=contract)
+        osi2osc(
+            trace,
+            output,
+            contract=contract,
+            interpolation_policy=(
+                "standard_default" if version == OscVersion.V1_4_0 else None
+            ),
+        )
     elif case in {"teleport", "add_entity", "speed"}:
         actor = InitActionOracleActor(
             entity_ref="Ego",
@@ -319,6 +339,67 @@ def test_contract_reaches_generated_xml(tmp_path, version, case):
 def test_contract_rejects_unknown_future_release():
     with pytest.raises(ValueError):
         ScenarioContract("1.5.0")
+
+
+@pytest.mark.parametrize(
+    "version,policy", [(OscVersion.V1_3_1, None), (OscVersion.V1_4_0, "custom")]
+)
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnknownMarkWarning")
+def test_replay_case_uses_version_policy_and_preserves_checks(
+    tmp_path, monkeypatch, version, policy
+):
+    from osc_validation.validation.scenario.trajectories import (
+        val_simple_trajectories as replay,
+    )
+
+    calls = {}
+
+    def generate_scenario(**kwargs):
+        calls["contract"] = kwargs["contract"]
+        calls["policy"] = kwargs["interpolation_policy"]
+        return tmp_path / "scenario.xosc"
+
+    class Metric:
+        def __init__(self, **kwargs):
+            pass
+
+        def compute(self, **kwargs):
+            calls["metric"] = kwargs
+            return 0.0, 0.0, 0.0
+
+    monkeypatch.setattr(replay, "osi2osc", generate_scenario)
+    monkeypatch.setattr(replay, "TrajectorySimilarityMetric", Metric)
+    output = ChannelSpecification(tmp_path / "tool.mcap", message_type="SensorView")
+    replay.test_trajectory_and_osi_compliance(
+        scenario_contract=ScenarioContract(version),
+        osi_trace=tmp_path / "input.mcap",
+        odr_file=tmp_path / "map.xodr",
+        generate_tool_trace=lambda **kwargs: output,
+        assert_osi_compliance=lambda **kwargs: calls.update(qc=kwargs),
+        tmp_path=tmp_path,
+        moving_object_id=1,
+    )
+    assert calls["contract"].osc_version == version
+    assert calls["policy"] == policy
+    assert calls["qc"]["channel_spec"] == output
+    assert calls["metric"]["tool_channel_spec"] == output
+
+
+def test_internal_generation_requires_explicit_contract():
+    from osc_validation.generation.xosc_builders import XoscHeader
+    from osc_validation.cases.init_actions.models import InitActionsXoscRequest
+    from osc_validation.cases.interpolation.generation import (
+        TrajectoryInterpolationXoscRequest,
+    )
+
+    with pytest.raises(TypeError, match="osc_version"):
+        ScenarioContract()
+    with pytest.raises(TypeError, match="contract"):
+        XoscHeader()
+    with pytest.raises(TypeError, match="contract"):
+        InitActionsXoscRequest(Path("case.xosc"), [], 1.0)
+    with pytest.raises(TypeError, match="contract"):
+        TrajectoryInterpolationXoscRequest(Path("case.xosc"), None, 1.0)
 
 
 def test_existing_profile_patterns_match_versioned_parameter_ids():

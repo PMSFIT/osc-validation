@@ -25,13 +25,6 @@ Exploratory tests are excluded by default. When explicitly included, their
 failures affect the run's exit status just like other tests. Run them separately
 when a conformance-only result is needed.
 
-Existing shared cases are available for 1.3.0, 1.3.1, and 1.4.0. Their existing
-references and assertions are reused for both releases; their applicability
-has not been exhaustively verified against every specification change. The
-timed-polyline conformance case has a version-specific 1.4.0 expectation. A case
-being absent from a version does not establish that an implementation is
-nonconforming, nor does passing the available cases establish full compliance.
-
 ## Writing a case
 
 Use a single explicit marker on each test. List multiple releases only after
@@ -48,14 +41,10 @@ def test_init_action(scenario_contract, ...):
 ```
 
 The `osc_version` fixture is also available for cases with version-specific
-expectations. Use `scenario_contract` when generating XOSC, including through
-`osi2osc`, to ensure the header matches the collected contract. Generators used
-outside validation continue to default to 1.3.0 for compatibility; pass
-`ScenarioContract(OscVersion.V1_4_0)` explicitly to select 1.4.0. New generators
-must validate the availability of any version-specific constructs they emit;
-the contract by itself does not validate arbitrary XML against a schema. The
-`generate_tool_trace` fixture checks the XOSC header against the selected
-contract before invoking the engine, catching a missing or incorrect contract.
+expectations. Pass `scenario_contract` when generating XOSC. Generators must
+validate the availability of version-specific constructs; a contract alone does
+not validate XML against a schema. The `generate_tool_trace` fixture checks the
+XOSC header against the selected contract before invoking the engine.
 
 When versions define different behavior, either use the `osc_version` fixture
 to select explicit expectations or write separate tests. Mark non-normative
@@ -74,5 +63,3 @@ component is removed. Older two-component version patterns match all patch
 releases of that major/minor version. Inspect `--collect-only` output for the
 full IDs before writing version-specific patterns.
 
-The 1.4 interpolation expectation follows the default timed-polyline behavior
-in [ASAM OpenSCENARIO XML 1.4, section 6.9](https://openscenario.asam.net/ASAM_OpenSCENARIO_XML/v1.4.0/06_general_concepts/06_09_trajectories.html).

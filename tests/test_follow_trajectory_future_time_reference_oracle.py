@@ -1,3 +1,5 @@
+from osc_validation.versioning import OscVersion, ScenarioContract
+
 import math
 
 from lxml import etree
@@ -26,6 +28,7 @@ def test_future_time_reference_case_generates_speed_action_and_delayed_teleport_
     )
     result = build_follow_trajectory_future_time_reference_case(
         FollowTrajectoryFutureTimeReferenceCaseSpec(
+            contract=ScenarioContract(OscVersion.V1_3_0),
             output_xosc_path=tmp_path / "future_time_reference.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path / "reference_future_time_reference.mcap",

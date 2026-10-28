@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import Callable
 
 from lxml import etree
+from osc_validation.versioning import ScenarioContract
 
 
 @dataclass(frozen=True)
 class XoscHeader:
-    rev_major: int | str = 1
-    rev_minor: int | str = 3
+    contract: ScenarioContract
     author: str = ""
     description: str = ""
     license_name: str = ""
@@ -77,8 +77,8 @@ def build_open_scenario_root(
     file_header = etree.SubElement(
         root,
         "FileHeader",
-        revMajor=str(header.rev_major),
-        revMinor=str(header.rev_minor),
+        revMajor=str(header.contract.osc_version.major),
+        revMinor=str(header.contract.osc_version.minor),
         date=datetime.today().strftime("%Y-%m-%dT%H:%M:%S"),
         author=header.author,
         description=header.description,

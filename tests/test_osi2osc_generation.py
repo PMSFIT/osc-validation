@@ -12,6 +12,7 @@ from osc_validation.generation.osi2osc import (
     parse_moving_objects,
 )
 from tests.conftest import _make_ground_truth, _make_sensor_view
+from osc_validation.versioning import OscVersion, ScenarioContract
 
 
 @pytest.mark.parametrize(
@@ -49,6 +50,71 @@ def test_converter_init_pose_policies_preserve_placement(tmp_path, policy):
             ) == pytest.approx(0.75)
             for attribute in ["z", "h", "p", "r"]:
                 assert init.get(attribute) == start.get(attribute)
+
+
+@pytest.mark.parametrize(
+    "version,policy,schema_file",
+    [
+        (OscVersion.V1_3_1, None, "OpenSCENARIOv1.3.1.xsd"),
+        (OscVersion.V1_4_0, "standard_default", "OpenSCENARIOv1.4.xsd"),
+        (OscVersion.V1_4_0, "custom", "OpenSCENARIOv1.4.xsd"),
+        (OscVersion.V1_4_0, None, "OpenSCENARIOv1.4.xsd"),
+    ],
+)
+def test_interpolation_policies_produce_schema_valid_scenarios(
+    tmp_path, version, policy, schema_file
+):
+    trace = ChannelSpecification(path=tmp_path / "input.osi", message_type="SensorView")
+    with open_channel_writer(trace) as writer:
+        for time, x in [(0.0, 10.0), (1.0, 11.0), (2.0, 13.0)]:
+            writer.write_message(_make_sensor_view_frame(time, 2, x, x - 10))
+    output = osi2osc(
+        trace,
+        tmp_path / "scenario.xosc",
+        contract=ScenarioContract(version),
+        interpolation_policy=policy,
+    )
+    tree = etree.parse(str(output))
+    # See tests/data/README.md for schema provenance.
+    schema = etree.XMLSchema(
+        etree.parse(str(Path(__file__).parent / "data" / schema_file))
+    )
+    assert schema.validate(tree), str(schema.error_log)
+    for polyline in tree.findall(".//Polyline"):
+        assert [vertex.get("time") for vertex in polyline.findall("Vertex")] == [
+            "0.0",
+            "1.0",
+            "2.0",
+        ]
+        tags = [child.tag for child in polyline]
+        assert tags == ["Vertex", "Vertex", "Vertex"] + (
+            ["Interpolation"]
+            if version == OscVersion.V1_4_0 and policy != "standard_default"
+            else []
+        )
+
+
+@pytest.mark.parametrize(
+    "version,policy",
+    [
+        (OscVersion.V1_3_0, "custom"),
+        (OscVersion.V1_3_1, "standard_default"),
+        (OscVersion.V1_4_0, "unknown"),
+    ],
+)
+def test_converter_rejects_invalid_policy_before_reading_or_writing(
+    tmp_path, version, policy
+):
+    output = tmp_path / "scenario.xosc"
+    output.write_text("existing scenario")
+    with pytest.raises(ValueError, match="interpolation_policy"):
+        osi2osc(
+            ChannelSpecification(tmp_path / "missing.osi", message_type="SensorView"),
+            output,
+            contract=ScenarioContract(version),
+            interpolation_policy=policy,
+        )
+    assert output.read_text() == "existing scenario"
 
 
 def _configure_vehicle(moving_object, obj_id: int, x: float, y: float) -> None:

@@ -78,10 +78,10 @@ osc-validate --tool ESMini --osc-version 1.3.1 --osc-version 1.4.0
 ```
 
 Only cases explicitly declared for a selected version run. The version is part
-of each test ID and the generated XOSC header. Existing shared cases are
-available for 1.3.0, 1.3.1, and 1.4.0; the 1.4.0 interpolation case has a
-version-specific expectation. Sharing a case assumes its existing reference
-and assertions are appropriate for both releases.
+of each test ID and the generated XOSC header. The recorded-trace replay case
+uses custom interpolation for 1.4; its trajectory metric compares samples by
+index and can be affected by simulator interpolation and timestamp alignment.
+Shared case expectations have not been exhaustively reviewed for 1.4.
 Add `--include-exploratory` to include checks for behavior that is not asserted
 as a conformance requirement. See [version contracts](docs/version_contracts.md)
 for authoring and reporting details.
@@ -366,10 +366,16 @@ Project code should pass OSI traces around as `ChannelSpecification` instances. 
 Test cases are built using the previously described components and pytest's built-in functionality.
 
 ```python
+@pytest.mark.osc_versions("1.4.0")
 @pytest.mark.parametrize("moving_object_id", [1, 2, 3])
-def example_test_case(osi_trace, odr_file, generate_tool_trace, tmp_path, moving_object_id, tolerance=1e-6):
+def example_test_case(scenario_contract, osi_trace, odr_file, generate_tool_trace, tmp_path, moving_object_id, tolerance=1e-6):
     [...]
 ```
+
+The `osc_versions` marker declares which OpenSCENARIO XML versions the case
+applies to; the run command selects which versions to run. Pass
+`scenario_contract` to scenario generation. See [version contracts](docs/version_contracts.md)
+for details.
 
 - Integrate pytest fixtures' names in the test case function as function parameters
     - Resource fixtures (e.g., `osi_trace`, `odr_file`)
