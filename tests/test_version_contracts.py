@@ -167,6 +167,69 @@ strict = true
     assert report.xpath("//property[@name='osc_version']/@value") == ["1.3.0", "1.4.0"]
 
 
+@pytest.mark.parametrize("version,expected", [("1.3.1", "XPASS"), ("1.4.0", "PASSED")])
+@pytest.mark.parametrize("root_mode", ["repository", "validation"])
+def test_packaged_profile_matches_with_both_rootdirs(
+    tmp_path, version, expected, root_mode
+):
+    repo = Path(__file__).resolve().parents[1]
+    wrapper = tmp_path / "wrapper.py"
+    wrapper.write_text(
+        textwrap.dedent(
+            """
+        import shutil
+        class Tool:
+            def run(self, osc_path, odr_path, osi_output_spec, **kwargs):
+                output = osi_output_spec.path
+                reference = output.with_name(output.name.replace("tool_trace_", "reference_"))
+                shutil.copyfile(reference, output)
+                return osi_output_spec
+        def create_tool(toolpath): return Tool()
+    """
+        )
+    )
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(repo) + os.pathsep + env.get("PYTHONPATH", "")
+    validation_dir = repo / "osc_validation/validation"
+    config = (
+        repo / "pyproject.toml"
+        if root_mode == "repository"
+        else validation_dir / "pytest.ini"
+    )
+    rootdir = repo if root_mode == "repository" else validation_dir
+    command = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "-c",
+        str(config),
+        f"--rootdir={rootdir}",
+        "--import-mode=importlib",
+        str(
+            repo
+            / "osc_validation/validation/scenario/trajectories/val_interpolation.py"
+        ),
+        "-k",
+        "test_legacy_linear_polyline_interpolation",
+        "--tool",
+        "fake",
+        "--tool-wrapper-module",
+        str(wrapper),
+        "--osc-version",
+        version,
+        "--include-exploratory",
+        "--test-profile",
+        str(repo / "docs/example_test_profile/interpolation_1_3_1.toml"),
+        "-v",
+    ]
+    result = subprocess.run(
+        command, cwd=repo, env=env, capture_output=True, text=True, timeout=60
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"[osc-{version}] {expected}" in result.stdout
+    assert "PytestUnknownMarkWarning" not in result.stdout
+
+
 @pytest.mark.parametrize("version", list(OscVersion))
 @pytest.mark.parametrize(
     "case",

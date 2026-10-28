@@ -226,6 +226,12 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "exploratory: behavior check excluded from conformance runs"
     )
+    config.addinivalue_line(
+        "markers", "validation_category(name): Validation case category"
+    )
+    config.addinivalue_line(
+        "markers", "validation_feature(name): OpenSCENARIO feature covered by the case"
+    )
     config._osc_validation_run_start_time = datetime.datetime.now().astimezone()
     config._osc_tool = None
     config._osc_tool_version = None
@@ -325,13 +331,32 @@ def pytest_collection_modifyitems(config, items):
     if profile is None:
         return
     for item in items:
-        entry = profile.xfail_for(item.nodeid)
+        canonical_nodeid = _validation_nodeid(item)
+        entry = next(
+            (
+                entry
+                for entry in profile.xfails
+                if entry.matches(item.nodeid) or entry.matches(canonical_nodeid)
+            ),
+            None,
+        )
         if entry is not None:
             marker = pytest.mark.xfail(
                 reason=entry.reason,
                 strict=entry.strict,
             )
             item.add_marker(marker, append=False)
+
+
+def _validation_nodeid(item):
+    """Resolve packaged test IDs relative to the validation suite root."""
+    validation_root = pathlib.Path(__file__).resolve().parent / "validation"
+    try:
+        relative_path = pathlib.Path(item.path).resolve().relative_to(validation_root)
+    except ValueError:
+        return item.nodeid
+    _, separator, suffix = item.nodeid.partition("::")
+    return relative_path.as_posix() + (separator + suffix if separator else "")
 
 
 def _declared_versions(marker, nodeid):
