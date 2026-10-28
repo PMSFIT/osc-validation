@@ -19,6 +19,7 @@ from osc_validation.generation.xosc_builders import (
     build_open_scenario_root,
     write_xosc_tree,
 )
+from osc_validation.versioning import ScenarioContract
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,7 @@ class FollowTrajectoryTeleportXoscRequest:
     action_start_time_s: float
     stop_time_s: float
     road_network_path: Path | None = None
+    contract: ScenarioContract = ScenarioContract()
 
 
 @dataclass(frozen=True)
@@ -195,6 +197,8 @@ def build_follow_trajectory_teleport_xosc(
 
     xml_root, xml_entities, xml_storyboard = build_open_scenario_root(
         XoscHeader(
+            rev_major=request.contract.osc_version.major,
+            rev_minor=request.contract.osc_version.minor,
             author="OSC Validation FollowTrajectory Teleport Oracle",
             description="FollowTrajectoryAction position-mode teleport validation scenario",
         ),

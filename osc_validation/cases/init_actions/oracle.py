@@ -13,6 +13,7 @@ from osc_validation.cases.init_actions.reference import (
     InitActionReferenceRequest,
     build_init_actions_reference_trace,
 )
+from osc_validation.versioning import ScenarioContract
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,7 @@ class InitActionCaseSpec:
     sample_period_s: float
     road_network_path: Path | None = None
     host_vehicle_id: int | None = None
+    contract: ScenarioContract = ScenarioContract()
 
 
 @dataclass(frozen=True)
@@ -103,6 +105,7 @@ def _build_init_action_case(spec: InitActionCaseSpec) -> InitActionCaseResult:
 
     xosc_result = build_init_actions_xosc(
         InitActionsXoscRequest(
+            contract=spec.contract,
             output_xosc_path=spec.output_xosc_path,
             actors=[_to_generation_actor(actor) for actor in spec.actors],
             stop_time_s=spec.duration_s,
@@ -152,6 +155,7 @@ def build_init_teleport_action_case(spec: InitActionCaseSpec) -> InitActionCaseR
     ]
     return _build_init_action_case(
         InitActionCaseSpec(
+            contract=spec.contract,
             output_xosc_path=spec.output_xosc_path,
             output_reference_channel_spec=spec.output_reference_channel_spec,
             actors=actors,
@@ -189,6 +193,7 @@ def build_init_add_entity_action_case(spec: InitActionCaseSpec) -> InitActionCas
 
     xosc_result = build_init_actions_xosc(
         InitActionsXoscRequest(
+            contract=spec.contract,
             output_xosc_path=spec.output_xosc_path,
             actors=[_to_generation_actor(actor) for actor in actors],
             stop_time_s=spec.duration_s,

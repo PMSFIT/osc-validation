@@ -13,6 +13,7 @@ from osc_validation.cases.interpolation.reference import (
     TrajectoryInterpolationReferenceRequest,
     build_trajectory_interpolation_reference_trace,
 )
+from osc_validation.versioning import ScenarioContract
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ class TrajectoryInterpolationCaseSpec:
     host_vehicle_id: int | None = None
     interpolation_mode: TrajectoryInterpolationReferenceMode = "linear_position"
     initial_speed_mps: float = 0.0
+    contract: ScenarioContract = ScenarioContract()
 
 
 @dataclass(frozen=True)
@@ -39,6 +41,7 @@ def build_trajectory_interpolation_case(
 ) -> TrajectoryInterpolationCaseResult:
     xosc_result = build_trajectory_interpolation_xosc(
         TrajectoryInterpolationXoscRequest(
+            contract=spec.contract,
             output_xosc_path=spec.output_xosc_path,
             actor=spec.actor,
             stop_time_s=spec.stop_time_s,

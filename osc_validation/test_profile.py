@@ -20,6 +20,7 @@ Example profile file::
 from __future__ import annotations
 
 import sys
+import re
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
@@ -42,17 +43,23 @@ class XFailEntry:
     def matches(self, node_id: str) -> bool:
         """Return True if *node_id* matches this entry's test pattern."""
         return _matches_node_id_pattern(node_id, self.test) and not any(
-            _matches_except_pattern(node_id, pattern) for pattern in self.except_patterns
+            _matches_except_pattern(node_id, pattern)
+            for pattern in self.except_patterns
         )
 
 
 def _matches_node_id_pattern(node_id: str, pattern: str) -> bool:
     """Return True if *node_id* matches a full pytest node ID pattern."""
-    return (
-        node_id == pattern
-        or _unparameterized_node_id(node_id) == pattern
-        or fnmatch(node_id, pattern)
-        or fnmatch(node_id, _escape_parameter_bracket_glob(pattern))
+    return any(
+        candidate == pattern
+        or _unparameterized_node_id(candidate) == pattern
+        or fnmatch(candidate, pattern)
+        or fnmatch(candidate, _escape_parameter_bracket_glob(pattern))
+        for candidate in (
+            node_id,
+            _without_osc_version(node_id),
+            _minor_version_node_id(node_id),
+        )
     )
 
 
@@ -72,7 +79,37 @@ def _matches_except_pattern(node_id: str, pattern: str) -> bool:
         return _matches_node_id_pattern(node_id, pattern)
 
     parameter_id = _parameter_id(node_id)
-    return parameter_id is not None and fnmatch(parameter_id, pattern)
+    if parameter_id is None:
+        return False
+    unversioned_id = _parameter_id(_without_osc_version(node_id))
+    minor_id = _parameter_id(_minor_version_node_id(node_id))
+    return any(
+        value is not None and fnmatch(value, pattern)
+        for value in (parameter_id, unversioned_id, minor_id)
+    )
+
+
+def _without_osc_version(node_id: str) -> str:
+    """Allow profiles authored before version parametrization to keep matching."""
+    parameter_id = _parameter_id(node_id)
+    if parameter_id is None:
+        return node_id
+    unversioned_id = re.sub(
+        r"(^|-)osc-\d+\.\d+(?:\.\d+)?(-|$)",
+        lambda match: "-" if match.group(1) and match.group(2) else "",
+        parameter_id,
+    )
+    base = _unparameterized_node_id(node_id)
+    return f"{base}[{unversioned_id}]" if unversioned_id else base
+
+
+def _minor_version_node_id(node_id: str) -> str:
+    """Keep pre-patch profile patterns applicable to every patch release."""
+    parameter_id = _parameter_id(node_id)
+    if parameter_id is None:
+        return node_id
+    minor_id = re.sub(r"(^|-)osc-(\d+\.\d+)\.\d+(?=-|$)", r"\1osc-\2", parameter_id)
+    return f"{_unparameterized_node_id(node_id)}[{minor_id}]"
 
 
 def _unparameterized_node_id(node_id: str) -> str:

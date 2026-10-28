@@ -17,6 +17,7 @@ from osc_validation.cases.init_actions.models import (
     InitActionsXoscRequest,
     InitActionsXoscResult,
 )
+from osc_validation.versioning import ScenarioContract
 
 
 def _float(value: float) -> str:
@@ -108,6 +109,8 @@ def build_init_actions_xosc(request: InitActionsXoscRequest) -> InitActionsXoscR
 
     xml_root, xml_entities, xml_storyboard = build_open_scenario_root(
         XoscHeader(
+            rev_major=request.contract.osc_version.major,
+            rev_minor=request.contract.osc_version.minor,
             author="OSC Validation InitActions Oracle",
             description="InitActions validation scenario",
         ),

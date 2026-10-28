@@ -26,10 +26,12 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("object_state")
 @pytest.mark.validation_feature("Vehicle dimensions")
 @pytest.mark.parametrize("moving_object_id", [1, 2])
 def test_vehicle_dimensions_match_reference(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -50,6 +52,7 @@ def test_vehicle_dimensions_match_reference(
         osi_trace, message_type=MessageType.SENSOR_VIEW
     )
     osc_path = osi2osc(
+        contract=scenario_contract,
         osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc_dimensions.xosc",
         path_xodr=odr_file,

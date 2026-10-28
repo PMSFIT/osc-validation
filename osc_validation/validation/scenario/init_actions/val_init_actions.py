@@ -59,9 +59,11 @@ def _compute_object_state_metric(
     )
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("init_action")
 @pytest.mark.validation_feature("Init TeleportAction")
 def test_init_teleport_action_places_actor_at_expected_pose(
+    scenario_contract,
     odr_file: Path,
     generate_tool_trace: Callable,
     assert_osi_compliance: Callable,
@@ -78,6 +80,7 @@ def test_init_teleport_action_places_actor_at_expected_pose(
     rate = 0.05
     case_result = build_init_teleport_action_case(
         InitActionCaseSpec(
+            contract=scenario_contract,
             output_xosc_path=tmp_path / "init_teleport_action.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path / "reference_init_teleport_action.mcap",
@@ -125,9 +128,11 @@ def test_init_teleport_action_places_actor_at_expected_pose(
     assert metric_result.max_orientation_error < 0.01
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("init_action")
 @pytest.mark.validation_feature("Init AddEntityAction")
 def test_init_add_entity_action_places_actor_at_expected_pose(
+    scenario_contract,
     odr_file: Path,
     generate_tool_trace: Callable,
     assert_osi_compliance: Callable,
@@ -144,6 +149,7 @@ def test_init_add_entity_action_places_actor_at_expected_pose(
     rate = 0.05
     case_result = build_init_add_entity_action_case(
         InitActionCaseSpec(
+            contract=scenario_contract,
             output_xosc_path=tmp_path / "init_add_entity_action.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path / "reference_init_add_entity_action.mcap",
@@ -191,9 +197,11 @@ def test_init_add_entity_action_places_actor_at_expected_pose(
     assert metric_result.max_orientation_error < 0.01
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("init_action")
 @pytest.mark.validation_feature("Init SpeedAction")
 def test_init_speed_action_sets_expected_motion(
+    scenario_contract,
     odr_file: Path,
     generate_tool_trace: Callable,
     assert_osi_compliance: Callable,
@@ -211,6 +219,7 @@ def test_init_speed_action_sets_expected_motion(
     speed_mps = 5.0
     case_result = build_init_speed_action_case(
         InitActionCaseSpec(
+            contract=scenario_contract,
             output_xosc_path=tmp_path / "init_speed_action.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path / "reference_init_speed_action.mcap",

@@ -29,9 +29,11 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trigger")
 @pytest.mark.validation_feature("Condition delay")
 def test_distance_longitudinal_start_trigger_respects_condition_delay(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -47,6 +49,7 @@ def test_distance_longitudinal_start_trigger_respects_condition_delay(
     """
 
     _run_distance_longitudinal_start_trigger_case(
+        scenario_contract=scenario_contract,
         osi_trace=osi_trace,
         odr_file=odr_file,
         generate_tool_trace=generate_tool_trace,
@@ -56,9 +59,11 @@ def test_distance_longitudinal_start_trigger_respects_condition_delay(
     )
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trigger")
 @pytest.mark.validation_feature("Condition delay")
 def test_speed_start_trigger_respects_condition_delay(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -74,6 +79,7 @@ def test_speed_start_trigger_respects_condition_delay(
     """
 
     _run_speed_start_trigger_case(
+        scenario_contract=scenario_contract,
         osi_trace=osi_trace,
         odr_file=odr_file,
         generate_tool_trace=generate_tool_trace,

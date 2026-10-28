@@ -53,6 +53,14 @@ For brevity, the `poetry run` prefix is omitted in the rest of this documentatio
 pytest osc_validation/validation --collect-only
 ```
 
+List tests for a specific OpenSCENARIO XML release:
+
+```bash
+pytest osc_validation/validation --collect-only -q --osc-version 1.3.1
+```
+
+Add `--include-exploratory` to include exploratory cases.
+
 ### Run validation
 
 Run the installed validation suite with an installed OpenSCENARIO engine:
@@ -60,6 +68,23 @@ Run the installed validation suite with an installed OpenSCENARIO engine:
 ```bash
 osc-validate --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
 ```
+
+The default contract is OpenSCENARIO XML 1.4.0. Select a different version, or
+run a version matrix, with `--osc-version`:
+
+```bash
+osc-validate --tool ESMini --osc-version 1.3.1
+osc-validate --tool ESMini --osc-version 1.3.1 --osc-version 1.4.0
+```
+
+Only cases explicitly declared for a selected version run. The version is part
+of each test ID and the generated XOSC header. Existing shared cases are
+available for 1.3.0, 1.3.1, and 1.4.0; the 1.4.0 interpolation case has a
+version-specific expectation. Sharing a case assumes its existing reference
+and assertions are appropriate for both releases.
+Add `--include-exploratory` to include checks for behavior that is not asserted
+as a conformance requirement. See [version contracts](docs/version_contracts.md)
+for authoring and reporting details.
 
 - `<TOOL_NAME>`: Name of the OpenSCENARIO engine to test (e.g., `ESMini`, `GTGen`)
 - `<PATH_TO_TOOL_EXECUTABLE>`: Path to the tool's executable
@@ -137,9 +162,8 @@ reason = "Sequencing not implemented"
 strict = true  # optional, default false — if true, an unexpected pass is a failure
 
 [[xfail]]
-test = "scenario/trajectories/val_interpolation.py::test_timed_polyline_trajectory_interpolation"
-except = ["linear_position-*"]
-reason = "Only linear position variants are expected to pass"
+test = "scenario/init_actions/val_init_actions.py::test_init_speed_action_sets_expected_motion[osc-1.3.1]"
+reason = "Init speed is unsupported for the 1.3.1 contract"
 ```
 
 Each `[[xfail]]` entry requires:
@@ -152,6 +176,12 @@ For example, `scenario/foo.py::test_bar` matches collected items such as `scenar
 Optional:
 - `strict` (bool, default `false`) — when `true`, the test is marked as failed if it unexpectedly passes
 - `except` (list of strings) — patterns selected by `test` that should not be marked xfail. Patterns containing `::` match full pytest node IDs; bare patterns match only parametrization IDs inside `[...]`.
+
+Existing patterns without a version continue to match versioned test IDs.
+Use a version in the parameter ID (for example `*osc-1.4.0*`) to restrict a
+profile rule or exception to a particular contract. Exploratory test failures
+are reported as test failures when explicitly included, so keep them separate
+from a conformance-only run when interpreting results.
 
 ### Development checks
 

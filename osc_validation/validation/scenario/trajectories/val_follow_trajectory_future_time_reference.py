@@ -55,9 +55,11 @@ def _off_trajectory_init_pose() -> TrajectoryInterpolationVertex:
     )
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trajectory")
 @pytest.mark.validation_feature("FollowTrajectoryAction TimeReference")
 def test_follow_trajectory_future_time_reference_continues_init_speed_until_first_vertex(
+    scenario_contract,
     odr_file: Path,
     generate_tool_trace: Callable,
     assert_osi_compliance: Callable,
@@ -82,6 +84,7 @@ def test_follow_trajectory_future_time_reference_continues_init_speed_until_firs
     actor = _actor()
     case_result = build_follow_trajectory_future_time_reference_case(
         FollowTrajectoryFutureTimeReferenceCaseSpec(
+            contract=scenario_contract,
             output_xosc_path=tmp_path / "follow_trajectory_future_time_reference.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path

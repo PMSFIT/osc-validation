@@ -60,6 +60,7 @@ def _off_trajectory_init_pose() -> TrajectoryInterpolationVertex:
     )
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trajectory")
 @pytest.mark.validation_feature("FollowTrajectoryAction TimeReference")
 @pytest.mark.parametrize(
@@ -70,6 +71,7 @@ def _off_trajectory_init_pose() -> TrajectoryInterpolationVertex:
     ],
 )
 def test_follow_trajectory_position_mode_teleports_to_current_trajectory_time(
+    scenario_contract,
     odr_file: Path,
     generate_tool_trace: Callable,
     assert_osi_compliance: Callable,
@@ -94,6 +96,7 @@ def test_follow_trajectory_position_mode_teleports_to_current_trajectory_time(
     actor = _actor()
     case_result = build_follow_trajectory_teleport_case(
         FollowTrajectoryTeleportCaseSpec(
+            contract=scenario_contract,
             output_xosc_path=tmp_path / f"follow_trajectory_teleport_{case_name}.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path

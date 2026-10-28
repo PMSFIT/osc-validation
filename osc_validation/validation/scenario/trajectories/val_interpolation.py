@@ -54,16 +54,8 @@ def _actor() -> TrajectoryInterpolationActor:
     )
 
 
-@pytest.mark.validation_category("trajectory")
-@pytest.mark.validation_feature("FollowTrajectoryAction interpolation")
-@pytest.mark.parametrize(
-    ("interpolation_mode", "initial_speed_mps"),
-    [
-        ("linear_position", 0.0),
-        ("constant_acceleration_from_initial_speed", 0.0),
-    ],
-)
-def test_timed_polyline_trajectory_interpolation(
+def _run_interpolation_case(
+    scenario_contract,
     odr_file: Path,
     generate_tool_trace: Callable,
     assert_osi_compliance: Callable,
@@ -71,24 +63,14 @@ def test_timed_polyline_trajectory_interpolation(
     interpolation_mode: TrajectoryInterpolationReferenceMode,
     initial_speed_mps: float,
 ):
-    """
-    OpenSCENARIO feature: FollowTrajectoryAction with timed vertices and interpolation.
-
-    Validates that a FollowTrajectoryAction with position mode correctly follows
-    the trajectory and uses the configured interpolation mode.
-
-    With the release of OpenSCENARIO v1.4.0, the constant-acceleration
-    interpolation mode should be supported. So for older versions, this test is
-    not expected to pass for the constant acceleration mode. The linear position
-    interpolation mode is just added as a possible behavior for older versions,
-    but it is not required for compliance with OpenSCENARIO.
-    """
+    """Generate and compare one explicitly chosen interpolation expectation."""
 
     rate = 1.0
     actor = _actor()
     case_name = interpolation_mode
     case_result = build_trajectory_interpolation_case(
         TrajectoryInterpolationCaseSpec(
+            contract=scenario_contract,
             output_xosc_path=tmp_path / f"trajectory_interpolation_{case_name}.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path / f"reference_trajectory_interpolation_{case_name}.mcap",
@@ -152,3 +134,54 @@ def test_timed_polyline_trajectory_interpolation(
     assert (
         metric_result.max_dimension_error < 0.01
     ), "Trace should have max dimension error < 0.01m"
+
+
+@pytest.mark.osc_versions("1.4.0")
+@pytest.mark.validation_category("trajectory")
+@pytest.mark.validation_feature("FollowTrajectoryAction interpolation")
+@pytest.mark.parametrize(
+    ("interpolation_mode", "initial_speed_mps"),
+    [("constant_acceleration_from_initial_speed", 0.0)],
+)
+def test_timed_polyline_trajectory_interpolation(
+    scenario_contract,
+    odr_file,
+    generate_tool_trace,
+    assert_osi_compliance,
+    tmp_path,
+    interpolation_mode,
+    initial_speed_mps,
+):
+    """Validate the 1.4 default timed-polyline constant-acceleration contract."""
+    _run_interpolation_case(
+        scenario_contract,
+        odr_file,
+        generate_tool_trace,
+        assert_osi_compliance,
+        tmp_path,
+        interpolation_mode,
+        initial_speed_mps,
+    )
+
+
+@pytest.mark.osc_versions("1.3.0", "1.3.1")
+@pytest.mark.exploratory
+@pytest.mark.validation_category("trajectory")
+@pytest.mark.validation_feature("FollowTrajectoryAction interpolation")
+def test_legacy_linear_polyline_interpolation(
+    scenario_contract,
+    odr_file,
+    generate_tool_trace,
+    assert_osi_compliance,
+    tmp_path,
+):
+    """Explore linear interpolation; this is not a conformance requirement."""
+    _run_interpolation_case(
+        scenario_contract,
+        odr_file,
+        generate_tool_trace,
+        assert_osi_compliance,
+        tmp_path,
+        "linear_position",
+        0.0,
+    )

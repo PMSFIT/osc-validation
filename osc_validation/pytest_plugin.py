@@ -23,6 +23,7 @@ keeps them from affecting unrelated pytest sessions.
 """
 
 import datetime
+import functools
 import importlib
 import importlib.util
 import pathlib
@@ -31,6 +32,7 @@ import sys
 import uuid
 
 import pytest
+from lxml import etree
 
 from osc_validation import __version__ as osc_validation_version
 from osc_validation.assertions import make_assert_osi_compliance
@@ -39,6 +41,7 @@ from osc_validation.test_profile import load_test_profile
 from osc_validation.tools.esmini import ESMini
 from osc_validation.tools.gtgen_cli import GTGen_Simulator
 from osc_validation.tools.osc_simulator import OscSimulator
+from osc_validation.versioning import OscVersion, ScenarioContract
 
 OMEGA_PRIME_OSI_370_RULESET_URL = "https://raw.githubusercontent.com/thomassedlmayer/omega-prime/7ed09192ffeaa12bfab04281d17a5b5dc2702197/docs/osirules/omega-prime-osi_3-7-0.yml"
 
@@ -140,6 +143,19 @@ def _get_tool_version(tool):
 def pytest_addoption(parser):
     group = parser.getgroup("OSC Validation Suite")
     group.addoption(
+        "--osc-version",
+        action="append",
+        choices=[v.value for v in OscVersion],
+        default=None,
+        help="OpenSCENARIO XML contract; repeat for a version matrix (default: 1.4.0)",
+    )
+    group.addoption(
+        "--include-exploratory",
+        action="store_true",
+        default=False,
+        help="Include exploratory behavior checks in addition to conformance cases",
+    )
+    group.addoption(
         "--tool",
         action="store",
         metavar="TOOL",
@@ -203,6 +219,13 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     """Initialise the tool when ``--tool`` is provided."""
+    config.addinivalue_line(
+        "markers",
+        "osc_versions(*versions): explicitly supported OpenSCENARIO XML versions",
+    )
+    config.addinivalue_line(
+        "markers", "exploratory: behavior check excluded from conformance runs"
+    )
     config._osc_validation_run_start_time = datetime.datetime.now().astimezone()
     config._osc_tool = None
     config._osc_tool_version = None
@@ -227,7 +250,7 @@ def pytest_configure(config):
             raise pytest.UsageError(str(exc)) from exc
 
     metadata_key = _get_pytest_metadata_key()
-    if metadata_key is not None:
+    if metadata_key is not None and metadata_key in config.stash:
         metadata = config.stash[metadata_key]
         for key, value in _validation_metadata(config).items():
             metadata[key] = value
@@ -250,6 +273,9 @@ def _validation_metadata(config):
         datetime.datetime.now().astimezone(),
     )
     return {
+        "OpenSCENARIO XML Contracts": ", ".join(
+            config.getoption("--osc-version") or ["1.4.0"]
+        ),
         "Validation Suite": f"OSC Validation Suite {osc_validation_version}",
         "Validation Suite Path": str(pathlib.Path(__file__).parent),
         "Validated Tool": config.getoption("--tool"),
@@ -275,6 +301,26 @@ def _download_omega_prime_ruleset(tmp_path_factory):
 
 
 def pytest_collection_modifyitems(config, items):
+    selected, deselected = [], []
+    for item in items:
+        marker = item.get_closest_marker("osc_versions")
+        if marker is not None:
+            versions = _declared_versions(marker, item.nodeid)
+            version = item.callspec.params["osc_version"]
+            item.user_properties.append(("osc_version", str(version)))
+            exploratory = item.get_closest_marker("exploratory") is not None
+            item.user_properties.append(
+                ("expectation_kind", "exploratory" if exploratory else "conformance")
+            )
+            if version not in versions or (
+                exploratory and not config.getoption("--include-exploratory")
+            ):
+                deselected.append(item)
+                continue
+        selected.append(item)
+    items[:] = selected
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
     profile = getattr(config, "_osc_test_profile", None)
     if profile is None:
         return
@@ -286,6 +332,61 @@ def pytest_collection_modifyitems(config, items):
                 strict=entry.strict,
             )
             item.add_marker(marker, append=False)
+
+
+def _declared_versions(marker, nodeid):
+    if not marker.args or marker.kwargs:
+        raise pytest.UsageError(
+            f"{nodeid}: osc_versions requires an explicit list of versions"
+        )
+    try:
+        versions = tuple(OscVersion(value) for value in marker.args)
+    except ValueError as exc:
+        raise pytest.UsageError(
+            f"{nodeid}: unsupported OpenSCENARIO version: {exc}"
+        ) from exc
+    if len(set(versions)) != len(versions):
+        raise pytest.UsageError(f"{nodeid}: duplicate osc_versions declaration")
+    return versions
+
+
+def pytest_generate_tests(metafunc):
+    markers = list(metafunc.definition.iter_markers("osc_versions"))
+    if len(markers) > 1:
+        raise pytest.UsageError(
+            f"{metafunc.definition.nodeid}: multiple osc_versions declarations"
+        )
+    marker = markers[0] if markers else None
+    is_validation_case = pathlib.Path(str(metafunc.definition.path)).name.startswith(
+        "val_"
+    )
+    if marker is None:
+        if is_validation_case or "osc_version" in metafunc.fixturenames:
+            raise pytest.UsageError(
+                f"{metafunc.definition.nodeid}: missing osc_versions declaration"
+            )
+        return
+    _declared_versions(marker, metafunc.definition.nodeid)
+    selected_versions = metafunc.config.getoption("--osc-version") or ["1.4.0"]
+    if "osc_version" not in metafunc.fixturenames:
+        metafunc.fixturenames.append("osc_version")
+    versions = list(dict.fromkeys(selected_versions))
+    metafunc.parametrize(
+        "osc_version",
+        [OscVersion(v) for v in versions],
+        indirect=True,
+        ids=[f"osc-{v}" for v in versions],
+    )
+
+
+@pytest.fixture
+def osc_version(request):
+    return request.param
+
+
+@pytest.fixture
+def scenario_contract(osc_version):
+    return ScenarioContract(osc_version)
 
 
 @pytest.fixture(scope="session")
@@ -314,8 +415,8 @@ def assert_osi_compliance(request, tmp_path_factory):
     )
 
 
-@pytest.fixture(scope="session")
-def generate_tool_trace(request):
+@pytest.fixture
+def generate_tool_trace(request, scenario_contract):
     """
     Yields the run method of the initialized tool specified by the pytest
     options ``--tool`` and ``--toolpath``.
@@ -327,4 +428,30 @@ def generate_tool_trace(request):
             "No tool configured. Pass --tool (and optionally --toolpath) "
             "to specify the tool under test."
         )
-    yield tool.run
+
+    @functools.wraps(tool.run)
+    def run(*args, **kwargs):
+        osc_path = kwargs.get("osc_path", args[0] if args else None)
+        if osc_path is None:
+            raise TypeError("generate_tool_trace requires an osc_path")
+        try:
+            header = etree.parse(str(osc_path)).find("FileHeader")
+        except (OSError, etree.XMLSyntaxError) as exc:
+            raise ValueError(
+                f"Cannot read OpenSCENARIO file '{osc_path}': {exc}"
+            ) from exc
+        version = scenario_contract.osc_version
+        expected = (str(version.major), str(version.minor))
+        actual = (
+            (header.get("revMajor"), header.get("revMinor"))
+            if header is not None
+            else None
+        )
+        if actual != expected:
+            raise ValueError(
+                f"OpenSCENARIO header in '{osc_path}' declares {actual}; "
+                f"the selected contract is {version}."
+            )
+        return tool.run(*args, **kwargs)
+
+    return run

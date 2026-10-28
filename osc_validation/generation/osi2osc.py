@@ -10,6 +10,7 @@ from lxml import etree
 from osi3 import osi_object_pb2
 
 from osi_utilities import ChannelSpecification, MessageType, open_channel
+from osc_validation.versioning import ScenarioContract
 from osc_validation.utils.utils import timestamp_osi_to_float, rotatePointZYX
 from osc_validation.utils.utils import compute_close_to_trajectory_start_xy
 from .xosc_builders import (
@@ -24,6 +25,7 @@ from .xosc_builders import (
     write_xosc_tree,
 )
 
+# Retained as the standalone converter's historical default for API users.
 XOSC_VERSION_MAJOR = 1
 XOSC_VERSION_MINOR = 3
 XOSC_AUTHOR = "OSC Validation OSI2OSC Converter"
@@ -370,6 +372,7 @@ def osi2osc(
         "close_to_trajectory_start",
     ] = "origin",
     init_pose_close_threshold_m: float | None = None,
+    contract: ScenarioContract = ScenarioContract(),
 ) -> Path:
     """
     Converts an OSI GroundTruth or SensorView trace to an OpenSCENARIO XML file
@@ -379,6 +382,7 @@ def osi2osc(
         osi_trace_spec (ChannelSpecification): Input OSI trace file.
         path_xosc (Path): Output OpenSCENARIO file path.
         path_xodr (Path, optional): Optional OpenDRIVE map path to be integrated in the output OpenSCENARIO file.
+        contract: Target OpenSCENARIO XML version (standalone default: 1.3.0).
         init_pose_policy: Optional init pose policy. Default "origin" preserves
             converter defaults (`0,0,0` teleport init).
         init_pose_close_threshold_m: Threshold distance in meters for the "close_to_trajectory_start" init pose policy. Default is 0.5 meters.
@@ -421,8 +425,8 @@ def osi2osc(
 
     xml_root, xml_entities, xml_storyboard = build_open_scenario_root(
         XoscHeader(
-            rev_major=XOSC_VERSION_MAJOR,
-            rev_minor=XOSC_VERSION_MINOR,
+            rev_major=contract.osc_version.major,
+            rev_minor=contract.osc_version.minor,
             author=XOSC_AUTHOR,
             description=XOSC_DESCRIPTION,
             license_name=XOSC_LICENSE,

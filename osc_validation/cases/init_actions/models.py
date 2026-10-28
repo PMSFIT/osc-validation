@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from osc_validation.versioning import ScenarioContract
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ class InitActionsXoscRequest:
     road_network_path: Path | None = None
     include_teleport_actions: bool = True
     include_add_entity_actions: bool = False
+    contract: ScenarioContract = ScenarioContract()
 
 
 @dataclass(frozen=True)

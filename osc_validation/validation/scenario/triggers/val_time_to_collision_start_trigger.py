@@ -62,6 +62,7 @@ def _get_object_position_at_last_frame(
         )
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trigger")
 @pytest.mark.validation_feature("TimeToCollisionCondition")
 @pytest.mark.parametrize("moving_object_id", [2])
@@ -71,6 +72,7 @@ def _get_object_position_at_last_frame(
 @pytest.mark.parametrize("rate", [0.05])
 @pytest.mark.parametrize("tolerance", [0.3])
 def test_time_to_collision_start_trigger_activates_target_actor(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -115,6 +117,7 @@ def test_time_to_collision_start_trigger_activates_target_actor(
     )
 
     osc_path = osi2osc(
+        contract=scenario_contract,
         osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc_ttc_start_trigger.xosc",
         path_xodr=odr_file,

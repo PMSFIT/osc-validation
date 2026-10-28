@@ -15,6 +15,7 @@ from osc_validation.cases.follow_trajectory_future_time_reference.reference impo
     FollowTrajectoryFutureTimeReferenceReferenceRequest,
     build_follow_trajectory_future_time_reference_reference_trace,
 )
+from osc_validation.versioning import ScenarioContract
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,7 @@ class FollowTrajectoryFutureTimeReferenceCaseSpec:
     sample_period_s: float
     road_network_path: Path | None = None
     host_vehicle_id: int | None = None
+    contract: ScenarioContract = ScenarioContract()
 
 
 @dataclass(frozen=True)
@@ -42,6 +44,7 @@ def build_follow_trajectory_future_time_reference_case(
 ) -> FollowTrajectoryFutureTimeReferenceCaseResult:
     xosc_result = build_follow_trajectory_future_time_reference_xosc(
         FollowTrajectoryFutureTimeReferenceXoscRequest(
+            contract=spec.contract,
             output_xosc_path=spec.output_xosc_path,
             actor=spec.actor,
             init_pose=spec.init_pose,

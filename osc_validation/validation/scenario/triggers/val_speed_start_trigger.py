@@ -82,6 +82,7 @@ def odr_file(request):
 
 
 def _run_speed_start_trigger_case(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -122,6 +123,7 @@ def _run_speed_start_trigger_case(
     )
 
     osc_path = osi2osc(
+        contract=scenario_contract,
         osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / f"osi2osc_{case_name}.xosc",
         path_xodr=odr_file,
@@ -202,9 +204,11 @@ def _run_speed_start_trigger_case(
     assert mae < tolerance
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trigger")
 @pytest.mark.validation_feature("SpeedCondition")
 def test_speed_start_trigger_activates_target_actor(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -220,6 +224,7 @@ def test_speed_start_trigger_activates_target_actor(
     """
 
     _run_speed_start_trigger_case(
+        scenario_contract=scenario_contract,
         osi_trace=osi_trace,
         odr_file=odr_file,
         generate_tool_trace=generate_tool_trace,
@@ -230,9 +235,11 @@ def test_speed_start_trigger_activates_target_actor(
     )
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trigger")
 @pytest.mark.validation_feature("SpeedCondition")
 def test_speed_start_trigger_condition_edge_none_activates_when_initially_true(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -248,6 +255,7 @@ def test_speed_start_trigger_condition_edge_none_activates_when_initially_true(
     """
 
     _run_speed_start_trigger_case(
+        scenario_contract=scenario_contract,
         osi_trace=osi_trace,
         odr_file=odr_file,
         generate_tool_trace=generate_tool_trace,
@@ -258,9 +266,11 @@ def test_speed_start_trigger_condition_edge_none_activates_when_initially_true(
     )
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trigger")
 @pytest.mark.validation_feature("SpeedCondition")
 def test_speed_start_trigger_condition_edge_falling_activates(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -276,6 +286,7 @@ def test_speed_start_trigger_condition_edge_falling_activates(
     """
 
     _run_speed_start_trigger_case(
+        scenario_contract=scenario_contract,
         osi_trace=osi_trace,
         odr_file=odr_file,
         generate_tool_trace=generate_tool_trace,

@@ -35,6 +35,7 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trigger")
 @pytest.mark.validation_feature("SimulationTimeCondition")
 @pytest.mark.parametrize("moving_object_id", [1, 2])
@@ -50,6 +51,7 @@ def odr_file(request):
 @pytest.mark.parametrize("rate", [0.05])
 @pytest.mark.parametrize("tolerance", [2e-1])
 def test_simulation_time_start_trigger_delays_actor_trajectory(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -78,6 +80,7 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
         osi_trace, message_type="SensorView"
     )
     osc_path = osi2osc(
+        contract=scenario_contract,
         osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc_simulation_time_start_trigger.xosc",
         path_xodr=odr_file,

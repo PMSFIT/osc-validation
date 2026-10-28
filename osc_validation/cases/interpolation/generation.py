@@ -19,6 +19,7 @@ from osc_validation.cases.shared.trajectory_models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
+from osc_validation.versioning import ScenarioContract
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,7 @@ class TrajectoryInterpolationXoscRequest:
     actor: TrajectoryInterpolationActor
     stop_time_s: float
     road_network_path: Path | None = None
+    contract: ScenarioContract = ScenarioContract()
 
 
 @dataclass(frozen=True)
@@ -188,6 +190,8 @@ def build_trajectory_interpolation_xosc(
 
     xml_root, xml_entities, xml_storyboard = build_open_scenario_root(
         XoscHeader(
+            rev_major=request.contract.osc_version.major,
+            rev_minor=request.contract.osc_version.minor,
             author="OSC Validation Trajectory Interpolation Oracle",
             description="Trajectory interpolation validation scenario",
         ),

@@ -30,11 +30,14 @@ def pytest_runtest_makereport(item: pytest.Item, call):
     outcome = yield
     report = outcome.get_result()
 
-    if report.when != "call":
-        return
-
     report.validation_category = _marker_value(item, "validation_category")
     report.validation_feature = _marker_value(item, "validation_feature")
+    properties = dict(item.user_properties)
+    report.osc_version = properties.get("osc_version", "")
+    report.expectation_kind = properties.get("expectation_kind", "")
+
+    if report.when != "call":
+        return
 
     description = _test_description(item)
 
@@ -69,6 +72,8 @@ def pytest_runtest_makereport(item: pytest.Item, call):
 def pytest_html_results_table_header(cells):
     cells.insert(2, "<th>Validation Category</th>")
     cells.insert(3, "<th>OpenSCENARIO Feature</th>")
+    cells.insert(4, "<th>OpenSCENARIO Version</th>")
+    cells.insert(5, "<th>Expectation</th>")
 
 
 @pytest.hookimpl(optionalhook=True)
@@ -77,3 +82,5 @@ def pytest_html_results_table_row(report, cells):
     feature = html.escape(getattr(report, "validation_feature", ""))
     cells.insert(2, f"<td>{category}</td>")
     cells.insert(3, f"<td>{feature}</td>")
+    cells.insert(4, f"<td>{html.escape(getattr(report, 'osc_version', ''))}</td>")
+    cells.insert(5, f"<td>{html.escape(getattr(report, 'expectation_kind', ''))}</td>")

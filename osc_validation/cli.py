@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from osc_validation.versioning import OscVersion
+
 
 def _validation_dir() -> Path:
     return Path(__file__).resolve().parent / "validation"
@@ -25,6 +27,18 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="osc-validate",
         description="Run the installed OSC validation suite.",
+    )
+    parser.add_argument(
+        "--osc-version",
+        action="append",
+        choices=[v.value for v in OscVersion],
+        default=None,
+        help="OpenSCENARIO XML contract; repeat for a matrix (default: 1.4.0)",
+    )
+    parser.add_argument(
+        "--include-exploratory",
+        action="store_true",
+        help="Include exploratory behavior checks",
     )
     parser.add_argument(
         "--tool",
@@ -105,6 +119,10 @@ def _pytest_args(args: argparse.Namespace, validation_dir: Path) -> list[str]:
         args.tool,
     ]
 
+    for version in args.osc_version or []:
+        pytest_args.extend(["--osc-version", version])
+    if args.include_exploratory:
+        pytest_args.append("--include-exploratory")
     if args.toolpath is not None:
         pytest_args.extend(["--toolpath", _resolve_from_cwd(args.toolpath)])
     if args.tool_wrapper_module is not None:
