@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#11171c">
+<title>Validation catalog · osc-validation</title>
+<style>
+  :root { color-scheme: dark; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e0e7ec; background: #11171c; --muted: #a6b5bd; --accent: #80cfb0; --line: #35424c; --panel: #1a2229; --control-border: #52646d; }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  a { color: var(--accent); text-underline-offset: 3px; overflow-wrap: anywhere; }
+  button, input, select { font: inherit; }
+  button, summary, select { cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  [hidden] { display: none !important; }
+  .shell { width: min(1200px, calc(100% - 32px)); margin-inline: auto; }
+  .skip-link { position: absolute; left: -10000px; }
+  .skip-link:focus { left: 16px; top: 8px; z-index: 2; background: var(--panel); padding: 8px; }
+  header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 18px 0 14px; }
+  .heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 28px; line-height: 1.3; font-weight: 650; letter-spacing: -.5px; }
+  .brand { color: var(--muted); font-size: 16px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 6px 24px; margin-top: 10px; color: var(--muted); font-size: 15px; }
+  .stats strong { color: #e0e7ec; font-weight: 650; font-variant-numeric: tabular-nums; }
+  main { padding-block: 16px 20px; }
+  .filters { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 10px; }
+  label { display: flex; flex-direction: column; gap: 5px; font-size: 14px; font-weight: 600; }
+  input, select { width: 100%; min-width: 0; padding: 8px 10px; color: #e0e7ec; background: var(--panel); border: 1px solid var(--control-border); border-radius: 5px; }
+  input::placeholder { color: var(--muted); }
+  input:hover, select:hover { border-color: var(--accent); }
+  .feature-filters { grid-column: 1 / -1; border: 0; padding: 0; margin: 0; min-width: 0; }
+  .feature-filters > summary { padding: 0; font-size: 14px; }
+  .feature-filters[open] > summary { margin-bottom: 6px; }
+  .badge-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .filter-badge { border: 1px solid var(--control-border); border-radius: 5px; background: var(--panel); color: var(--muted); padding: 4px 9px; font-size: 14px; overflow-wrap: anywhere; }
+  .filter-badge::before { content: '+'; display: inline-block; width: 1em; margin-right: 3px; }
+  .filter-badge[aria-pressed="true"] { background: #213e34; color: #a3e5c8; border-color: #579980; }
+  .filter-badge[aria-pressed="true"]::before { content: '✓'; }
+  .filter-badge:hover { border-color: var(--accent); }
+  .collections { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .collections button { background: transparent; color: var(--muted); border: 1px solid var(--control-border); border-radius: 5px; padding: 6px 12px; }
+  .collections button[aria-pressed="true"] { color: #e0e7ec; background: #2b3740; border-color: var(--accent); }
+  .collections #exploratory[aria-pressed="true"] { color: #f2d18c; border-color: #b28b40; }
+  #collection-description { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+  .feature-actions { display: flex; gap: 10px; margin-bottom: 6px; }
+  .feature-actions button { background: transparent; padding: 0; border: 0; font-size: 14px; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  #count { color: var(--muted); font-size: 14px; margin: 8px 0 12px; }
+  article { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 14px 16px 0; margin-bottom: 12px; }
+  .card-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .feature { font-size: 14px; font-weight: 600; color: var(--accent); margin: 0; }
+  .test-index { font: 14px ui-monospace, Consolas, monospace; color: var(--muted); }
+  article h2 { font-size: 19px; line-height: 1.4; font-weight: 650; margin: 5px 0 8px; overflow-wrap: anywhere; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin: 0; }
+  .kind, .category-badge { font-size: 14px; padding: 2px 8px; border-radius: 4px; }
+  .kind { text-transform: capitalize; }
+  .conformance { color: #a3e5c8; background: #213e34; }
+  .exploratory { color: #f2d18c; background: #40351f; }
+  .category-badge { color: #c0cdd5; background: #2b3740; }
+  .description { margin: 10px 0; }
+  .description p { margin: 0; }
+  .description p + p { margin-top: 14px; }
+  .card-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .version-list { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .version-label, .case-count { font-size: 14px; color: var(--muted); }
+  .tooltip { position: relative; display: inline-flex; }
+  .tooltip-trigger { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 1px solid var(--control-border); border-radius: 50%; background: transparent; color: var(--muted); font-size: 14px; }
+  .tooltip-text { visibility: hidden; position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 8px); z-index: 1; width: min(260px, 65vw); padding: 8px 10px; background: #2b3740; border: 1px solid var(--control-border); border-radius: 5px; color: #e0e7ec; font-size: 14px; font-weight: 400; }
+  .tooltip:hover .tooltip-text, .tooltip:focus-within .tooltip-text { visibility: visible; }
+  .tooltip::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 8px; }
+  .version-badge { padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px; font: 14px/1.5 ui-monospace, Consolas, monospace; }
+  .source { margin: 10px 0; }
+  .source a { font: 14px/1.5 ui-monospace, Consolas, monospace; }
+  details { border-top: 1px solid var(--line); }
+  summary { padding: 9px 0; color: var(--accent); font-size: 15px; font-weight: 600; }
+  .parameter-label { margin: 0 0 6px; font-size: 14px; color: var(--muted); }
+  .parameter-constants { margin: 0 0 10px; font-size: 14px; }
+  .parameter-constants > div { display: flex; flex-wrap: wrap; gap: 4px 12px; padding-block: 2px; }
+  .parameter-constants dt { color: var(--muted); }
+  .parameter-constants dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .table-scroll { overflow-x: auto; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
+  th, td { padding: 8px 10px; border: 1px solid var(--line); vertical-align: top; }
+  thead { background: #131b21; }
+  th { font-weight: 600; }
+  .combination-index { width: 1%; white-space: nowrap; text-align: right; color: var(--muted); background: #131b21; border-right: 3px solid var(--line); font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
+  td code { overflow-wrap: anywhere; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li, .generic-test-id { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; background: #131b21; border: 1px solid var(--line); border-radius: 5px; padding: 10px; margin-bottom: 10px; }
+  .command-version { grid-column: 1 / -1; color: var(--accent); font-size: 14px; font-weight: 600; }
+  code { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; overflow-wrap: anywhere; }
+  li code, .generic-test-id code { font-size: 14px; }
+  .copy { align-self: start; background: var(--panel); color: var(--accent); border: 1px solid var(--control-border); border-radius: 4px; font-size: 14px; padding: 5px 9px; }
+  .copy:hover { background: #213e34; }
+  #empty { padding: 20px 0; color: var(--muted); }
+  #reset { background: var(--panel); border: 1px solid var(--control-border); border-radius: 4px; color: var(--accent); margin-left: 10px; padding: 5px 9px; }
+  footer { border-top: 1px solid var(--line); padding: 12px 0; color: var(--muted); font-size: 14px; }
+  footer code { font-size: 14px; }
+  footer .shell { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+  @media (max-width: 850px) { .filters { grid-template-columns: repeat(3, minmax(0, 1fr)); } .search-field { grid-column: 1 / -1; } }
+  @media (max-width: 560px) { .shell { width: calc(100% - 24px); } header { padding-top: 12px; } h1 { font-size: 24px; } .stats { gap: 4px 16px; } .filters { grid-template-columns: 1fr; gap: 8px; } article { padding: 12px 12px 0; } article h2 { font-size: 18px; } }
+</style>
+</head>
+<body>
+<a href="#catalog" class="skip-link">Skip to catalog</a>
+<header>
+  <div class="shell">
+    <div class="heading"><h1>Validation catalog</h1><span class="brand">osc-validation</span></div>
+    <nav class="collections" aria-label="Test collection" hidden>
+      <button type="button" data-collection="conformance" aria-pressed="true">Conformance</button>
+      <button type="button" id="exploratory" data-collection="exploratory" aria-pressed="false">Exploratory</button>
+    </nav>
+    <p id="collection-description" hidden aria-live="polite"></p>
+    <div class="stats" aria-label="Collection coverage">
+      <span><strong id="definition-count">@@DEFINITION_COUNT@@</strong> test definitions</span>
+      <span><strong id="case-count">@@CASE_COUNT@@</strong> expanded cases</span>
+      <span><strong id="feature-count">@@FEATURE_COUNT@@</strong> features</span>
+      <span><strong id="version-count">@@VERSION_COUNT@@</strong> OSC XML versions</span>
+    </div>
+  </div>
+</header>
+<main id="catalog" class="shell">
+  <div class="filters" hidden id="filters">
+    <label class="search-field">Search<input id="search" type="search" placeholder="Feature, test name, or description"></label>
+    <label>OSC XML version<select id="version"><option value="">All versions</option>@@VERSIONS@@</select></label>
+    <label>Category<select id="category"><option value="">All categories</option>@@CATEGORIES@@</select></label>
+    <details class="feature-filters">
+      <summary>Filter by OpenSCENARIO feature</summary>
+      <div class="feature-actions"><button type="button" id="features-all">All</button><button type="button" id="features-none">None</button></div>
+      <div class="badge-list">@@FEATURES@@</div>
+    </details>
+  </div>
+  <p id="count" role="status" aria-live="polite">All tests</p>
+  <div id="empty" hidden>No matching tests.<button id="reset" type="button">Clear filters</button></div>
+  <noscript>Enable JavaScript to filter tests and copy test IDs.</noscript>
+  @@TESTS@@
+</main>
+<footer><div class="shell"><span>osc-validation <code>@@PACKAGE_VERSION@@</code></span><span>Source commit: <code>@@REVISION@@</code></span></div></footer>
+<script>
+  const articles = [...document.querySelectorAll('article')];
+  const search = document.querySelector('#search');
+  const version = document.querySelector('#version');
+  const category = document.querySelector('#category');
+  const collectionButtons = [...document.querySelectorAll('button[data-collection]')];
+  let collection = 'conformance';
+  const featureButtons = [...document.querySelectorAll('button[data-feature]')];
+  const searchable = new Map(articles.map(article => [article,
+    [...article.querySelectorAll('h2, p')].map(el => el.textContent).join(' ').toLowerCase()]));
+  document.querySelector('#filters').hidden = false;
+  document.querySelector('.collections').hidden = false;
+  document.querySelector('#collection-description').hidden = false;
+  function filter() {
+    let definitions = 0, cases = 0;
+    document.querySelector('#collection-description').textContent = collection === 'conformance'
+      ? 'Conformance tests check behavior required by the covered OpenSCENARIO subset.'
+      : 'Exploratory tests investigate behavior outside the conformance requirements.';
+    const collectionArticles = articles.filter(article => article.dataset.kind === collection);
+    const features = new Set(collectionArticles.map(article => article.dataset.feature));
+    for (const button of featureButtons) button.hidden = !features.has(button.dataset.feature);
+    document.querySelector('#definition-count').textContent = collectionArticles.length;
+    document.querySelector('#case-count').textContent = collectionArticles.reduce((total, article) => total + article.querySelectorAll('li').length, 0);
+    document.querySelector('#feature-count').textContent = features.size;
+    document.querySelector('#version-count').textContent = new Set(collectionArticles.flatMap(article => article.dataset.versions.split(' '))).size;
+    const selectedFeatures = new Set(featureButtons.filter(button => button.getAttribute('aria-pressed') === 'true').map(button => button.dataset.feature));
+    for (const article of articles) {
+      article.hidden = !(searchable.get(article).includes(search.value.trim().toLowerCase()) &&
+        selectedFeatures.has(article.dataset.feature) &&
+        (!version.value || article.dataset.versions.split(' ').includes(version.value)) &&
+        (!category.value || article.dataset.category === category.value) &&
+        article.dataset.kind === collection);
+      for (const item of article.querySelectorAll('li')) {
+        item.hidden = !!version.value && item.dataset.version !== version.value;
+        if (!article.hidden && !item.hidden) cases++;
+      }
+      const rows = [...article.querySelectorAll('.parameter-row')];
+      for (const row of rows) {
+        row.hidden = !!version.value && !row.dataset.versions.split(' ').includes(version.value);
+      }
+      const versionedCases = [...article.querySelectorAll('li')].filter(item => !item.hidden).length;
+      const combinations = rows.length ? rows.filter(row => !row.hidden).length : Number(versionedCases > 0);
+      const combinationCount = article.querySelector('.combination-count');
+      if (combinationCount) combinationCount.textContent = combinations;
+      article.querySelector('.case-count').textContent = combinations + (combinations === 1 ? ' combination · ' : ' combinations · ') + versionedCases + (versionedCases === 1 ? ' versioned case' : ' versioned cases');
+      if (!article.hidden) definitions++;
+    }
+    document.querySelector('#count').textContent = definitions + ' definitions · ' + cases + ' cases';
+    document.querySelector('#empty').hidden = definitions !== 0;
+  }
+  for (const control of [search, version, category]) control.addEventListener('input', filter);
+  for (const button of featureButtons) button.addEventListener('click', () => {
+    button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
+    filter();
+  });
+  function selectFeatures(selected) {
+    for (const button of featureButtons) button.setAttribute('aria-pressed', String(selected));
+    filter();
+  }
+  for (const button of collectionButtons) button.addEventListener('click', () => {
+    collection = button.dataset.collection;
+    for (const other of collectionButtons) other.setAttribute('aria-pressed', String(other === button));
+    selectFeatures(true);
+  });
+  document.querySelector('#features-all').addEventListener('click', () => selectFeatures(true));
+  document.querySelector('#features-none').addEventListener('click', () => selectFeatures(false));
+  document.querySelector('#reset').addEventListener('click', () => {
+    for (const control of [search, version, category]) control.value = '';
+    selectFeatures(true);
+    search.focus();
+  });
+  filter();
+  document.addEventListener('click', async event => {
+    if (!event.target.matches('.copy')) return;
+    const button = event.target;
+    try {
+      await navigator.clipboard.writeText(button.previousElementSibling.textContent);
+      button.textContent = 'Copied';
+    } catch {
+      button.textContent = 'Select command to copy';
+    }
+    setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+  });
+</script>
+</body>
+</html>

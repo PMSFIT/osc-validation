@@ -72,6 +72,27 @@ pytest osc_validation/validation --collect-only -q --osc-version 1.3.1
 
 Add `--include-exploratory` to include exploratory cases.
 
+#### HTML validation catalog
+
+Generate a searchable catalog without running a simulator:
+
+```bash
+python -m osc_validation.catalog
+```
+
+Open `docs/_build/catalog/index.html` in a browser.
+The catalog groups parameterized cases by test definition and includes descriptions, feature/category markers, supported versions, exploratory status, source links, parameter combinations, and copyable test IDs.
+Each test provides a generic function ID covering all parameter combinations and exact versioned IDs for individual combinations.
+IDs are relative to `osc_validation/validation/` and can be used in test profiles; prefix that path when selecting a test with pytest from the repository root.
+It collects every supported OpenSCENARIO version and includes exploratory cases; the counts describe available coverage, not engine pass/fail results.
+Use `--output <directory>` to change the destination and `--revision <commit>` to set the source-link revision explicitly.
+Local builds use the current Git commit when available; uncommitted changes are not reflected in those source links.
+
+The [Validation catalog workflow](.github/workflows/validation-catalog.yml) builds the page on pushes and pull requests and publishes only from the repository's default branch.
+To enable hosting, set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**, then run the workflow on the default branch.
+The workflow's deployment links to the published catalog, and its `github-pages` artifact contains the generated HTML for review.
+See [GitHub Pages publishing configuration](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
+
 ### Run validation
 
 #### osc-validate CLI
