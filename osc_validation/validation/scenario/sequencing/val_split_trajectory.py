@@ -6,7 +6,7 @@ import pytest
 
 from osi_utilities import ChannelSpecification, MessageType
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.cases.sequencing import (
+from osc_validation.features.sequencing import (
     TrajectorySequencingTransformRequest,
     TrajectorySequencingTransformSpec,
     apply_trajectory_sequencing_transform,

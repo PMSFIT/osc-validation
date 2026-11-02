@@ -5,11 +5,11 @@ import math
 from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel
 
-from osc_validation.cases.shared.trajectory_models import (
+from osc_validation.features.trajectory.models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
-from osc_validation.cases.follow_trajectory_future_time_reference.oracle import (
+from osc_validation.features.trajectory.future_time_reference.oracle import (
     FollowTrajectoryFutureTimeReferenceCaseSpec,
     build_follow_trajectory_future_time_reference_case,
 )

@@ -6,7 +6,7 @@ from osi_utilities import ChannelSpecification
 import pytest
 
 from osc_validation.assertions import assert_no_osc_engine_errors
-from osc_validation.cases.triggers.distance_to_position.case import (
+from osc_validation.features.triggers.distance_to_position.case import (
     prepare_distance_longitudinal_trigger_case,
 )
 from osc_validation.dataproviders import BuiltinDataProvider

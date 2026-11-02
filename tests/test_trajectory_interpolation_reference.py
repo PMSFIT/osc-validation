@@ -2,11 +2,11 @@ import math
 
 from osi_utilities import ChannelSpecification, open_channel
 
-from osc_validation.cases.shared.trajectory_models import (
+from osc_validation.features.trajectory.models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
-from osc_validation.cases.interpolation.reference import (
+from osc_validation.features.trajectory.interpolation.reference import (
     TrajectoryInterpolationReferenceRequest,
     build_trajectory_interpolation_reference_trace,
 )

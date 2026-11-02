@@ -13,26 +13,26 @@ from osi_utilities import ChannelSpecification, open_channel_writer
 from osc_validation.versioning import OscVersion, ScenarioContract
 from osc_validation.test_profile import XFailEntry
 from osc_validation.generation.osi2osc import osi2osc
-from osc_validation.cases.init_actions.oracle import (
+from osc_validation.features.init_actions.oracle import (
     InitActionCaseSpec,
     InitActionOracleActor,
     build_init_teleport_action_case,
     build_init_add_entity_action_case,
     build_init_speed_action_case,
 )
-from osc_validation.cases.interpolation.oracle import (
+from osc_validation.features.trajectory.interpolation.oracle import (
     TrajectoryInterpolationCaseSpec,
     build_trajectory_interpolation_case,
 )
-from osc_validation.cases.follow_trajectory_teleport.oracle import (
+from osc_validation.features.trajectory.teleport.oracle import (
     FollowTrajectoryTeleportCaseSpec,
     build_follow_trajectory_teleport_case,
 )
-from osc_validation.cases.follow_trajectory_future_time_reference.oracle import (
+from osc_validation.features.trajectory.future_time_reference.oracle import (
     FollowTrajectoryFutureTimeReferenceCaseSpec,
     build_follow_trajectory_future_time_reference_case,
 )
-from osc_validation.cases.shared.trajectory_models import (
+from osc_validation.features.trajectory.models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
@@ -387,8 +387,8 @@ def test_replay_case_uses_version_policy_and_preserves_checks(
 
 def test_internal_generation_requires_explicit_contract():
     from osc_validation.generation.xosc_builders import XoscHeader
-    from osc_validation.cases.init_actions.models import InitActionsXoscRequest
-    from osc_validation.cases.interpolation.generation import (
+    from osc_validation.features.init_actions.models import InitActionsXoscRequest
+    from osc_validation.features.trajectory.interpolation.generation import (
         TrajectoryInterpolationXoscRequest,
     )
 

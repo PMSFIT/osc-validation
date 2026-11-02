@@ -9,7 +9,7 @@ from osc_validation.assertions import assert_no_osc_engine_errors
 
 from osc_validation.dataproviders import BuiltinDataProvider
 from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
-from osc_validation.cases.triggers.speed.case import prepare_speed_trigger_case
+from osc_validation.features.triggers.speed.case import prepare_speed_trigger_case
 
 
 @pytest.fixture(

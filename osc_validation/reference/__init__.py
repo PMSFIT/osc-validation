@@ -1,1 +1,1 @@
-"""Shared reference trace utilities; feature-specific references live in cases."""
+"""Shared reference trace utilities; feature-specific references live in features."""

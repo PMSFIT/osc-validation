@@ -5,7 +5,7 @@ import math
 from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel
 
-from osc_validation.cases.init_actions.oracle import (
+from osc_validation.features.init_actions.oracle import (
     InitActionCaseSpec,
     InitActionOracleActor,
     build_init_speed_action_case,

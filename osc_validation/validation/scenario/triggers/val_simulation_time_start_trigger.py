@@ -6,7 +6,7 @@ from osi_utilities import ChannelSpecification
 import pytest
 
 from osc_validation.assertions import assert_no_osc_engine_errors
-from osc_validation.cases.triggers.simulation_time.case import (
+from osc_validation.features.triggers.simulation_time.case import (
     prepare_simulation_time_trigger_case,
 )
 from osc_validation.dataproviders import BuiltinDataProvider

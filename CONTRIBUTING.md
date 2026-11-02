@@ -45,12 +45,17 @@ See [running validations](README.md#run-validation) for tool and reporting optio
 
 ## Code organization
 
-- `osc_validation/cases/` owns feature-specific scenario construction, transforms, reference calculations, and case data such as condition activation times.
+- `osc_validation/features/` groups scenario construction, transforms, reference calculations, and case data by the OpenSCENARIO feature they support.
   Keep these independent of pytest and simulator execution.
-  Import functionality directly from its owning module; share helpers when several features need them.
+  Feature packages may import their own modules, `features/shared/`, and general library utilities, but must not import other feature packages.
+  Keep feature-specific behavior and preparation in the owning feature package.
+- `osc_validation/features/shared/` contains data models and preparation support used by multiple features.
+  Shared support must not import feature-specific implementations.
+- `osc_validation/reference/` contains reusable reference algorithms and trace utilities.
+  These may depend on shared models, but must not import feature-specific implementations.
 - `osc_validation/validation/scenario/` owns pytest integration, concrete inputs, simulator execution, compliance checks, scoring windows, metric settings and calls, tolerances, and acceptance assertions.
 - `osc_validation/metrics/` implements reusable comparisons.
-  General generation, trace, and geometry utilities live in `generation/`, `reference/`, and `utils/`.
+- `osc_validation/generation/` and `osc_validation/utils/` provide general scenario generation and utility functionality.
 - `tests/` verifies the package and plugin, including reference calculations.
   Keep those checks separate from validations of external tools.
 
