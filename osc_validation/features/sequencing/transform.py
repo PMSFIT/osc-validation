@@ -273,9 +273,12 @@ def _build_action(action, segment, index):
     trajectory = split_action.find(".//TrajectoryRef/Trajectory")
     trajectory.set("name", f"{trajectory.get('name')}_seq_{index + 1}")
     polyline = split_action.find(".//TrajectoryRef/Trajectory/Shape/Polyline")
+    interpolation = polyline.find("Interpolation")
     _clear_children(polyline)
     for vertex in segment:
         polyline.append(vertex)
+    if interpolation is not None:
+        polyline.append(interpolation)
     return split_action
 
 
