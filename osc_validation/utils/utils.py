@@ -270,3 +270,47 @@ def crop_trace(
             ):
                 channel_writer.write_message(message)
     return channel_writer.get_channel_specification()
+
+
+def compute_close_to_trajectory_start_xy(
+    init_x: float,
+    init_y: float,
+    start_x: float,
+    start_y: float,
+    threshold_m: float,
+) -> tuple[float, float]:
+    """
+    Compute a target XY position near trajectory start at a fixed radial offset.
+
+    The returned point is exactly `threshold_m` away from `(start_x, start_y)`,
+    placed in the direction from trajectory start to the current init position
+    `(init_x, init_y)`.
+
+    Edge case:
+    - If init and trajectory start are identical, the direction is defined as
+      +X, so the result becomes `(start_x + threshold_m, start_y)`.
+
+    Args:
+        init_x: Current init X coordinate.
+        init_y: Current init Y coordinate.
+        start_x: Trajectory start X coordinate.
+        start_y: Trajectory start Y coordinate.
+        threshold_m: Required radial distance from trajectory start. Must be > 0.
+
+    Returns:
+        Tuple `(target_x, target_y)` representing the computed init XY.
+    """
+    if threshold_m <= 0.0:
+        raise ValueError("threshold_m must be > 0.0.")
+
+    dx = init_x - start_x
+    dy = init_y - start_y
+    distance_xy = math.hypot(dx, dy)
+    if distance_xy == 0.0:
+        unit_x, unit_y = 1.0, 0.0
+    else:
+        unit_x = dx / distance_xy
+        unit_y = dy / distance_xy
+    target_x = start_x + unit_x * threshold_m
+    target_y = start_y + unit_y * threshold_m
+    return target_x, target_y

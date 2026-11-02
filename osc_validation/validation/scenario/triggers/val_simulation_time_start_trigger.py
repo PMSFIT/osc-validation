@@ -1,21 +1,16 @@
-import logging
 from pathlib import Path
 from typing import Callable
+import logging
 
+from osi_utilities import ChannelSpecification
 import pytest
 
-from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import (
-    InitPoseOverride,
-    SimulationTimeTriggerSpec,
-    TriggerTransformRequest,
-    apply_trigger_transform,
-    osi2osc,
-)
-from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
-from osi_utilities import ChannelSpecification
-
 from osc_validation.assertions import assert_no_osc_engine_errors
+from osc_validation.features.triggers.simulation_time.case import (
+    prepare_simulation_time_trigger_case,
+)
+from osc_validation.dataproviders import BuiltinDataProvider
+from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 
 
 @pytest.fixture(
@@ -35,17 +30,23 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trigger")
 @pytest.mark.validation_feature("SimulationTimeCondition")
 @pytest.mark.parametrize("moving_object_id", [1, 2])
 @pytest.mark.parametrize("ego_object_id", [1])
 @pytest.mark.parametrize("init_pose_object_id", [2])
 @pytest.mark.parametrize("trigger_delay", [10.0])
-@pytest.mark.parametrize("activation_frame_offset", [0]) # The trigger should activate immediately when the simulation time condition is met
-@pytest.mark.parametrize("max_alignment_lag_frames", [2]) # Allows small simulator-dependent differences in the frame where triggered actions become visible after condition activation.
+@pytest.mark.parametrize(
+    "activation_frame_offset", [0]
+)  # The trigger should activate immediately when the simulation time condition is met
+@pytest.mark.parametrize(
+    "max_alignment_lag_frames", [2]
+)  # Allows small simulator-dependent differences in the frame where triggered actions become visible after condition activation.
 @pytest.mark.parametrize("rate", [0.05])
 @pytest.mark.parametrize("tolerance", [2e-1])
 def test_simulation_time_start_trigger_delays_actor_trajectory(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -70,57 +71,18 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    reference_trace_channel_spec = ChannelSpecification(
-        osi_trace, message_type="SensorView"
+    case = prepare_simulation_time_trigger_case(
+        contract=scenario_contract,
+        osi_trace=osi_trace,
+        odr_file=odr_file,
+        output_dir=tmp_path,
+        moving_object_id=moving_object_id,
+        ego_object_id=ego_object_id,
+        init_pose_object_id=init_pose_object_id,
+        trigger_delay=trigger_delay,
+        activation_frame_offset=activation_frame_offset,
     )
-    osc_path = osi2osc(
-        osi_trace_spec=reference_trace_channel_spec,
-        path_xosc=tmp_path / "osi2osc_simulation_time_start_trigger.xosc",
-        path_xodr=odr_file,
-    )
-    transform_result = apply_trigger_transform(
-        TriggerTransformRequest(
-            source_xosc_path=osc_path,
-            source_reference_channel_spec=reference_trace_channel_spec,
-            output_xosc_path=osc_path,
-            output_reference_channel_spec=ChannelSpecification(
-                path=tmp_path / f"reference_delayed_comparison_{moving_object_id}.mcap",
-                message_type="SensorView",
-                metadata={
-                    "net.asam.osi.trace.channel.description": "Delayed reference trace for trigger delay validation"
-                },
-            ),
-            spec=SimulationTimeTriggerSpec(
-                trigger_delay=trigger_delay,
-                trigger_rule="greaterOrEqual",
-                activation_frame_offset=activation_frame_offset,
-            ),
-            init_pose_policy="explicit_overrides", # need explicit override because osi2osc default init position (0,0,0) is not on road (gtgen doesn't support placing objects outside of road)
-            init_pose_overrides=[
-                InitPoseOverride(
-                    entity_ref="Ego",
-                    object_id=ego_object_id,
-                    x=-290.0,
-                    y=-60.0,
-                    z=0.7015,
-                    yaw=0.0,
-                    pitch=0.0,
-                    roll=0.0,
-                ),
-                InitPoseOverride(
-                    entity_ref=f"osi_moving_object_{init_pose_object_id}",
-                    object_id=init_pose_object_id,
-                    x=-280.0,
-                    y=-55.0,
-                    z=0.7015,
-                    yaw=0.0,
-                    pitch=0.0,
-                    roll=0.0,
-                ),
-            ],
-        )
-    )
-    osc_path = transform_result.xosc_path
+    osc_path = case.xosc_path
 
     tool_trace_channel_spec = generate_tool_trace(
         osc_path=osc_path,
@@ -143,17 +105,14 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
         output_config=tmp_path / "qc_config_trigger_delay.xml",
     )
 
-    metric = TrajectoryAlignmentSimilarityMetric()
-    delayed_reference_channel_spec = transform_result.reference_channel_spec
-
-    # Evaluate whole trajectory including pre-trigger portion
-    area, cl, mae, _best_lag_frames = metric.compute(
-        reference_channel_spec=delayed_reference_channel_spec,
+    scoring_start_time_s = case.activation_time_s + rate
+    area, cl, mae, _best_lag_frames = TrajectoryAlignmentSimilarityMetric().compute(
+        reference_channel_spec=case.reference_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
         result_file=tmp_path
         / f"trajectory_alignment_similarity_report_{moving_object_id}.txt",
-        start_time=trigger_delay+rate, # Start evaluation slightly after the trigger delay to allow for exact alignment of the post-trigger trajectory portions
+        start_time=scoring_start_time_s,
         time_tolerance=0.01,
         lag_scan_max_frames=max_alignment_lag_frames,
     )

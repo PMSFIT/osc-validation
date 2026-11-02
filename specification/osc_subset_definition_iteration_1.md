@@ -62,10 +62,12 @@ Esmini requires 'InitActions' to ensure successful spawning of scenario objects.
 In that case, the definition of one 'TeleportAction' with position type 'WorldPosition' per contained scenario object in 'InitActions' is allowed.
 
 ### gt-gen-simulator
-- Requires an empty \<Properties/\> in vehicle definition even though not required by OpenSCENARIO. -> Fixed in gt-gen-simulator 9.0.0
+- Requires an empty \<Properties/\> in vehicle definition even though not required by OpenSCENARIO.
+  -> Fixed in gt-gen-simulator 9.0.0
 - Requires one vehicle to be named 'Ego' or 'Host'.
 - Requires a specification of a road network (e.g. OpenDRIVE map) in the scenario definition.
-- The scenario objects must not be placed outside the defined road (network). The simulator stops with an unhandled exception when a vehicle leaves the road.
+- The scenario objects must not be placed outside the defined road (network).
+  The simulator stops with an unhandled exception when a vehicle leaves the road.
     ```
     [2024-12-13 11:05:25.915] [gtgen::core] [error] [18.500s] Terminating due to an unhandled exception:
         gtgen::core::environment::EnvironmentException
@@ -116,7 +118,8 @@ The following section presents issues, especially regarding the clarity of the d
 #### Init Actions
 
 The OpenSCENARIO documentation does not clearly state which actions require prior initialization using InitActions.
-Note: 10.3: "ASAM OpenSCENARIO does not enforce specifying the initial position and speed of entities, but it is considered best practice to do so. Most actions and conditions require those values to be set."
+Note: 10.3: "ASAM OpenSCENARIO does not enforce specifying the initial position and speed of entities, but it is considered best practice to do so.
+Most actions and conditions require those values to be set."
 What does "most actions/conditions" mean?
 For some actions it may not even make sense to be initialized with some position because it is not known (e.g. polyline trajectory with fixed timestamps).
 Therefore, the best practice of always defining InitActions is not adequate.
@@ -129,7 +132,8 @@ There should be a note that the attribute 'positionX' should always be set to 0 
 
 #### Documentation of Storyboard Stop Trigger
 
-8.4.7 Execution of a storyboard: "Simulation tools can use this behavior to explicitly stop the simulation." Unclear meaning.
+8.4.7 Execution of a storyboard: "Simulation tools can use this behavior to explicitly stop the simulation."
+Unclear meaning.
 
 #### Maximum Execution Count of Events
 

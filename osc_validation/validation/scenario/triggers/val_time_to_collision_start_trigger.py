@@ -1,23 +1,16 @@
-import logging
 from pathlib import Path
 from typing import Callable
+import logging
 
+from osi_utilities import ChannelSpecification
 import pytest
 
-from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import (
-    TimeToCollisionPositionTriggerSpec,
-    TriggerTransformRequest,
-    apply_trigger_transform,
-    find_ttc_position_activation_point,
-    osi2osc,
-)
-from osc_validation.generation.init_transforms.models import InitPoseOverride
-from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
-from osc_validation.reference import build_trace_with_calculated_kinematics
-from osi_utilities import ChannelSpecification, open_channel
-
 from osc_validation.assertions import assert_no_osc_engine_errors
+from osc_validation.features.triggers.time_to_collision.case import (
+    prepare_time_to_collision_trigger_case,
+)
+from osc_validation.dataproviders import BuiltinDataProvider
+from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 
 
 @pytest.fixture(
@@ -37,29 +30,7 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-def _get_object_position_at_last_frame(
-    channel_spec: ChannelSpecification, object_id: int
-) -> tuple[float, float, float]:
-    with open_channel(channel_spec) as reader:
-        messages = list(reader)
-        if not messages:
-            raise RuntimeError("Input trace has no messages.")
-        last = messages[-1]
-        moving_objects = (
-            last.global_ground_truth.moving_object
-            if hasattr(last, "global_ground_truth")
-            else last.moving_object
-        )
-        target = next((mo for mo in moving_objects if mo.id.value == object_id), None)
-        if target is None:
-            raise KeyError(f"Object ID {object_id} not found in last frame.")
-        return (
-            target.base.position.x,
-            target.base.position.y,
-            target.base.position.z,
-        )
-
-
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trigger")
 @pytest.mark.validation_feature("TimeToCollisionCondition")
 @pytest.mark.parametrize("moving_object_id", [2])
@@ -69,6 +40,7 @@ def _get_object_position_at_last_frame(
 @pytest.mark.parametrize("rate", [0.05])
 @pytest.mark.parametrize("tolerance", [0.3])
 def test_time_to_collision_start_trigger_activates_target_actor(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -92,79 +64,17 @@ def test_time_to_collision_start_trigger_activates_target_actor(
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    raw_reference_channel_spec = ChannelSpecification(osi_trace, message_type="SensorView")
-    reference_trace_channel_spec = build_trace_with_calculated_kinematics(
-        input_channel_spec=raw_reference_channel_spec,
-        output_channel_spec=ChannelSpecification(
-            path=tmp_path / "reference_with_kinematics_for_ttc.mcap",
-            message_type="SensorView",
-            metadata={
-                "net.asam.osi.trace.channel.description": "Reference trace with calculated velocity and acceleration for TTC trigger validation"
-            },
-        ),
+    case = prepare_time_to_collision_trigger_case(
+        contract=scenario_contract,
+        osi_trace=osi_trace,
+        odr_file=odr_file,
+        output_dir=tmp_path,
+        moving_object_id=moving_object_id,
+        trigger_object_id=trigger_object_id,
+        trigger_ttc_s=trigger_ttc_s,
+        activation_frame_offset=activation_frame_offset,
     )
-
-    target_position_x, target_position_y, target_position_z = _get_object_position_at_last_frame(
-        reference_trace_channel_spec, trigger_object_id
-    )
-
-    osc_path = osi2osc(
-        osi_trace_spec=reference_trace_channel_spec,
-        path_xosc=tmp_path / "osi2osc_ttc_start_trigger.xosc",
-        path_xodr=odr_file,
-    )
-
-    transform_result = apply_trigger_transform(
-        TriggerTransformRequest(
-            source_xosc_path=osc_path,
-            source_reference_channel_spec=reference_trace_channel_spec,
-            output_xosc_path=osc_path,
-            output_reference_channel_spec=ChannelSpecification(
-                path=tmp_path / "reference_ttc_start_trigger_comparison.mcap",
-                message_type="SensorView",
-                metadata={
-                    "net.asam.osi.trace.channel.description": "Reference trace with TTC start trigger applied"
-                },
-            ),
-            spec=TimeToCollisionPositionTriggerSpec(
-                trigger_entity_ref="Ego",
-                target_event_name=f"osi_moving_object_{moving_object_id}_maneuver_event",
-                condition_name=f"ttc_trigger_object{moving_object_id}_start",
-                trigger_ttc_s=trigger_ttc_s,
-                trigger_object_id=trigger_object_id,
-                triggered_object_id=moving_object_id,
-                target_position_x=target_position_x,
-                target_position_y=target_position_y,
-                target_position_z=target_position_z,
-                trigger_rule="lessOrEqual",
-                activation_frame_offset=activation_frame_offset,
-            ),
-            init_pose_policy="explicit_overrides", # need explicit override because osi2osc default init position (0,0,0) is not on road (gtgen doesn't support placing objects outside of road)
-            init_pose_overrides=[
-                InitPoseOverride(
-                    entity_ref="Ego",
-                    object_id=trigger_object_id,
-                    x=-290.0,
-                    y=-60.0,
-                    z=0.7015,
-                    yaw=0.0,
-                    pitch=0.0,
-                    roll=0.0,
-                ),
-                InitPoseOverride(
-                    entity_ref=f"osi_moving_object_{moving_object_id}",
-                    object_id=moving_object_id,
-                    x=-280.0,
-                    y=-55.0,
-                    z=0.7015,
-                    yaw=0.0,
-                    pitch=0.0,
-                    roll=0.0,
-                ),
-            ],
-        )
-    )
-    osc_path = transform_result.xosc_path
+    osc_path = case.xosc_path
 
     tool_trace_channel_spec = generate_tool_trace(
         osc_path=osc_path,
@@ -185,24 +95,14 @@ def test_time_to_collision_start_trigger_activates_target_actor(
         result_file=tmp_path / "qc_result_ttc_start_trigger.xqar",
     )
 
-    metric = TrajectoryAlignmentSimilarityMetric()
-    reference_triggered_channel_spec = transform_result.reference_channel_spec
-
-    area, cl, mae, best_lag_frames = metric.compute(
-        reference_channel_spec=reference_triggered_channel_spec,
+    scoring_start_time_s = case.activation_time_s + rate
+    area, cl, mae, best_lag_frames = TrajectoryAlignmentSimilarityMetric().compute(
+        reference_channel_spec=case.reference_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
-        result_file=tmp_path / "trajectory_alignment_similarity_report_ttc_start_trigger.txt",
-        # Start after the trigger edge because OpenSCENARIO does not mandate
-        # whether the first trajectory point is applied in the activation frame.
-        start_time=find_ttc_position_activation_point(
-            input_channel_spec=reference_trace_channel_spec,
-            trigger_object_id=trigger_object_id,
-            target_position_x=target_position_x,
-            target_position_y=target_position_y,
-            trigger_ttc_s=trigger_ttc_s,
-            trigger_rule="lessOrEqual",
-        ).time_s + rate,
+        result_file=tmp_path
+        / "trajectory_alignment_similarity_report_ttc_start_trigger.txt",
+        start_time=scoring_start_time_s,
         time_tolerance=0.01,
         lag_scan_max_frames=2,
     )

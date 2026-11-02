@@ -2,8 +2,8 @@ import pytest
 
 from tests.conftest import _make_sensor_view
 
-from osc_validation.generation.trigger_transforms.common import evaluate_condition_edge
-from osc_validation.generation.trigger_transforms.speed import (
+from osc_validation.features.triggers.common import evaluate_condition_edge
+from osc_validation.features.triggers.speed.transform import (
     _find_speed_activation_index_from_messages,
 )
 

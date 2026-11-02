@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import pytest
 
 from osc_validation.dataproviders import BuiltinDataProvider, DownloadDataProvider
-from osc_validation.generation import osi2osc
+from osc_validation.generation.osi2osc import osi2osc
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
 from osi_utilities import ChannelSpecification
 
@@ -36,8 +36,10 @@ def odr_file(request, builtin_data_path):
     provider.cleanup()
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.parametrize("moving_object_id", [1])
 def test_trajectory_remote(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -53,7 +55,8 @@ def test_trajectory_remote(
         osi_trace (Path): Path to the original OSI trace file (pytest module fixture).
         odr_file (Path): Path to the OpenDRIVE (.odr) file (pytest module fixture).
         yaml_ruleset (Path): Path to the YAML ruleset for OSITrace quality checks (pytest module fixture).
-        generate_tool_trace (Callable): Function to generate an OSI trace from an OpenSCENARIO file (pytest session fixture).
+        scenario_contract: OpenSCENARIO XML contract selected for this test run.
+        generate_tool_trace (Callable): Function to generate an OSI trace from an OpenSCENARIO file (pytest fixture).
         tmp_path (Path): Temporary directory for intermediate files (built-in pytest fixture).
         moving_object_id (int): ID of the moving object (in the reference trace) selected for trajectory comparison (pytest parameter).
         tolerance (float, optional): Maximum allowed value for similarity metrics. Defaults to 1e-6.
@@ -72,6 +75,7 @@ def test_trajectory_remote(
         osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc.xosc",
         path_xodr=odr_file,
+        contract=scenario_contract,
     )
 
     # Use the OpenSCENARIO and OpenDRIVE file fixtures to generate the tool trace with the specified format and rate

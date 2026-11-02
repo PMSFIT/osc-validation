@@ -6,8 +6,9 @@ import pytest
 
 from osi_utilities import MessageType
 from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.generation import osi2osc
+from osc_validation.generation.osi2osc import osi2osc
 from osc_validation.metrics.trajectory_similarity import TrajectorySimilarityMetric
+from osc_validation.versioning import OscVersion
 from osi_utilities import ChannelSpecification
 
 
@@ -28,10 +29,12 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 @pytest.mark.validation_category("trajectory")
 @pytest.mark.validation_feature("FollowTrajectoryAction")
 @pytest.mark.parametrize("moving_object_id", [1, 2])
 def test_trajectory_and_osi_compliance(
+    scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -45,6 +48,8 @@ def test_trajectory_and_osi_compliance(
 
     Validates that a tool-generated trajectory closely matches the original OSI trace
     for a given moving object, using similarity metrics within a specified tolerance.
+    In 1.4, custom interpolation is implementation-defined. The metric compares
+    trajectory samples by index and does not enforce exact vertex timestamps.
 
     Also runs qc_osi_trace on the tool-generated trace and checks if it complies with
     the OSI 3.7.0 ruleset.
@@ -58,6 +63,10 @@ def test_trajectory_and_osi_compliance(
         osi_trace, message_type=MessageType.SENSOR_VIEW
     )
     osc_path = osi2osc(
+        contract=scenario_contract,
+        interpolation_policy=(
+            "custom" if scenario_contract.osc_version == OscVersion.V1_4_0 else None
+        ),
         osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc.xosc",
         path_xodr=odr_file,

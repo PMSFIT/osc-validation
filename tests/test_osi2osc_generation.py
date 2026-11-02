@@ -1,4 +1,5 @@
 from pathlib import Path
+import math
 
 from lxml import etree
 import pytest
@@ -11,6 +12,109 @@ from osc_validation.generation.osi2osc import (
     parse_moving_objects,
 )
 from tests.conftest import _make_ground_truth, _make_sensor_view
+from osc_validation.versioning import OscVersion, ScenarioContract
+
+
+@pytest.mark.parametrize(
+    "policy", ["origin", "from_trajectory_start", "close_to_trajectory_start"]
+)
+def test_converter_init_pose_policies_preserve_placement(tmp_path, policy):
+    trace = ChannelSpecification(path=tmp_path / "input.osi", message_type="SensorView")
+    with open_channel_writer(trace) as writer:
+        for time, x in [(0.0, 10.0), (0.1, 11.0)]:
+            writer.write_message(_make_sensor_view_frame(time, 2, x, x - 10))
+    output = osi2osc(
+        trace,
+        tmp_path / "scenario.xosc",
+        init_pose_policy=policy,
+        init_pose_close_threshold_m=0.75,
+    )
+    tree = etree.parse(str(output))
+    for entity in ["Ego", "osi_moving_object_1"]:
+        init = tree.find(
+            f".//Init/Actions/Private[@entityRef='{entity}']//WorldPosition"
+        )
+        start = tree.find(
+            f".//Event[@name='{entity}_maneuver_event']//Vertex/Position/WorldPosition"
+        )
+        if policy == "origin":
+            assert [float(init.get(a)) for a in ["x", "y", "z", "h", "p", "r"]] == [
+                0
+            ] * 6
+        elif policy == "from_trajectory_start":
+            assert init.attrib == start.attrib
+        else:
+            assert math.hypot(
+                float(init.get("x")) - float(start.get("x")),
+                float(init.get("y")) - float(start.get("y")),
+            ) == pytest.approx(0.75)
+            for attribute in ["z", "h", "p", "r"]:
+                assert init.get(attribute) == start.get(attribute)
+
+
+@pytest.mark.parametrize(
+    "version,policy,schema_file",
+    [
+        (OscVersion.V1_3_1, None, "OpenSCENARIOv1.3.1.xsd"),
+        (OscVersion.V1_4_0, "standard_default", "OpenSCENARIOv1.4.xsd"),
+        (OscVersion.V1_4_0, "custom", "OpenSCENARIOv1.4.xsd"),
+        (OscVersion.V1_4_0, None, "OpenSCENARIOv1.4.xsd"),
+    ],
+)
+def test_interpolation_policies_produce_schema_valid_scenarios(
+    tmp_path, version, policy, schema_file
+):
+    trace = ChannelSpecification(path=tmp_path / "input.osi", message_type="SensorView")
+    with open_channel_writer(trace) as writer:
+        for time, x in [(0.0, 10.0), (1.0, 11.0), (2.0, 13.0)]:
+            writer.write_message(_make_sensor_view_frame(time, 2, x, x - 10))
+    output = osi2osc(
+        trace,
+        tmp_path / "scenario.xosc",
+        contract=ScenarioContract(version),
+        interpolation_policy=policy,
+    )
+    tree = etree.parse(str(output))
+    # See tests/data/README.md for schema provenance.
+    schema = etree.XMLSchema(
+        etree.parse(str(Path(__file__).parent / "data" / schema_file))
+    )
+    assert schema.validate(tree), str(schema.error_log)
+    for polyline in tree.findall(".//Polyline"):
+        assert [vertex.get("time") for vertex in polyline.findall("Vertex")] == [
+            "0.0",
+            "1.0",
+            "2.0",
+        ]
+        tags = [child.tag for child in polyline]
+        assert tags == ["Vertex", "Vertex", "Vertex"] + (
+            ["Interpolation"]
+            if version == OscVersion.V1_4_0 and policy != "standard_default"
+            else []
+        )
+
+
+@pytest.mark.parametrize(
+    "version,policy",
+    [
+        (OscVersion.V1_3_0, "custom"),
+        (OscVersion.V1_3_1, "standard_default"),
+        (OscVersion.V1_4_0, "unknown"),
+    ],
+)
+def test_converter_rejects_invalid_policy_before_reading_or_writing(
+    tmp_path, version, policy
+):
+    output = tmp_path / "scenario.xosc"
+    output.write_text("existing scenario")
+    with pytest.raises(ValueError, match="interpolation_policy"):
+        osi2osc(
+            ChannelSpecification(tmp_path / "missing.osi", message_type="SensorView"),
+            output,
+            contract=ScenarioContract(version),
+            interpolation_policy=policy,
+        )
+    assert output.read_text() == "existing scenario"
 
 
 def _configure_vehicle(moving_object, obj_id: int, x: float, y: float) -> None:

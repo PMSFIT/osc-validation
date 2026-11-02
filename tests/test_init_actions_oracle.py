@@ -1,9 +1,11 @@
+from osc_validation.versioning import OscVersion, ScenarioContract
+
 import math
 
 from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel
 
-from osc_validation.oracles import (
+from osc_validation.features.init_actions.oracle import (
     InitActionCaseSpec,
     InitActionOracleActor,
     build_init_speed_action_case,
@@ -32,6 +34,7 @@ def _actor(speed_mps: float | None = None) -> InitActionOracleActor:
 def test_init_teleport_action_case_generates_xosc_and_stationary_reference(tmp_path):
     result = build_init_teleport_action_case(
         InitActionCaseSpec(
+            contract=ScenarioContract(OscVersion.V1_3_0),
             output_xosc_path=tmp_path / "init_teleport.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path / "reference_init_teleport.mcap",
@@ -47,7 +50,9 @@ def test_init_teleport_action_case_generates_xosc_and_stationary_reference(tmp_p
     private = tree.find(".//Storyboard/Init/Actions/Private[@entityRef='Ego']")
     speed_action = tree.find(".//Storyboard/Init/Actions//SpeedAction")
     world_position = private.find(".//TeleportAction//WorldPosition")
-    bounding_box_center = tree.find(".//ScenarioObject[@name='Ego']//BoundingBox/Center")
+    bounding_box_center = tree.find(
+        ".//ScenarioObject[@name='Ego']//BoundingBox/Center"
+    )
     story = tree.find(".//Storyboard/Story")
 
     assert private is not None
@@ -86,6 +91,7 @@ def test_init_speed_action_case_generates_speed_action_and_moving_reference(tmp_
     speed_mps = 4.0
     result = build_init_speed_action_case(
         InitActionCaseSpec(
+            contract=ScenarioContract(OscVersion.V1_3_0),
             output_xosc_path=tmp_path / "init_speed.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path / "reference_init_speed.mcap",

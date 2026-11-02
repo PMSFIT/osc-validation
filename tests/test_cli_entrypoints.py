@@ -294,7 +294,13 @@ def _write_sensorview_trace(path: Path, positions: list[float]) -> None:
             writer.write_message(sensor_view)
 
 
-def test_osi2osc_main_writes_scenario(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "version,expected_minor",
+    [(None, "3"), ("1.3.0", "3"), ("1.3.1", "3")],
+)
+def test_osi2osc_main_writes_scenario(tmp_path, monkeypatch, version, expected_minor):
+    from lxml import etree
+
     trace_path = tmp_path / "input.osi"
     _write_sensorview_trace(trace_path, [0.0, 1.0])
     output_path = tmp_path / "scenario.xosc"
@@ -302,11 +308,40 @@ def test_osi2osc_main_writes_scenario(tmp_path, monkeypatch):
     monkeypatch.setattr(
         osi2osc_module.sys,
         "argv",
-        ["osi2osc", str(trace_path), "SensorView", str(output_path)],
+        ["osi2osc", str(trace_path), "SensorView", str(output_path)]
+        + (["--osc-version", version] if version else []),
     )
 
     assert osi2osc_module.main() == 0
     assert output_path.exists()
+    header = etree.parse(str(output_path)).find("FileHeader")
+    assert header.get("revMajor") == "1"
+    assert header.get("revMinor") == expected_minor
+
+
+@pytest.mark.parametrize("policy", ["standard_default", "custom", None])
+def test_osi2osc_main_accepts_1_4_interpolation_policy(tmp_path, monkeypatch, policy):
+    from lxml import etree
+
+    trace_path = tmp_path / "input.osi"
+    _write_sensorview_trace(trace_path, [0.0, 1.0])
+    output_path = tmp_path / "scenario.xosc"
+    monkeypatch.setattr(
+        osi2osc_module.sys,
+        "argv",
+        [
+            "osi2osc",
+            str(trace_path),
+            "SensorView",
+            str(output_path),
+            "--osc-version",
+            "1.4.0",
+        ] + (["--interpolation-policy", policy] if policy else []),
+    )
+    assert osi2osc_module.main() == 0
+    tree = etree.parse(str(output_path))
+    assert tree.find("FileHeader").get("revMinor") == "4"
+    assert bool(tree.findall(".//Polyline/Interpolation")) == (policy != "standard_default")
 
 
 def test_osi_format_converter_main_converts_trace_to_mcap(tmp_path, monkeypatch):

@@ -1,13 +1,15 @@
+from osc_validation.versioning import OscVersion, ScenarioContract
+
 import math
 
 from lxml import etree
 from osi_utilities import ChannelSpecification, open_channel
 
-from osc_validation.generation import (
+from osc_validation.features.trajectory.models import (
     TrajectoryInterpolationActor,
     TrajectoryInterpolationVertex,
 )
-from osc_validation.oracles import (
+from osc_validation.features.trajectory.future_time_reference.oracle import (
     FollowTrajectoryFutureTimeReferenceCaseSpec,
     build_follow_trajectory_future_time_reference_case,
 )
@@ -26,6 +28,7 @@ def test_future_time_reference_case_generates_speed_action_and_delayed_teleport_
     )
     result = build_follow_trajectory_future_time_reference_case(
         FollowTrajectoryFutureTimeReferenceCaseSpec(
+            contract=ScenarioContract(OscVersion.V1_3_0),
             output_xosc_path=tmp_path / "future_time_reference.xosc",
             output_reference_channel_spec=ChannelSpecification(
                 path=tmp_path / "reference_future_time_reference.mcap",
@@ -48,7 +51,9 @@ def test_future_time_reference_case_generates_speed_action_and_delayed_teleport_
     tree = etree.parse(str(result.xosc_path))
     speed_action = tree.find(".//Storyboard/Init/Actions//SpeedAction")
     absolute_target_speed = tree.find(".//AbsoluteTargetSpeed")
-    simulation_time_condition = tree.find(".//Event/StartTrigger//SimulationTimeCondition")
+    simulation_time_condition = tree.find(
+        ".//Event/StartTrigger//SimulationTimeCondition"
+    )
     timing = tree.find(".//FollowTrajectoryAction/TimeReference/Timing")
     following_mode = tree.find(".//TrajectoryFollowingMode")
     vertices = tree.findall(".//Polyline/Vertex")
