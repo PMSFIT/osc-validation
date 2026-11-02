@@ -40,10 +40,14 @@ class XFailEntry:
     strict: bool = False
     except_patterns: list[str] = field(default_factory=list)
 
-    def matches(self, node_id: str) -> bool:
-        """Return True if *node_id* matches this entry's test pattern."""
-        return _matches_node_id_pattern(node_id, self.test) and not any(
-            _matches_except_pattern(node_id, pattern)
+    def matches(self, node_id: str, *aliases: str) -> bool:
+        """Match any ID, unless an exception matches any ID for the same test."""
+        node_ids = (node_id, *aliases)
+        return any(
+            _matches_node_id_pattern(candidate, self.test) for candidate in node_ids
+        ) and not any(
+            _matches_except_pattern(candidate, pattern)
+            for candidate in node_ids
             for pattern in self.except_patterns
         )
 

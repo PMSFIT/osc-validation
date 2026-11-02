@@ -6,6 +6,39 @@ import types
 import pytest
 
 import osc_validation.pytest_plugin as plugin
+from osc_validation.test_profile import Profile, XFailEntry
+
+
+@pytest.mark.parametrize("selector", ["*", "scenario/*", "osc_validation/validation/*"])
+@pytest.mark.parametrize("exception_prefix", ["", "osc_validation/validation/"])
+def test_profile_exceptions_veto_raw_and_canonical_ids(selector, exception_prefix):
+    relative_path = "scenario/val_example.py"
+    canonical_id = f"{relative_path}::test_case[osc-1.4.0-trace.mcap]"
+    markers = []
+    item = types.SimpleNamespace(
+        nodeid=f"osc_validation/validation/{canonical_id}",
+        path=Path(plugin.__file__).parent / "validation" / relative_path,
+        get_closest_marker=lambda name: None,
+        add_marker=lambda marker, **kwargs: markers.append(marker),
+    )
+    config = FakeConfig()
+    config._osc_test_profile = Profile(
+        xfails=[
+            XFailEntry(
+                test=selector,
+                reason="unsupported",
+                except_patterns=[f"{exception_prefix}{relative_path}::test_case"],
+            )
+        ]
+    )
+
+    plugin.pytest_collection_modifyitems(config, [item])
+    assert markers == []
+
+    item.nodeid = item.nodeid.replace("test_case[", "test_other[")
+    plugin.pytest_collection_modifyitems(config, [item])
+    assert len(markers) == 1
+    assert markers[0].name == "xfail"
 
 
 class FakeConfig:

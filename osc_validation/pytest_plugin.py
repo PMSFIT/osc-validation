@@ -336,7 +336,7 @@ def pytest_collection_modifyitems(config, items):
             (
                 entry
                 for entry in profile.xfails
-                if entry.matches(item.nodeid) or entry.matches(canonical_nodeid)
+                if entry.matches(item.nodeid, canonical_nodeid)
             ),
             None,
         )
