@@ -6,23 +6,38 @@ The validation is based on a [subset definition](specification/osc_subset_defini
 
 It derives from this subset a validation suite of representative test cases and metrics that can then be used to check an implementation for correct OSI ground truth generation for those cases.
 
+## Contents
+
+- [Repository structure](#repository-structure)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Poetry environment](#poetry-environment)
+  - [List available validation tests](#list-available-validation-tests)
+  - [Run validation](#run-validation)
+    - [osc-validate CLI](#osc-validate-cli)
+    - [pytest (advanced usage)](#pytest-advanced-usage)
+  - [Test profiles](#test-profiles)
+- [Tool validation setup](#tool-validation-setup)
+- [Contributing](#contributing)
+- [File formats](#file-formats)
+
 ## Repository structure
 
 The repository separates reusable validation support from concrete validation test cases:
 
-- `osc_validation/` is the installable Python package. It provides low-level validation functionality such as tool wrappers, data providers, generation utilities, metrics, the pytest plugin entry point, and the packaged validation suite.
-- `osc_validation/cases/` groups feature-specific scenario generation, reference calculations, and oracle builders. See the [case architecture](docs/oracle_generated_cases.md).
-- `tests/` contains unit and smoke tests for the reusable `osc_validation` package and plugin behavior. These tests do not run the first-level OpenSCENARIO validation suite against a tool.
-- `osc_validation/validation/` contains the actual validation test cases and any built-in local data needed by those cases. The validation suite is pytest-based, uses the `osc_validation` pytest plugin, and keeps its standalone pytest configuration in `osc_validation/validation/pytest.ini`.
+- `osc_validation/` is the installable Python package.
+  It provides low-level validation functionality such as tool wrappers, data providers, generation utilities, metrics, the pytest plugin entry point, and the packaged validation suite.
+- `osc_validation/validation/` contains the actual validation test cases and any built-in local data needed by those cases.
+  The validation suite is pytest-based, uses the `osc_validation` pytest plugin, and keeps its standalone pytest configuration in `osc_validation/validation/pytest.ini`.
+- `osc_validation/cases/` groups feature-specific scenario generation, reference calculations, and coordinated case builders.
+  See the [reference generation strategies](docs/reference_generation.md).
+- `tests/` contains unit and smoke tests for the reusable `osc_validation` package and plugin behavior.
+  These tests do not run the first-level OpenSCENARIO validation suite against a tool.
 
 ## Installation
 
-> [!NOTE]
-> If you choose to manage this project with Poetry, be aware that it requires **Poetry 2.0 or newer**.
-
-### Install from source with Poetry
-
-Use [poetry](https://python-poetry.org/) to install the validation suite into a new virtual environment:
+Clone the repository and use [Poetry](https://python-poetry.org/) to install it into a virtual environment.
+This requires Poetry 2.0 or newer.
 
 ```bash
 git clone https://github.com/PMSFIT/osc-validation
@@ -30,15 +45,11 @@ cd osc-validation
 poetry install
 ```
 
-### Install the package
+This installs the Python API, pytest plugin module, `osc-validate` command, built-in validation test cases, and reference data.
+You can run the suite using `poetry run osc-validate`, import functionality from `osc_validation`, or explicitly load `osc_validation.pytest_plugin` in your pytest setup.
+See [Run validation](#run-validation) for commands and options.
 
-The `osc-validation` package can also be installed standalone:
-
-```bash
-pip install osc-validation
-```
-
-This installs the reusable `osc_validation` API, the pytest plugin, the `osc-validate` command, and the built-in validation test cases and reference data.
+If you already manage another application's Python environment, you can instead install the local source checkout into it with `python -m pip install /path/to/osc-validation` (or `python -m pip install .` from the source directory).
 
 ## Usage
 
@@ -63,28 +74,15 @@ Add `--include-exploratory` to include exploratory cases.
 
 ### Run validation
 
+#### osc-validate CLI
+
+Use `osc-validate` for standard validation runs and reports.
+
 Run the installed validation suite with an installed OpenSCENARIO engine:
 
 ```bash
 osc-validate --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
 ```
-
-The default contract is OpenSCENARIO XML 1.4.0. Select a different version, or
-run a version matrix, with `--osc-version`:
-
-```bash
-osc-validate --tool ESMini --osc-version 1.3.1
-osc-validate --tool ESMini --osc-version 1.3.1 --osc-version 1.4.0
-```
-
-Only cases explicitly declared for a selected version run. The version is part
-of each test ID and the generated XOSC header. The recorded-trace replay case
-uses custom interpolation for 1.4; its trajectory metric compares samples by
-index and can be affected by simulator interpolation and timestamp alignment.
-Shared case expectations have not been exhaustively reviewed for 1.4.
-Add `--include-exploratory` to include checks for behavior that is not asserted
-as a conformance requirement. See [version contracts](docs/version_contracts.md)
-for authoring and reporting details.
 
 - `<TOOL_NAME>`: Name of the OpenSCENARIO engine to test (e.g., `ESMini`, `GTGen`)
 - `<PATH_TO_TOOL_EXECUTABLE>`: Path to the tool's executable
@@ -92,18 +90,20 @@ for authoring and reporting details.
 > [!NOTE]
 > You can omit `--toolpath` if your OpenSCENARIO engine's cli command is on PATH.
 
-Use `pytest` directly if you need to run a specific part of the suite (e.g. when developing test cases) or if you need specific pytest features that are not provided through the `osc-validate` command.
-Run pytest against paths inside `osc_validation/validation` so the validation suite's pytest configuration and plugin are loaded:
+The default OpenSCENARIO XML version is 1.4.0.
+Select a different version, or run a version matrix, with `--osc-version`:
 
 ```bash
-pytest osc_validation/validation/scenario/trajectories --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
+osc-validate --tool ESMini --osc-version 1.3.1
+osc-validate --tool ESMini --osc-version 1.3.1 --osc-version 1.4.0
 ```
 
-From outside the repository root, pass the validation suite config explicitly:
+Only cases explicitly declared for a selected version run.
+The version is part of each test ID and the generated XOSC header.
+The selected version is also passed to the reference logic, allowing the same test case to define different expected behavior for different OpenSCENARIO XML versions.
 
-```bash
-pytest <PATH_TO_REPOSITORY_ROOT>/osc_validation/validation/scenario/trajectories --config-file <PATH_TO_REPOSITORY_ROOT>/osc_validation/validation/pytest.ini --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
-```
+Add `--include-exploratory` to include checks for behavior that is not asserted as a conformance requirement.
+See [OpenSCENARIO XML version handling](docs/version_contracts.md) for authoring and reporting details.
 
 Generate a self-contained HTML validation report with:
 
@@ -134,14 +134,40 @@ For more information on available command-line options, run:
 ```bash
 osc-validate --help
 ```
-or
+
+#### pytest (advanced usage)
+
+Use `pytest` directly if you need to run a specific part of the suite (e.g. when developing test cases) or if you need specific pytest features that are not provided through the `osc-validate` command.
+Run pytest against paths inside `osc_validation/validation` so the validation suite's pytest configuration and plugin are loaded:
+
+```bash
+pytest osc_validation/validation/scenario/trajectories --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
+```
+
+From outside the repository root, pass the validation suite config explicitly:
+
+```bash
+pytest <PATH_TO_REPOSITORY_ROOT>/osc_validation/validation/scenario/trajectories --config-file <PATH_TO_REPOSITORY_ROOT>/osc_validation/validation/pytest.ini --tool <TOOL_NAME> --toolpath <PATH_TO_TOOL_EXECUTABLE>
+```
+
+The version-selection, reporting, test-profile, and compliance options described above are also available when running pytest directly.
+Use pytest options to filter cases or control execution, for example:
+
+```bash
+pytest osc_validation/validation/scenario/triggers --tool ESMini -k condition_delay -x
+```
+
+This runs matching condition-delay cases and stops after the first failure.
+For all available pytest and validation-plugin options, run:
+
 ```bash
 pytest osc_validation/validation --help
 ```
 
 ### Test profiles
 
-A **test profile** is a TOML file that declares expected failures for a specific validation run — for example, features not yet supported by a particular tool version. It is designed to be maintained by tool CI pipelines and passed to the suite externally, without modifying this repository.
+A **test profile** is a TOML file that declares expected failures for a specific validation run — for example, features not yet supported by a particular tool version.
+It is designed to be maintained by tool CI pipelines and passed to the suite externally, without modifying this repository.
 
 Pass a profile with `--test-profile`:
 
@@ -163,7 +189,7 @@ strict = true  # optional, default false — if true, an unexpected pass is a fa
 
 [[xfail]]
 test = "scenario/init_actions/val_init_actions.py::test_init_speed_action_sets_expected_motion[osc-1.3.1]"
-reason = "Init speed is unsupported for the 1.3.1 contract"
+reason = "Init speed is unsupported for OpenSCENARIO XML 1.3.1"
 ```
 
 Each `[[xfail]]` entry requires:
@@ -175,21 +201,12 @@ For example, `scenario/foo.py::test_bar` matches collected items such as `scenar
 
 Optional:
 - `strict` (bool, default `false`) — when `true`, the test is marked as failed if it unexpectedly passes
-- `except` (list of strings) — patterns selected by `test` that should not be marked xfail. Patterns containing `::` match full pytest node IDs; bare patterns match only parametrization IDs inside `[...]`.
+- `except` (list of strings) — patterns selected by `test` that should not be marked xfail.
+  Patterns containing `::` match full pytest node IDs; bare patterns match only parametrization IDs inside `[...]`.
 
 Existing patterns without a version continue to match versioned test IDs.
-Use a version in the parameter ID (for example `*osc-1.4.0*`) to restrict a
-profile rule or exception to a particular contract. Exploratory test failures
-are reported as test failures when explicitly included, so keep them separate
-from a conformance-only run when interpreting results.
-
-### Development checks
-
-The repository also contains a small unit and smoke test suite for development and maintenance work:
-
-```bash
-pytest tests
-```
+Use a version in the parameter ID (for example `*osc-1.4.0*`) to restrict a profile rule or exception to a particular OpenSCENARIO XML version.
+Exploratory test failures are reported as test failures when explicitly included, so keep them separate from a conformance-only run when interpreting results.
 
 ## Tool validation setup
 
@@ -256,140 +273,12 @@ To integrate a custom tool without modifying this repository:
     osc-validate --tool YourToolName --tool-wrapper-module /path/to/your_wrapper.py --toolpath /path/to/your/tool
     ```
 
-To integrate a wrapper as a built-in tool in this repository:
+To contribute a built-in tool wrapper, see [the contributor guide](CONTRIBUTING.md#adding-a-built-in-tool-wrapper).
 
-- Add the wrapper implementation to `osc_validation/tools/`
-- Register it in `osc_validation/pytest_plugin.py` -> `_make_tool`
-- Add the tool name to the user-facing documentation and CLI tests
+## Contributing
 
-    ```python
-    def _make_tool(config):
-        tool_name = config.getoption("--tool")
-        toolpath = config.getoption("--toolpath")
-
-        if tool_name == "ESMini":
-            return ESMini(toolpath)
-        elif tool_name == "GTGen":
-            return GTGen_Simulator(toolpath)
-        elif tool_name == "YourToolName":
-            return YourToolWrapper(toolpath)
-        raise ValueError("Tool not found")
-    ```
-
-The pytest fixture `generate_tool_trace` then yields the `run` function callable of the selected tool wrapper.
-Using the `generate_tool_trace` fixture in a test case function enables injecting the tool execution process into test cases.
-The fixture is callable and accepts the corresponding function parameters of the wrapper's `run` function.
-
-## Test case design
-
-Test cases are constructed using reference resources, a reference implementation, automated trace generation, quality checkers, validation metrics and corresponding test parameters.
-
-The following sections briefly summarize how to combine and utilize these components to create a test case. 
-
-### 1. Validation resources
-
-OSC Validation Suite provides a flexible data provider system that can supply test or validation data from local built-in directories or by downloading and extracting remote ZIP archives on demand.
-Such resources are prepared for provision to a test case via pytest fixtures:
-
-```python
-@pytest.fixture(
-    scope="module",
-    params=["simple_trajectories/sv_trace1.osi", "simple_trajectories/sv_trace2.osi"],
-)
-def osi_trace(request, builtin_data_path):
-    provider = BuiltinDataProvider(builtin_data_path)
-    yield provider.ensure_data_path(request.param)
-    provider.cleanup()
-```
-
-The `builtin_data_path` session fixture is provided by `osc_validation/validation/scenario/conftest.py` and resolves to `osc_validation/validation/data/builtin/`.
-
-### 2. Reference implementation
-
-A reference implementation is responsible for generating a baseline for correctness and defines the expected outcome of the tool under test.
-
-- Must provide the functionality covered by the test cases using it.
-- Not required to provide full feature coverage beyond the test scope.
-
-The provided [OSI to OpenSCENARIO XML Converter](./osc_validation/generation/osi2osc.py) uses an OSI reference trace (SensorView or GroundTruth) as input and generates a corresponding OpenSCENARIO XML file to be consumed by the tool under test.
-It covers the OpenSCENARIO XML functionality specified by the [OpenSCENARIO subset definition](./specification/osc_subset_definition.md).
-As such, any test cases based on this reference implementation must conform to the specified subset.
-
-### 3. Quality Checkers
-
-ASAM Quality Checker Bundles can be used to check the adherence of OSI trace files to certain OSI versions and/or rulesets.
-
-Checker Bundles already integrated:
-- [qc-osi-trace - OSI Trace Checker](https://github.com/OpenSimulationInterface/qc-osi-trace)
-
-QC trace checks are opt-in for a validation run.
-Test cases call the `assert_osi_compliance` fixture where a generated trace should be checked.
-The fixture is a no-op by default and runs qc-osi-trace only when `--assert-osi-compliance` or `--assert-osi-compliance-ruleset-preset omega-prime` is passed.
-
-```python
-def test_example(generate_tool_trace, assert_osi_compliance, tmp_path):
-    tool_trace_channel_spec = generate_tool_trace(...)
-    assert_osi_compliance(
-        tool_trace_channel_spec,
-        result_file=tmp_path / "qc_result.xqar",
-        output_config=tmp_path / "qc_config.xml",
-    )
-```
-
-Use `--assert-osi-compliance-version` and `--assert-osi-compliance-ruleset` to provide default checker settings for the run.
-Use `--assert-osi-compliance-ruleset-preset omega-prime` to use the Omega Prime ruleset as the default ruleset.
-A test can override those defaults per call with `osi_version=` and `ruleset=`.
-
-When a QC check fails, the fixture assertion message includes the trace path, checker statuses, issue counts, and the first reported issues.
-Pass `result_file=` to keep the full xqar result artifact for detailed analysis.
-
-### 4. Validation metrics
-
-Validation metrics compare certain characteristics of tool-generated traces to reference traces.
-
-- Must accept two OSI channel specifications: reference and tool output
-- May enforce preconditions on the input traces (e.g., matching framerate)
-- May include post-processing steps to ensure comparability of the compared subject
-
-### 5. OSI trace I/O
-
-Use `asam-osi-utilities` (`osi_utilities`) for generic OSI trace reading and writing:
-
-```python
-from osi_utilities import ChannelSpecification, open_channel, open_channel_writer
-```
-
-Project code should pass OSI traces around as `ChannelSpecification` instances. Use `open_channel(...)` to read traces and `open_channel_writer(...)` to write traces.
-
-### 6. Test case function
-
-Test cases are built using the previously described components and pytest's built-in functionality.
-
-```python
-@pytest.mark.osc_versions("1.4.0")
-@pytest.mark.parametrize("moving_object_id", [1, 2, 3])
-def example_test_case(scenario_contract, osi_trace, odr_file, generate_tool_trace, tmp_path, moving_object_id, tolerance=1e-6):
-    [...]
-```
-
-The `osc_versions` marker declares which OpenSCENARIO XML versions the case
-applies to; the run command selects which versions to run. Pass
-`scenario_contract` to scenario generation. See [version contracts](docs/version_contracts.md)
-for details.
-
-- Integrate pytest fixtures' names in the test case function as function parameters
-    - Resource fixtures (e.g., `osi_trace`, `odr_file`)
-    - Tool execution fixture (`generate_tool_trace`)
-    - Optional QC fixture (`assert_osi_compliance`)
-    - Pytest built-in fixtures (e.g., `tmp_path`, pytest markers such as `moving_object_id`)
-- Integrate a reference implementation (e.g., the OSI to OpenSCENARIO XML Converter osi2osc) to generate an OpenSCENARIO file from a baseline OSI reference trace
-- Use `generate_tool_trace` callable and the OpenSCENARIO file to generate the corresponding OSI tool trace
-- Calculate validation metrics from the reference and tool trace, and define assertions to be verified in the test case
-
-For more information on **pytest fixtures** see:
-- [docs.pytest.org / About fixtures](https://docs.pytest.org/en/stable/explanation/fixtures.html)
-- [docs.pytest.org / Fixtures reference](https://docs.pytest.org/en/stable/reference/fixtures.html)
-- [docs.pytest.org / How to use fixtures](https://docs.pytest.org/en/stable/how-to/fixtures.html#how-to-fixtures)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and checks, code organization, adding validations, compatibility requirements, and built-in tool integration.
+The [reference generation strategies](docs/reference_generation.md) explain how to obtain expected behavior for a validation.
 
 ## File formats
 
