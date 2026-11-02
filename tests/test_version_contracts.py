@@ -90,6 +90,37 @@ def test_version_matrix_runs_once_per_contract_and_excludes_exploratory(tmp_path
     assert "3 passed, 3 deselected" in result.stdout
 
 
+@pytest.mark.parametrize("trace_scope", ["function", "module", "session"])
+def test_version_is_first_in_ids_with_fixture_and_decorator_parameters(
+    tmp_path, trace_scope
+):
+    source = f'''
+        import pytest
+        @pytest.fixture(scope={trace_scope!r}, params=["trace.mcap"])
+        def osi_trace(request):
+            return request.param
+        @pytest.mark.osc_versions("1.3.1", "1.4.0")
+        @pytest.mark.parametrize("actor_id", [1, 2])
+        def test_case(osi_trace, scenario_contract, actor_id):
+            assert osi_trace == "trace.mcap"
+            assert actor_id in (1, 2)
+            assert str(scenario_contract.osc_version) in ("1.3.1", "1.4.0")
+    '''
+    version_args = ("--osc-version", "1.3.1", "--osc-version", "1.4.0")
+    result = _run_pytest(tmp_path, source, *version_args, "--collect-only")
+    assert result.returncode == 0, result.stdout + result.stderr
+    ids = [line for line in result.stdout.splitlines() if "::test_case[" in line]
+    assert set(ids) == {
+        f"val_contract.py::test_case[osc-{version}-trace.mcap-{actor}]"
+        for version in ("1.3.1", "1.4.0")
+        for actor in (1, 2)
+    }
+    # Verify the public ID also works for exact pytest selection and execution.
+    result = _run_pytest(tmp_path, source, *version_args, ids[0])
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "1 passed" in result.stdout
+
+
 def test_default_contract_and_exploratory_opt_in(tmp_path):
     result = _run_pytest(
         tmp_path,

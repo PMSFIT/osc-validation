@@ -11,6 +11,7 @@ The header check validates the major and minor components only.
 `osc-validate` and direct pytest runs default to version `1.4.0`.
 Select a version with `--osc-version 1.3.1`; repeat the option to run a matrix.
 Each applicable test is collected once per selected version with an `osc-1.3.1` or `osc-1.4.0` parameter in its ID.
+The version is the first parameter in the ID, for example `test_case[osc-1.3.1-trace.mcap-1]`.
 Cases that do not declare the selected release are deselected.
 HTML reports and JUnit properties include the contract and whether the expectation is conformance or exploratory.
 

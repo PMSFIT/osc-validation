@@ -375,7 +375,10 @@ def _declared_versions(marker, nodeid):
     return versions
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_generate_tests(metafunc):
+    # Register the version before fixture and decorator parametrization so IDs
+    # consistently begin with osc-X.Y.Z, including tests with an OSI trace fixture.
     markers = list(metafunc.definition.iter_markers("osc_versions"))
     if len(markers) > 1:
         raise pytest.UsageError(
