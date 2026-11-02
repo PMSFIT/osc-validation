@@ -51,7 +51,7 @@ See [running validations](README.md#run-validation) for tool and reporting optio
   Keep feature-specific behavior and preparation in the owning feature package.
 - `osc_validation/features/shared/` contains data models and preparation support used by multiple features.
   Shared support must not import feature-specific implementations.
-- `osc_validation/reference/` contains reusable reference algorithms and trace utilities.
+- `osc_validation/reference/` contains reusable reference algorithms.
   These may depend on shared models, but must not import feature-specific implementations.
 - `osc_validation/validation/scenario/` owns pytest integration, concrete inputs, simulator execution, compliance checks, scoring windows, metric settings and calls, tolerances, and acceptance assertions.
 - `osc_validation/metrics/` implements reusable comparisons.
