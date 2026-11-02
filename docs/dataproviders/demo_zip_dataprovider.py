@@ -63,7 +63,9 @@ def odr_file(request, builtin_data_path):
     provider.cleanup()
 
 
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
 def test_trajectory_remote_zip(
+    scenario_contract,
     osi_trace_with_ids: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
@@ -79,7 +81,8 @@ def test_trajectory_remote_zip(
             - Path to the original OSI trace file (.mcap), provided by the fixture.
             - Moving object ID to test within that trace file.
         odr_file (Path): Path to the OpenDRIVE (.odr) file (pytest fixture).
-        generate_tool_trace (Callable): Function to generate an OSI trace from an OpenSCENARIO file (pytest session fixture).
+        scenario_contract: OpenSCENARIO XML contract selected for this test run.
+        generate_tool_trace (Callable): Function to generate an OSI trace from an OpenSCENARIO file (pytest fixture).
         tmp_path (Path): Temporary directory for intermediate files (built-in pytest fixture).
         tolerance (float, optional): Maximum allowed value for similarity metrics (area, CL, MAE). Defaults to 0.1.
 
@@ -107,6 +110,7 @@ def test_trajectory_remote_zip(
         osi_trace_spec=reference_trace_channel_spec,
         path_xosc=tmp_path / "osi2osc.xosc",
         path_xodr=odr_file,
+        contract=scenario_contract,
     )
 
     # Use the OpenSCENARIO and OpenDRIVE file fixtures to generate the tool trace with the specified format and rate

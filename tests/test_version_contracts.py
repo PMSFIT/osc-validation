@@ -1,6 +1,7 @@
 """Exercise version contracts across pytest collection and XML generation."""
 
 import os
+import runpy
 from pathlib import Path
 import subprocess
 import sys
@@ -62,6 +63,76 @@ def _run_pytest(tmp_path, source, *args):
         text=True,
         timeout=60,
     )
+
+
+@pytest.mark.parametrize("matrix", [False, True])
+def test_dataprovider_demos_collect_with_version_contracts(tmp_path, matrix):
+    demos = Path(__file__).resolve().parents[1] / "docs" / "dataproviders"
+    args = ["--collect-only", "-o", "python_files=demo_*.py", str(demos)]
+    versions = list(OscVersion) if matrix else [OscVersion.V1_4_0]
+    if matrix:
+        for version in versions:
+            args.extend(["--osc-version", str(version)])
+    result = _run_pytest(tmp_path, "", *args)
+    assert result.returncode == 0, result.stdout + result.stderr
+    ids = [
+        line
+        for line in result.stdout.splitlines()
+        if "::test_trajectory_remote" in line
+    ]
+    assert len(ids) == 3 * len(versions)
+    for version in versions:
+        assert sum(f"[osc-{version}-" in node_id for node_id in ids) == 3
+
+
+@pytest.mark.parametrize("version", list(OscVersion))
+@pytest.mark.parametrize("zip_demo", [False, True])
+def test_dataprovider_demos_generate_selected_contract(
+    tmp_path, sample_sensor_views, version, zip_demo, request
+):
+    request.config.addinivalue_line("markers", "osc_versions(*versions): scenario versions")
+    demos = Path(__file__).resolve().parents[1] / "docs" / "dataproviders"
+    filename = (
+        "demo_zip_dataprovider.py" if zip_demo else "demo_download_dataprovider.py"
+    )
+    module = runpy.run_path(str(demos / filename))
+    trace = ChannelSpecification(tmp_path / "input.osi", message_type="SensorView")
+    with open_channel_writer(trace) as writer:
+        for message in sample_sensor_views:
+            vehicle = message.global_ground_truth.moving_object[0]
+            vehicle.vehicle_classification.type = (
+                vehicle.vehicle_classification.TYPE_MEDIUM_CAR
+            )
+            writer.write_message(message)
+
+    class ContractChecked(Exception):
+        pass
+
+    def check_contract(osc_path, **kwargs):
+        tree = etree.parse(str(osc_path))
+        header = tree.find("FileHeader")
+        assert int(header.get("revMajor")) == version.major
+        assert int(header.get("revMinor")) == version.minor
+        assert (tree.find(".//Polyline/Interpolation") is not None) == (
+            version == OscVersion.V1_4_0
+        )
+        raise ContractChecked
+
+    args = dict(
+        scenario_contract=ScenarioContract(version),
+        odr_file=tmp_path / "map.xodr",
+        generate_tool_trace=check_contract,
+        tmp_path=tmp_path,
+    )
+    if zip_demo:
+        test = module["test_trajectory_remote_zip"]
+        args["osi_trace_with_ids"] = (trace.path, 1)
+    else:
+        test = module["test_trajectory_remote"]
+        args.update(osi_trace=trace.path, moving_object_id=1)
+    # Stop at the simulator boundary after checking the actual generated XML.
+    with pytest.raises(ContractChecked):
+        test(**args)
 
 
 def test_version_matrix_runs_once_per_contract_and_excludes_exploratory(tmp_path):
