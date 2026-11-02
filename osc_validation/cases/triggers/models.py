@@ -128,3 +128,16 @@ class TriggerTransformRequest:
 class TriggerTransformResult:
     xosc_path: Path
     reference_channel_spec: ChannelSpecification
+
+
+@dataclass(frozen=True)
+class TriggerCaseResult:
+    """Prepared artifacts and the condition activation time used for scoring.
+
+    The activation time precedes the condition-delay and guard-time adjustments
+    made by the validation's scoring-window calculation.
+    """
+
+    xosc_path: Path
+    reference_channel_spec: ChannelSpecification
+    activation_time_s: float

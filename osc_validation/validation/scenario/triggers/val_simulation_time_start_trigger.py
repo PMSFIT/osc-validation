@@ -1,21 +1,16 @@
-import logging
 from pathlib import Path
 from typing import Callable
+import logging
 
+from osi_utilities import ChannelSpecification
 import pytest
 
-from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.cases.shared.init_pose import InitPoseOverride
-from osc_validation.cases.triggers import (
-    SimulationTimeTriggerSpec,
-    TriggerTransformRequest,
-    apply_trigger_transform,
-)
-from osc_validation.generation.osi2osc import osi2osc
-from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
-from osi_utilities import ChannelSpecification
-
 from osc_validation.assertions import assert_no_osc_engine_errors
+from osc_validation.cases.triggers.simulation_time.case import (
+    prepare_simulation_time_trigger_case,
+)
+from osc_validation.dataproviders import BuiltinDataProvider
+from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 
 
 @pytest.fixture(
@@ -76,58 +71,18 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    reference_trace_channel_spec = ChannelSpecification(
-        osi_trace, message_type="SensorView"
-    )
-    osc_path = osi2osc(
+    case = prepare_simulation_time_trigger_case(
         contract=scenario_contract,
-        osi_trace_spec=reference_trace_channel_spec,
-        path_xosc=tmp_path / "osi2osc_simulation_time_start_trigger.xosc",
-        path_xodr=odr_file,
+        osi_trace=osi_trace,
+        odr_file=odr_file,
+        output_dir=tmp_path,
+        moving_object_id=moving_object_id,
+        ego_object_id=ego_object_id,
+        init_pose_object_id=init_pose_object_id,
+        trigger_delay=trigger_delay,
+        activation_frame_offset=activation_frame_offset,
     )
-    transform_result = apply_trigger_transform(
-        TriggerTransformRequest(
-            source_xosc_path=osc_path,
-            source_reference_channel_spec=reference_trace_channel_spec,
-            output_xosc_path=osc_path,
-            output_reference_channel_spec=ChannelSpecification(
-                path=tmp_path / f"reference_delayed_comparison_{moving_object_id}.mcap",
-                message_type="SensorView",
-                metadata={
-                    "net.asam.osi.trace.channel.description": "Delayed reference trace for trigger delay validation"
-                },
-            ),
-            spec=SimulationTimeTriggerSpec(
-                trigger_delay=trigger_delay,
-                trigger_rule="greaterOrEqual",
-                activation_frame_offset=activation_frame_offset,
-            ),
-            init_pose_policy="explicit_overrides",  # need explicit override because osi2osc default init position (0,0,0) is not on road (gtgen doesn't support placing objects outside of road)
-            init_pose_overrides=[
-                InitPoseOverride(
-                    entity_ref="Ego",
-                    object_id=ego_object_id,
-                    x=-290.0,
-                    y=-60.0,
-                    z=0.7015,
-                    yaw=0.0,
-                    pitch=0.0,
-                    roll=0.0,
-                ),
-                InitPoseOverride(
-                    entity_ref=f"osi_moving_object_{init_pose_object_id}",
-                    object_id=init_pose_object_id,
-                    x=-280.0,
-                    y=-55.0,
-                    z=0.7015,
-                    yaw=0.0,
-                    pitch=0.0,
-                    roll=0.0,
-                ),
-            ],
-        )
-    )
-    osc_path = transform_result.xosc_path
+    osc_path = case.xosc_path
 
     tool_trace_channel_spec = generate_tool_trace(
         osc_path=osc_path,
@@ -150,18 +105,14 @@ def test_simulation_time_start_trigger_delays_actor_trajectory(
         output_config=tmp_path / "qc_config_trigger_delay.xml",
     )
 
-    metric = TrajectoryAlignmentSimilarityMetric()
-    delayed_reference_channel_spec = transform_result.reference_channel_spec
-
-    # Evaluate whole trajectory including pre-trigger portion
-    area, cl, mae, _best_lag_frames = metric.compute(
-        reference_channel_spec=delayed_reference_channel_spec,
+    scoring_start_time_s = case.activation_time_s + rate
+    area, cl, mae, _best_lag_frames = TrajectoryAlignmentSimilarityMetric().compute(
+        reference_channel_spec=case.reference_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
         result_file=tmp_path
         / f"trajectory_alignment_similarity_report_{moving_object_id}.txt",
-        start_time=trigger_delay
-        + rate,  # Start evaluation slightly after the trigger delay to allow for exact alignment of the post-trigger trajectory portions
+        start_time=scoring_start_time_s,
         time_tolerance=0.01,
         lag_scan_max_frames=max_alignment_lag_frames,
     )

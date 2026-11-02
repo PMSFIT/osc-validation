@@ -1,24 +1,16 @@
-import logging
 from pathlib import Path
 from typing import Callable
+import logging
 
+from osi_utilities import ChannelSpecification
 import pytest
 
-from osc_validation.dataproviders import BuiltinDataProvider
-from osc_validation.cases.triggers import (
-    DistancePositionTriggerSpec,
-    TriggerTransformRequest,
-    apply_trigger_transform,
-)
-from osc_validation.generation.osi2osc import osi2osc
-from osc_validation.cases.shared.init_pose.models import InitPoseOverride
-from osc_validation.cases.triggers.distance_to_position import (
-    find_distance_position_activation_point,
-)
-from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
-from osi_utilities import ChannelSpecification
-
 from osc_validation.assertions import assert_no_osc_engine_errors
+from osc_validation.cases.triggers.distance_to_position.case import (
+    prepare_distance_longitudinal_trigger_case,
+)
+from osc_validation.dataproviders import BuiltinDataProvider
+from osc_validation.metrics import TrajectoryAlignmentSimilarityMetric
 
 
 """ 
@@ -73,28 +65,36 @@ def odr_file(request):
     return request.getfixturevalue("osi_trace").with_suffix(".xodr")
 
 
-def _run_distance_longitudinal_start_trigger_case(
+@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
+@pytest.mark.validation_category("trigger")
+@pytest.mark.validation_feature("DistanceCondition longitudinal")
+def test_distance_longitudinal_start_trigger_activates_target_actor(
     scenario_contract,
     osi_trace: Path,
     odr_file: Path,
     generate_tool_trace: Callable,
     assert_osi_compliance: Callable,
     tmp_path: Path,
-    condition_delay_s: float = 0.0,
-    moving_object_id: int = 2,
-    trigger_object_id: int = 1,
-    trigger_distance_m: float = 10.0,
-    post_trigger_guard_time_s: float = 0.05,  # Allows small simulator-dependent differences in the frame where triggered actions become visible after condition activation.
-    max_alignment_lag_frames: int = 2,  # Maximum lag (+/-) between the tool trajectory and reference trajectory to still be considered valid
-    rate: float = 0.05,
-    tolerance: float = 0.1,
 ):
+    """
+    OpenSCENARIO feature: DistanceCondition with relativeDistanceType longitudinal.
+
+    Activates a target actor when the ego object is within the configured
+    longitudinal distance of a target position. The target actor's post-trigger
+    trajectory is compared with the transformed reference trace.
+    """
+
+    condition_delay_s = 0.0
+    moving_object_id = 2
+    trigger_object_id = 1
+    trigger_distance_m = 10.0
+    post_trigger_guard_time_s = 0.05
+    max_alignment_lag_frames = 2
+    rate = 0.05
+    tolerance = 0.1
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    reference_trace_channel_spec = ChannelSpecification(
-        osi_trace, message_type="SensorView"
-    )
     activation_frame_offset = 1  # Number of frames for the triggered event to activate after the distance threshold is crossed
     target_position_x, target_position_y, target_position_z = (
         -275.37930040547195,
@@ -104,68 +104,22 @@ def _run_distance_longitudinal_start_trigger_case(
     case_name = "distance_longitudinal_start_trigger"
     if condition_delay_s > 0:
         case_name = f"{case_name}_delay_{condition_delay_s:g}s"
-
-    osc_path = osi2osc(
+    case = prepare_distance_longitudinal_trigger_case(
         contract=scenario_contract,
-        osi_trace_spec=reference_trace_channel_spec,
-        path_xosc=tmp_path / f"osi2osc_{case_name}.xosc",
-        path_xodr=odr_file,
+        osi_trace=osi_trace,
+        odr_file=odr_file,
+        output_dir=tmp_path,
+        moving_object_id=moving_object_id,
+        trigger_object_id=trigger_object_id,
+        trigger_distance_m=trigger_distance_m,
+        activation_frame_offset=activation_frame_offset,
+        condition_delay_s=condition_delay_s,
+        target_position_x=target_position_x,
+        target_position_y=target_position_y,
+        target_position_z=target_position_z,
+        case_name=case_name,
     )
-    transform_result = apply_trigger_transform(
-        TriggerTransformRequest(
-            source_xosc_path=osc_path,
-            source_reference_channel_spec=reference_trace_channel_spec,
-            output_xosc_path=osc_path,
-            output_reference_channel_spec=ChannelSpecification(
-                path=tmp_path / f"reference_{case_name}_comparison.mcap",
-                message_type="SensorView",
-                metadata={
-                    "net.asam.osi.trace.channel.description": (
-                        "Reference trace with longitudinal distance start trigger applied"
-                    )
-                },
-            ),
-            spec=DistancePositionTriggerSpec(
-                trigger_entity_ref="Ego",
-                target_event_name=f"osi_moving_object_{moving_object_id}_maneuver_event",
-                condition_name=f"distance_longitudinal_trigger_object{moving_object_id}_start",
-                trigger_distance_m=trigger_distance_m,
-                trigger_object_id=trigger_object_id,
-                triggered_object_id=moving_object_id,
-                target_position_x=target_position_x,
-                target_position_y=target_position_y,
-                target_position_z=target_position_z,
-                relative_distance_type="longitudinal",
-                trigger_rule="lessOrEqual",
-                condition_delay_s=condition_delay_s,
-                activation_frame_offset=activation_frame_offset,
-            ),
-            init_pose_policy="explicit_overrides",  # need explicit override because osi2osc default init position (0,0,0) is not on road (gtgen doesn't support placing objects outside of road)
-            init_pose_overrides=[
-                InitPoseOverride(
-                    entity_ref="Ego",
-                    object_id=trigger_object_id,
-                    x=-290.0,
-                    y=-60.0,
-                    z=0.7015,
-                    yaw=0.0,
-                    pitch=0.0,
-                    roll=0.0,
-                ),
-                InitPoseOverride(
-                    entity_ref=f"osi_moving_object_{moving_object_id}",
-                    object_id=moving_object_id,
-                    x=-280.0,
-                    y=-55.0,
-                    z=0.7015,
-                    yaw=0.0,
-                    pitch=0.0,
-                    roll=0.0,
-                ),
-            ],
-        )
-    )
-    osc_path = transform_result.xosc_path
+    osc_path = case.xosc_path
 
     tool_trace_channel_spec = generate_tool_trace(
         osc_path=osc_path,
@@ -186,26 +140,16 @@ def _run_distance_longitudinal_start_trigger_case(
         result_file=tmp_path / f"qc_result_{case_name}.xqar",
     )
 
-    metric = TrajectoryAlignmentSimilarityMetric()
-    reference_triggered_channel_spec = transform_result.reference_channel_spec
-
-    area, cl, mae, best_lag_frames = metric.compute(
-        reference_channel_spec=reference_triggered_channel_spec,
+    scoring_start_time_s = (
+        case.activation_time_s + condition_delay_s + post_trigger_guard_time_s
+    )
+    area, cl, mae, best_lag_frames = TrajectoryAlignmentSimilarityMetric().compute(
+        reference_channel_spec=case.reference_channel_spec,
         tool_channel_spec=tool_trace_channel_spec,
         moving_object_id=moving_object_id,
         result_file=tmp_path
         / f"trajectory_alignment_similarity_report_{case_name}.txt",
-        start_time=find_distance_position_activation_point(
-            input_channel_spec=reference_trace_channel_spec,
-            trigger_object_id=trigger_object_id,
-            trigger_distance_m=trigger_distance_m,
-            trigger_rule="lessOrEqual",
-            target_position_x=target_position_x,
-            target_position_y=target_position_y,
-            relative_distance_type="longitudinal",
-        ).time_s
-        + condition_delay_s
-        + post_trigger_guard_time_s,
+        start_time=scoring_start_time_s,
         time_tolerance=0.01,
         lag_scan_max_frames=max_alignment_lag_frames,
     )
@@ -214,32 +158,3 @@ def _run_distance_longitudinal_start_trigger_case(
     assert area < tolerance
     assert cl < tolerance
     assert mae < tolerance
-
-
-@pytest.mark.osc_versions("1.3.0", "1.3.1", "1.4.0")
-@pytest.mark.validation_category("trigger")
-@pytest.mark.validation_feature("DistanceCondition longitudinal")
-def test_distance_longitudinal_start_trigger_activates_target_actor(
-    scenario_contract,
-    osi_trace: Path,
-    odr_file: Path,
-    generate_tool_trace: Callable,
-    assert_osi_compliance: Callable,
-    tmp_path: Path,
-):
-    """
-    OpenSCENARIO feature: DistanceCondition with relativeDistanceType longitudinal.
-
-    Activates a target actor when the ego object is within the configured
-    longitudinal distance of a target position. The target actor's post-trigger
-    trajectory is compared with the transformed reference trace.
-    """
-
-    _run_distance_longitudinal_start_trigger_case(
-        scenario_contract=scenario_contract,
-        osi_trace=osi_trace,
-        odr_file=odr_file,
-        generate_tool_trace=generate_tool_trace,
-        assert_osi_compliance=assert_osi_compliance,
-        tmp_path=tmp_path,
-    )
